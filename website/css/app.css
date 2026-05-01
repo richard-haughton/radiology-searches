@@ -318,6 +318,54 @@ body {
   display: block;
 }
 
+.step-section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.6);
+}
+.step-section-toggle {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: #f4faf6;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: left;
+}
+.step-section-toggle[aria-expanded="true"] {
+  border-bottom-color: var(--line);
+}
+.step-section-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.step-section-chevron {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+.step-section-panel {
+  padding: 10px 12px;
+}
+.step-section-content {
+  line-height: 1.65;
+  font-size: 0.92rem;
+}
+.step-section-empty {
+  color: var(--ink-muted);
+  margin: 0;
+  font-style: italic;
+}
+
 /* ============================================================
    STUDY LOG TAB
    ============================================================ */
@@ -496,6 +544,32 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.step-section-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+.step-section-tab {
+  border: 1px solid var(--line);
+  background: #f5faf7;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.step-section-tab:hover {
+  color: var(--ink);
+}
+.step-section-tab.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ============================================================
@@ -757,6 +831,9 @@ html.dark .calc-formula             { background: #192b1e; }
 html.dark .settings-status          { background: #192b1e; }
 html.dark .editor-ai-create-panel   { background: #192b1e; }
 html.dark .step-ai-card             { background: #192b1e; }
+html.dark .step-section             { background: rgba(21,31,22,0.75); }
+html.dark .step-section-toggle      { background: #192b1e; }
+html.dark .step-section-tab         { background: #192b1e; }
 
 /* Editor */
 html.dark .rich-toolbar             { background: #192b1e; }
@@ -797,6 +874,8 @@ html.dark #btn-theme-toggle .icon-sun  { display: inline; }
   .site-header h1 { font-size: 1.1rem; }
   .user-name { display: none; }
   .step-list-panel { width: 200px; }
+  .step-section-toggle { padding: 9px 10px; }
+  .step-section-panel { padding: 9px 10px; }
   .settings-layout { padding: 14px; }
   .settings-inline-input {
     flex-direction: column;

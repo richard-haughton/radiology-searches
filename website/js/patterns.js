@@ -15,12 +15,29 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
+var STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images'];
+var STEP_SECTION_LABELS = {
+  searchPattern: 'Search Pattern',
+  notes: 'Notes',
+  dontMissPathology: 'Dont Miss Pathology',
+  measurements: 'Measurements',
+  images: 'Images'
+};
+var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
+var _stepSectionsOpenState = {
+  searchPattern: true,
+  notes: false,
+  dontMissPathology: false,
+  measurements: false,
+  images: false
+};
 
 // ── Init ─────────────────────────────────────────────────────
 function initPatterns(userId) {
   _pUid = userId;
 
   initPatternSidebarToggle();
+  loadStepSectionsOpenState();
 
   // Subscribe to Firestore patterns
   _unsubscribePatterns = subscribePatterns(_pUid, patterns => {
@@ -216,7 +233,7 @@ function renderCurrentStep(pattern) {
 
   // Content
   contentEl.innerHTML = '';
-  renderRichContent(contentEl, step.richContent || []);
+  renderStepSections(contentEl, step);
 
   // Auto-stop timer on last step
   if (currentStepIndex === steps.length - 1 && timerRunning) {
@@ -232,15 +249,16 @@ function resolveLinkedStep(step) {
   if (!step) return step;
 
   const linkedStepId = String(step.linkedStepId || '').trim();
-  if (!linkedStepId) return step;
+  if (!linkedStepId) return normaliseStepForViewer(step);
 
   const shared = findLinkedStepData(linkedStepId);
-  if (!shared) return step;
+  if (!shared) return normaliseStepForViewer(step);
 
   return {
     stepTitle: shared.stepTitle,
     richContent: shared.richContent,
-    linkedStepId
+    linkedStepId,
+    sections: shared.sections
   };
 }
 
@@ -251,12 +269,128 @@ function findLinkedStepData(linkedStepId) {
       if (String(step.linkedStepId || '').trim() === linkedStepId) {
         return {
           stepTitle: step.stepTitle || '',
-          richContent: normaliseRichContent(step.richContent || step.rich_content || [])
+          richContent: normaliseRichContent(step.richContent || step.rich_content || []),
+          sections: normaliseStepSectionsSafe(step.sections, step.richContent || step.rich_content || [])
         };
       }
     }
   }
   return null;
+}
+
+function normaliseStepSectionsSafe(sections, fallbackRichContent) {
+  if (typeof normaliseStepSections === 'function') {
+    return normaliseStepSections(sections, normaliseRichContent(fallbackRichContent || []));
+  }
+
+  const fallback = normaliseRichContent(fallbackRichContent || []);
+  const out = {
+    searchPattern: [],
+    notes: [],
+    dontMissPathology: [],
+    measurements: [],
+    images: []
+  };
+
+  STEP_SECTION_ORDER.forEach(key => {
+    const raw = sections && Array.isArray(sections[key]) ? sections[key] : [];
+    out[key] = normaliseRichContent(raw);
+  });
+
+  if (!out.searchPattern.length && fallback.length) {
+    out.searchPattern = fallback;
+  }
+
+  return out;
+}
+
+function normaliseStepForViewer(step) {
+  const fallback = normaliseRichContent((step && (step.richContent || step.rich_content)) || []);
+  return {
+    stepTitle: (step && step.stepTitle) || '',
+    richContent: fallback,
+    linkedStepId: (step && step.linkedStepId) || '',
+    sections: normaliseStepSectionsSafe(step && step.sections, fallback)
+  };
+}
+
+function renderStepSections(container, step) {
+  const sections = normaliseStepSectionsSafe(step.sections, step.richContent || []);
+
+  STEP_SECTION_ORDER.forEach(key => {
+    const sectionWrap = document.createElement('section');
+    sectionWrap.className = 'step-section';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'step-section-toggle';
+    const isOpen = isStepSectionOpen(key);
+    btn.setAttribute('aria-expanded', String(isOpen));
+    btn.innerHTML = `
+      <span>${STEP_SECTION_LABELS[key] || key}</span>
+      <span class="step-section-chevron" aria-hidden="true">${isOpen ? '▾' : '▸'}</span>
+    `;
+
+    const panel = document.createElement('div');
+    panel.className = 'step-section-panel';
+    if (!isOpen) panel.style.display = 'none';
+
+    const panelInner = document.createElement('div');
+    panelInner.className = 'step-section-content';
+    const content = sections[key] || [];
+    if (content.length) {
+      renderRichContent(panelInner, content);
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'step-section-empty';
+      empty.textContent = 'No content yet.';
+      panelInner.appendChild(empty);
+    }
+    panel.appendChild(panelInner);
+
+    btn.addEventListener('click', () => {
+      const nextOpen = !isStepSectionOpen(key);
+      setStepSectionOpenState(key, nextOpen);
+      btn.setAttribute('aria-expanded', String(nextOpen));
+      panel.style.display = nextOpen ? '' : 'none';
+      const chevron = btn.querySelector('.step-section-chevron');
+      if (chevron) chevron.textContent = nextOpen ? '▾' : '▸';
+    });
+
+    sectionWrap.appendChild(btn);
+    sectionWrap.appendChild(panel);
+    container.appendChild(sectionWrap);
+  });
+}
+
+function loadStepSectionsOpenState() {
+  const raw = localStorage.getItem(STEP_SECTIONS_STATE_KEY);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    STEP_SECTION_ORDER.forEach(key => {
+      if (typeof parsed[key] === 'boolean') {
+        _stepSectionsOpenState[key] = parsed[key];
+      }
+    });
+  } catch (err) {
+    console.warn('Failed to load step section state:', err);
+  }
+}
+
+function persistStepSectionsOpenState() {
+  localStorage.setItem(STEP_SECTIONS_STATE_KEY, JSON.stringify(_stepSectionsOpenState));
+}
+
+function setStepSectionOpenState(key, isOpen) {
+  if (!Object.prototype.hasOwnProperty.call(_stepSectionsOpenState, key)) return;
+  _stepSectionsOpenState[key] = Boolean(isOpen);
+  persistStepSectionsOpenState();
+}
+
+function isStepSectionOpen(key) {
+  return Boolean(_stepSectionsOpenState[key]);
 }
 
 function rememberStepForPattern(patternId, stepIndex) {
@@ -587,7 +721,8 @@ function parseH5File(f) {
       steps = steps.map(s => ({
         stepTitle:    s.step_title || s.stepTitle || '',
         richContent:  normaliseRichContent(s.rich_content || s.richContent || []),
-        linkedStepId: s.linked_step_id || s.linkedStepId || ''
+        linkedStepId: s.linked_step_id || s.linkedStepId || '',
+        sections: normaliseStepSectionsSafe(s.sections, s.rich_content || s.richContent || [])
       }));
 
       // Infer modality from name

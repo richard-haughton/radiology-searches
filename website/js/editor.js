@@ -7,6 +7,15 @@ var editorSteps = [];
 var activeStepIndex = null;
 var _allPatternsRef = [];
 var _stepAiUndoSnapshot = null;
+var activeStepSectionKey = 'searchPattern';
+var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images'];
+var EDITOR_STEP_SECTION_LABELS = {
+  searchPattern: 'Search Pattern',
+  notes: 'Notes',
+  dontMissPathology: 'Dont Miss Pathology',
+  measurements: 'Measurements',
+  images: 'Images'
+};
 
 function setAllPatternsRef(patterns) {
   _allPatternsRef = patterns;
@@ -24,7 +33,8 @@ function resolveLinkedStepForEditor(step) {
   return {
     stepTitle: shared.stepTitle,
     linkedStepId,
-    richContent: shared.richContent
+    richContent: shared.richContent,
+    sections: shared.sections
   };
 }
 
@@ -35,7 +45,8 @@ function findLinkedStepDataForEditor(linkedStepId) {
       if (String(step.linkedStepId || '').trim() === linkedStepId) {
         return {
           stepTitle: step.stepTitle || '',
-          richContent: normaliseRichContent(step.richContent || step.rich_content || [])
+          richContent: normaliseRichContent(step.richContent || step.rich_content || []),
+          sections: normaliseStepSectionsForEditor(step.sections, step.richContent || step.rich_content || [])
         };
       }
     }
@@ -48,6 +59,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
   editorUid = uid;
   editingPatternId = patternId;
   activeStepIndex = null;
+  activeStepSectionKey = 'searchPattern';
   _stepAiUndoSnapshot = null;
 
   const overlay = document.getElementById('modal-editor');
@@ -64,7 +76,8 @@ function openEditor(uid, patternId, preferredStepIndex) {
       .map(step => ({
         stepTitle: step.stepTitle || '',
         linkedStepId: step.linkedStepId || '',
-        richContent: normaliseRichContent(step.richContent || step.rich_content || [])
+        richContent: normaliseRichContent(step.richContent || step.rich_content || []),
+        sections: normaliseStepSectionsForEditor(step.sections, step.richContent || step.rich_content || [])
       }));
 
     if (editorSteps.length) {
@@ -106,7 +119,58 @@ function closeEditor() {
   document.getElementById('modal-editor').style.display = 'none';
   editorSteps = [];
   activeStepIndex = null;
+  activeStepSectionKey = 'searchPattern';
   _stepAiUndoSnapshot = null;
+}
+
+function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
+  if (typeof normaliseStepSections === 'function') {
+    return normaliseStepSections(sections, normaliseRichContent(fallbackRichContent || []));
+  }
+
+  var out = {
+    searchPattern: [],
+    notes: [],
+    dontMissPathology: [],
+    measurements: [],
+    images: []
+  };
+
+  EDITOR_STEP_SECTION_ORDER.forEach(function(key) {
+    out[key] = normaliseRichContent((sections && sections[key]) || []);
+  });
+
+  var fallback = normaliseRichContent(fallbackRichContent || []);
+  if (!out.searchPattern.length && fallback.length) {
+    out.searchPattern = fallback;
+  }
+
+  return out;
+}
+
+function getCurrentEditorSectionContent(step) {
+  if (!step) return [];
+  if (!step.sections) {
+    step.sections = normaliseStepSectionsForEditor(null, step.richContent || []);
+  }
+  return step.sections[activeStepSectionKey] || [];
+}
+
+function setCurrentEditorSectionContent(step, richContent) {
+  if (!step) return;
+  if (!step.sections) {
+    step.sections = normaliseStepSectionsForEditor(null, step.richContent || []);
+  }
+  step.sections[activeStepSectionKey] = richContent;
+  // Keep legacy field in sync with Search Pattern section for compatibility.
+  step.richContent = (step.sections.searchPattern || []).slice();
+}
+
+function setActiveStepSection(key) {
+  if (EDITOR_STEP_SECTION_ORDER.indexOf(key) === -1) return;
+  saveActiveStepToState();
+  activeStepSectionKey = key;
+  renderStepEditPanel();
 }
 
 function renderCreateAiPanel() {
@@ -219,7 +283,8 @@ async function handleAiGeneratePattern() {
     const nextSteps = pattern.steps.map(step => ({
       stepTitle: (step && step.stepTitle) || '',
       linkedStepId: '',
-      richContent: plainTextToRichContent((step && step.content) || '')
+      richContent: plainTextToRichContent((step && step.content) || ''),
+      sections: normaliseStepSectionsForEditor(null, plainTextToRichContent((step && step.content) || ''))
     }));
 
     document.getElementById('editor-pattern-name').value = pattern.name || 'AI Generated Pattern';
@@ -275,9 +340,11 @@ function addStep() {
   editorSteps.push({
     stepTitle: `Step ${editorSteps.length + 1}`,
     richContent: [{ type: 'text', text: '', bold: false, color: null }],
-    linkedStepId: ''
+    linkedStepId: '',
+    sections: normaliseStepSectionsForEditor(null, [{ type: 'text', text: '', bold: false, color: null }])
   });
   activeStepIndex = editorSteps.length - 1;
+  activeStepSectionKey = 'searchPattern';
   renderStepList();
   renderStepEditPanel();
   // scroll step list to bottom
@@ -301,6 +368,7 @@ function selectStep(idx) {
     editorSteps[idx] = resolveLinkedStepForEditor(editorSteps[idx]);
   }
   activeStepIndex = idx;
+  activeStepSectionKey = 'searchPattern';
   renderStepList();
   renderStepEditPanel();
 }
@@ -330,7 +398,16 @@ function renderStepEditPanel() {
     </label>
 
     <div class="form-label">
-      <span>Content</span>
+      <span>Section Content</span>
+      <div class="step-section-tabs" id="step-section-tabs">
+        ${EDITOR_STEP_SECTION_ORDER.map(key => `
+          <button
+            type="button"
+            class="step-section-tab ${key === activeStepSectionKey ? 'active' : ''}"
+            data-section-key="${key}"
+          >${EDITOR_STEP_SECTION_LABELS[key] || key}</button>
+        `).join('')}
+      </div>
       <div>
         <div class="rich-toolbar">
           <button type="button" class="rich-tool" id="tool-bold" title="Bold (Ctrl+B)"><b>B</b></button>
@@ -371,7 +448,13 @@ function renderStepEditPanel() {
   const editor = document.getElementById('rich-editor');
   editor.contentEditable = 'true';
   editor.setAttribute('spellcheck', 'true');
-  populateRichEditor(editor, step.richContent || []);
+  populateRichEditor(editor, getCurrentEditorSectionContent(step));
+
+  Array.from(document.querySelectorAll('.step-section-tab')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      setActiveStepSection(btn.dataset.sectionKey);
+    });
+  });
 
   // Toolbar handlers
   document.getElementById('tool-bold').addEventListener('click', () => execFormat('bold'));
@@ -459,7 +542,7 @@ async function handleAiStepModify(mode) {
       tonePreset,
       taskPrompt,
       stepTitle: step.stepTitle || '',
-      stepContent: richContentToPlainText(step.richContent || [])
+      stepContent: richContentToPlainText(getCurrentEditorSectionContent(step))
     });
 
     const nextStep = response && response.step ? response.step : null;
@@ -478,7 +561,7 @@ async function handleAiStepModify(mode) {
     };
 
     editorSteps[activeStepIndex].stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
-    editorSteps[activeStepIndex].richContent = plainTextToRichContent(nextText);
+    setCurrentEditorSectionContent(editorSteps[activeStepIndex], plainTextToRichContent(nextText));
 
     renderStepList();
     renderStepEditPanel();
@@ -604,7 +687,7 @@ function saveActiveStepToState() {
 
   editorSteps[activeStepIndex].stepTitle   = titleInput.value;
   editorSteps[activeStepIndex].linkedStepId = linkedIdInput ? linkedIdInput.value.trim() : '';
-  editorSteps[activeStepIndex].richContent = extractRichContent(editor);
+  setCurrentEditorSectionContent(editorSteps[activeStepIndex], extractRichContent(editor));
 }
 
 function generateLinkedStepId() {

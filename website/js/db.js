@@ -5,6 +5,49 @@ function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
+var STEP_SECTION_KEYS = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images'];
+
+function normaliseStepSections(sections, fallbackRichContent) {
+  var source = sections || {};
+  var out = {};
+  STEP_SECTION_KEYS.forEach(function(key) {
+    var raw = source[key];
+    if (!Array.isArray(raw)) raw = [];
+    out[key] = raw.map(function(chunk) {
+      var type = chunk && chunk.type ? chunk.type : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : 'text');
+      if (type === 'image') {
+        return {
+          type: 'image',
+          format: (chunk && (chunk.format || chunk.image_format)) || 'png',
+          data: (chunk && (chunk.data || chunk.image_data)) || ''
+        };
+      }
+      return {
+        type: 'text',
+        text: (chunk && (chunk.text || chunk.content)) || '',
+        bold: Boolean(chunk && chunk.bold),
+        color: (chunk && chunk.color) || null
+      };
+    });
+  });
+
+  // Preserve legacy content by using it as the default Search Pattern section.
+  if (!out.searchPattern.length && Array.isArray(fallbackRichContent) && fallbackRichContent.length) {
+    out.searchPattern = cloneRichContentForStorage(fallbackRichContent);
+  }
+
+  return out;
+}
+
+function cloneStepSectionsForStorage(sections, fallbackRichContent) {
+  var normalised = normaliseStepSections(sections, fallbackRichContent);
+  var out = {};
+  STEP_SECTION_KEYS.forEach(function(key) {
+    out[key] = cloneRichContentForStorage(normalised[key]);
+  });
+  return out;
+}
+
 function _normalisePatternDoc(doc) {
   var rawSteps = doc.steps;
 
@@ -44,7 +87,8 @@ function _normalisePatternDoc(doc) {
     return {
       stepTitle: (step && (step.stepTitle || step.step_title)) || '',
       richContent: richContent,
-      linkedStepId: (step && (step.linkedStepId || step.linked_step_id)) || ''
+      linkedStepId: (step && (step.linkedStepId || step.linked_step_id)) || '',
+      sections: normaliseStepSections(step && step.sections, richContent)
     };
   });
 
@@ -113,7 +157,8 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
     if (!linkedStepId) return;
     linkedMap[linkedStepId] = {
       stepTitle: (step && step.stepTitle) || '',
-      richContent: cloneRichContentForStorage(step && step.richContent)
+      richContent: cloneRichContentForStorage(step && step.richContent),
+      sections: cloneStepSectionsForStorage(step && step.sections, step && step.richContent)
     };
   });
 
@@ -134,12 +179,14 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
       var nextStep = Object.assign({}, step, {
         stepTitle: shared.stepTitle,
         richContent: cloneRichContentForStorage(shared.richContent),
-        linkedStepId: linkedStepId
+        linkedStepId: linkedStepId,
+        sections: cloneStepSectionsForStorage(shared.sections, shared.richContent)
       });
 
       var sameTitle = (step.stepTitle || '') === nextStep.stepTitle;
       var sameRich = JSON.stringify(step.richContent || []) === JSON.stringify(nextStep.richContent || []);
-      if (!sameTitle || !sameRich) changed = true;
+      var sameSections = JSON.stringify(normaliseStepSections(step.sections, step.richContent || [])) === JSON.stringify(nextStep.sections || {});
+      if (!sameTitle || !sameRich || !sameSections) changed = true;
 
       return nextStep;
     });
