@@ -12,9 +12,12 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <!-- App scripts (plain, no modules) -->
   <script src="js/firebase-config.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/calculations.js"></script>
   <script src="js/study-log.js"></script>
@@ -71,6 +74,7 @@
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-patterns" data-tab="patterns">Search Patterns</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Study Log</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Calculations</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-settings" data-tab="settings">Settings</button>
     </nav>
 
     <!-- SEARCH PATTERNS TAB -->
@@ -183,6 +187,45 @@
         <div class="calc-main" id="calc-main"></div>
       </div>
     </section>
+
+    <!-- SETTINGS TAB -->
+    <section id="panel-settings" class="tab-panel" role="tabpanel" style="display:none">
+      <div class="settings-layout">
+        <div class="settings-card">
+          <h2>AI Settings</h2>
+          <p class="settings-subtitle">Configure your provider key. Keys are sent only to the secure backend proxy and never rendered back after save.</p>
+
+          <label class="form-label">Provider
+            <select id="ai-provider-select" class="form-input">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="githubModels">GitHub Models / Copilot</option>
+            </select>
+          </label>
+
+          <label class="form-label">Model (optional)
+            <input id="ai-model-input" type="text" class="form-input" placeholder="Leave blank to use default model">
+          </label>
+
+          <label class="form-label">API Key
+            <div class="settings-inline-input">
+              <input id="ai-key-input" type="password" class="form-input" placeholder="Paste provider API key">
+              <button id="btn-ai-key-visibility" class="btn btn-ghost btn-sm" type="button">Show</button>
+            </div>
+          </label>
+
+          <div class="settings-actions">
+            <button id="btn-ai-save" class="btn btn-accent" type="button">Save Key</button>
+            <button id="btn-ai-test" class="btn btn-ghost" type="button">Test Provider</button>
+            <button id="btn-ai-remove" class="btn btn-danger" type="button">Remove Key</button>
+          </div>
+
+          <div id="ai-provider-status" class="settings-status"></div>
+
+          <p class="settings-note">Security note: this app uses a server-side proxy for AI requests. Do not share keys in pattern content.</p>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- RECORD STUDY MODAL -->
@@ -222,6 +265,7 @@
           </select>
         </label>
       </div>
+      <div id="editor-ai-create-panel" class="editor-ai-create-panel" style="display:none"></div>
       <div class="editor-body">
         <div class="step-list-panel">
           <div class="step-list-header">

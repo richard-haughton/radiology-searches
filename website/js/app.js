@@ -108,6 +108,7 @@ function showApp(user) {
   if (!_modulesInitialised) {
     _modulesInitialised = true;
     initTabs();
+    initSettings(user.uid);
     initEditor();
     initPatterns(user.uid);
     initStudyLog(user.uid);

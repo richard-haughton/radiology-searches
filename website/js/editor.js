@@ -6,6 +6,7 @@ var editingPatternId = null;
 var editorSteps = [];
 var activeStepIndex = null;
 var _allPatternsRef = [];
+var _stepAiUndoSnapshot = null;
 
 function setAllPatternsRef(patterns) {
   _allPatternsRef = patterns;
@@ -47,6 +48,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
   editorUid = uid;
   editingPatternId = patternId;
   activeStepIndex = null;
+  _stepAiUndoSnapshot = null;
 
   const overlay = document.getElementById('modal-editor');
   const titleEl = document.getElementById('modal-editor-title');
@@ -78,6 +80,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
     editorSteps = [];
   }
 
+  renderCreateAiPanel();
   renderStepList();
   renderStepEditPanel();
   overlay.style.display = '';
@@ -103,6 +106,137 @@ function closeEditor() {
   document.getElementById('modal-editor').style.display = 'none';
   editorSteps = [];
   activeStepIndex = null;
+  _stepAiUndoSnapshot = null;
+}
+
+function renderCreateAiPanel() {
+  const panel = document.getElementById('editor-ai-create-panel');
+  if (!panel) return;
+
+  if (editingPatternId) {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.style.display = '';
+
+  const sourceOptions = _allPatternsRef
+    .map(p => `<option value="${escapeHtml(String(p.id || ''))}">${escapeHtml(p.name || 'Untitled Pattern')}</option>`)
+    .join('');
+
+  panel.innerHTML = `
+    <div class="editor-ai-grid">
+      <label class="form-label">AI Source Patterns (multi-select)
+        <select id="editor-ai-source-patterns" class="form-input editor-ai-list" multiple>
+          ${sourceOptions}
+        </select>
+      </label>
+
+      <label class="form-label">Tone
+        <select id="editor-ai-tone" class="form-input">
+          <option value="concise">Concise</option>
+          <option value="teaching">Teaching</option>
+          <option value="resident-friendly">Resident-Friendly</option>
+        </select>
+      </label>
+    </div>
+
+    <label class="form-label">AI Generation Prompt
+      <textarea id="editor-ai-prompt" class="form-input" rows="3" placeholder="Describe what should be generated or emphasized."></textarea>
+    </label>
+
+    <div class="editor-ai-actions">
+      <button type="button" class="btn btn-accent btn-sm" id="btn-ai-generate-pattern">Generate Pattern With AI</button>
+    </div>
+  `;
+
+  document.getElementById('btn-ai-generate-pattern').addEventListener('click', handleAiGeneratePattern);
+}
+
+function getSelectedSourcePatternsForAi() {
+  const select = document.getElementById('editor-ai-source-patterns');
+  if (!select) return [];
+
+  const selectedIds = Array.from(select.selectedOptions || []).map(o => o.value);
+  if (!selectedIds.length) return [];
+
+  return _allPatternsRef
+    .filter(pattern => selectedIds.includes(String(pattern.id || '')))
+    .map(serializePatternForAi);
+}
+
+function serializePatternForAi(pattern) {
+  const steps = (pattern.steps || []).map(step => ({
+    stepTitle: step.stepTitle || '',
+    content: richContentToPlainText(step.richContent || step.rich_content || [])
+  }));
+
+  return {
+    id: pattern.id || '',
+    name: pattern.name || '',
+    modality: pattern.modality || 'Other',
+    steps
+  };
+}
+
+async function handleAiGeneratePattern() {
+  const provider = typeof getSelectedAiProvider === 'function' ? getSelectedAiProvider() : 'openai';
+  const model = typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '';
+
+  if (typeof isAiProviderConfigured === 'function' && !isAiProviderConfigured(provider)) {
+    showToast('Configure and save a key for ' + provider + ' in Settings first.', true);
+    return;
+  }
+
+  const sourcePatterns = getSelectedSourcePatternsForAi();
+  if (!sourcePatterns.length) {
+    showToast('Select at least one source pattern for AI generation.', true);
+    return;
+  }
+
+  const tonePreset = (document.getElementById('editor-ai-tone') || {}).value || 'concise';
+  const taskPrompt = ((document.getElementById('editor-ai-prompt') || {}).value || '').trim();
+  const btn = document.getElementById('btn-ai-generate-pattern');
+
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+
+  try {
+    const response = await generatePatternFromAi({
+      provider,
+      model,
+      tonePreset,
+      taskPrompt,
+      sourcePatterns
+    });
+
+    const pattern = response && response.pattern ? response.pattern : null;
+    if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) {
+      throw new Error('AI did not return a usable pattern.');
+    }
+
+    const nextSteps = pattern.steps.map(step => ({
+      stepTitle: (step && step.stepTitle) || '',
+      linkedStepId: '',
+      richContent: plainTextToRichContent((step && step.content) || '')
+    }));
+
+    document.getElementById('editor-pattern-name').value = pattern.name || 'AI Generated Pattern';
+    document.getElementById('editor-modality').value = pattern.modality || 'Other';
+
+    editorSteps = nextSteps;
+    activeStepIndex = editorSteps.length ? 0 : null;
+    renderStepList();
+    renderStepEditPanel();
+    showToast('AI pattern generated. Review and save when ready.');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'Failed to generate pattern with AI.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Pattern With AI';
+  }
 }
 
 // ── Step list rendering ──────────────────────────────────────
@@ -211,6 +345,26 @@ function renderStepEditPanel() {
         <div id="rich-editor" class="rich-editor" contenteditable="true" spellcheck="true"></div>
       </div>
     </div>
+
+    <div class="step-ai-card">
+      <label class="form-label">AI Instruction
+        <textarea id="step-ai-prompt" class="form-input" rows="2" placeholder="Example: Add pitfalls and common mimics."></textarea>
+      </label>
+      <div class="step-ai-row">
+        <label class="form-label" style="min-width:180px; flex:1;">Tone
+          <select id="step-ai-tone" class="form-input">
+            <option value="concise">Concise</option>
+            <option value="teaching">Teaching</option>
+            <option value="resident-friendly">Resident-Friendly</option>
+          </select>
+        </label>
+      </div>
+      <div class="step-ai-row">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-rewrite-step">Rewrite Step With AI</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-append-step">Append To Step With AI</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-undo-step" ${_stepAiUndoSnapshot ? '' : 'disabled'}>Undo AI Change</button>
+      </div>
+    </div>
   `;
 
   // Populate rich editor from richContent
@@ -230,6 +384,9 @@ function renderStepEditPanel() {
   document.getElementById('tool-move-down').addEventListener('click', () => moveStep(1));
   document.getElementById('btn-generate-linked-id').addEventListener('click', generateLinkedStepId);
   document.getElementById('btn-clear-linked-id').addEventListener('click', clearLinkedStepId);
+  document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
+  document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
+  document.getElementById('btn-ai-undo-step').addEventListener('click', undoLastAiStepChange);
 
   // Keyboard shortcut for bold
   editor.addEventListener('keydown', e => {
@@ -244,6 +401,108 @@ function renderStepEditPanel() {
 
   // Focus editor
   editor.focus();
+}
+
+function setStepAiButtonsBusy(isBusy, mode) {
+  const rewriteBtn = document.getElementById('btn-ai-rewrite-step');
+  const appendBtn = document.getElementById('btn-ai-append-step');
+  if (!rewriteBtn || !appendBtn) return;
+
+  rewriteBtn.disabled = isBusy;
+  appendBtn.disabled = isBusy;
+
+  if (isBusy && mode === 'rewrite') rewriteBtn.textContent = 'Rewriting...';
+  if (isBusy && mode === 'append') appendBtn.textContent = 'Appending...';
+  if (!isBusy) {
+    rewriteBtn.textContent = 'Rewrite Step With AI';
+    appendBtn.textContent = 'Append To Step With AI';
+  }
+}
+
+async function handleAiStepModify(mode) {
+  saveActiveStepToState();
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+
+  const provider = typeof getSelectedAiProvider === 'function' ? getSelectedAiProvider() : 'openai';
+  const model = typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '';
+
+  if (typeof isAiProviderConfigured === 'function' && !isAiProviderConfigured(provider)) {
+    showToast('Configure and save a key for ' + provider + ' in Settings first.', true);
+    return;
+  }
+
+  const step = editorSteps[activeStepIndex];
+  const taskPrompt = ((document.getElementById('step-ai-prompt') || {}).value || '').trim();
+  const tonePreset = (document.getElementById('step-ai-tone') || {}).value || 'concise';
+
+  if (!taskPrompt && mode === 'append') {
+    showToast('Add an AI instruction before append.', true);
+    return;
+  }
+
+  if (String(step.linkedStepId || '').trim()) {
+    const okLinked = await showConfirm(
+      'Linked Step Warning',
+      'This step has a Linked Step ID. Saving changes may propagate this content to other patterns using the same link.'
+    );
+    if (!okLinked) return;
+  }
+
+  const originalSnapshot = JSON.parse(JSON.stringify(step));
+  setStepAiButtonsBusy(true, mode);
+
+  try {
+    const response = await modifyStepWithAi({
+      provider,
+      model,
+      mode,
+      tonePreset,
+      taskPrompt,
+      stepTitle: step.stepTitle || '',
+      stepContent: richContentToPlainText(step.richContent || [])
+    });
+
+    const nextStep = response && response.step ? response.step : null;
+    const nextText = nextStep ? String(nextStep.content || '') : '';
+    if (!nextText.trim()) {
+      throw new Error('AI did not return updated step content.');
+    }
+
+    const preview = nextText.length > 280 ? (nextText.slice(0, 280) + '...') : nextText;
+    const okApply = await showConfirm('Apply AI Update', 'Apply this AI result to the current step?\n\nPreview:\n' + preview);
+    if (!okApply) return;
+
+    _stepAiUndoSnapshot = {
+      index: activeStepIndex,
+      step: originalSnapshot
+    };
+
+    editorSteps[activeStepIndex].stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
+    editorSteps[activeStepIndex].richContent = plainTextToRichContent(nextText);
+
+    renderStepList();
+    renderStepEditPanel();
+    showToast('AI update applied.');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'AI step update failed.', true);
+  } finally {
+    setStepAiButtonsBusy(false, mode);
+  }
+}
+
+function undoLastAiStepChange() {
+  if (!_stepAiUndoSnapshot) return;
+  if (typeof _stepAiUndoSnapshot.index !== 'number') return;
+  if (!_stepAiUndoSnapshot.step) return;
+
+  editorSteps[_stepAiUndoSnapshot.index] = JSON.parse(JSON.stringify(_stepAiUndoSnapshot.step));
+  activeStepIndex = _stepAiUndoSnapshot.index;
+  _stepAiUndoSnapshot = null;
+
+  renderStepList();
+  renderStepEditPanel();
+  showToast('Undid AI step change.');
 }
 
 // ── Rich editor: populate from richContent ───────────────────
@@ -538,6 +797,25 @@ function normaliseRichContent(richContent) {
       color: chunk?.color || null
     };
   });
+}
+
+function richContentToPlainText(richContent) {
+  const chunks = normaliseRichContent(richContent);
+  if (!chunks.length) return '';
+
+  return chunks.map(chunk => {
+    if (chunk.type === 'image') return '[image]';
+    return chunk.text || '';
+  }).join('');
+}
+
+function plainTextToRichContent(text) {
+  const input = String(text || '').replace(/\r\n/g, '\n');
+  if (!input) {
+    return [{ type: 'text', text: '', bold: false, color: null }];
+  }
+
+  return [{ type: 'text', text: input, bold: false, color: null }];
 }
 
 function escapeHtml(str) {

@@ -15,6 +15,7 @@ firebase.initializeApp(firebaseConfig);
 
 var appAuth = firebase.auth();
 var appDb   = firebase.firestore();
+var appFunctions = firebase.app().functions('us-central1');
 
 // Enable offline persistence
 appDb.enablePersistence({ synchronizeTabs: true }).catch(function(err) {

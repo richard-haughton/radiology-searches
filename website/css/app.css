@@ -412,6 +412,93 @@ body {
 .calc-formula { margin-top: 14px; padding: 10px 14px; background: #f4faf6; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); }
 
 /* ============================================================
+   SETTINGS TAB
+   ============================================================ */
+.settings-layout {
+  padding: 24px;
+  max-width: 960px;
+}
+.settings-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.settings-card h2 {
+  font-size: 1.3rem;
+}
+.settings-subtitle {
+  color: var(--ink-soft);
+  margin: 0;
+}
+.settings-inline-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.settings-status {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f4faf6;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+.settings-note {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+/* ============================================================
+   AI EDITOR CONTROLS
+   ============================================================ */
+.editor-ai-create-panel {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 20px;
+  background: #f9fcfa;
+}
+.editor-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.editor-ai-list {
+  min-height: 120px;
+  max-height: 170px;
+}
+.editor-ai-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.step-ai-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: #f9fcfa;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step-ai-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
    FORMS
    ============================================================ */
 .form-label { display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; font-weight: 600; color: var(--ink-soft); }
@@ -667,6 +754,9 @@ html.dark .calc-result              { background: #1a2e22; border-color: #2a4035
 html.dark .calc-result.is-danger    { background: #2a1515; border-color: #4a2020; }
 html.dark .calc-result.is-warning   { background: #2a2010; border-color: #4a3820; }
 html.dark .calc-formula             { background: #192b1e; }
+html.dark .settings-status          { background: #192b1e; }
+html.dark .editor-ai-create-panel   { background: #192b1e; }
+html.dark .step-ai-card             { background: #192b1e; }
 
 /* Editor */
 html.dark .rich-toolbar             { background: #192b1e; }
@@ -707,4 +797,9 @@ html.dark #btn-theme-toggle .icon-sun  { display: inline; }
   .site-header h1 { font-size: 1.1rem; }
   .user-name { display: none; }
   .step-list-panel { width: 200px; }
+  .settings-layout { padding: 14px; }
+  .settings-inline-input {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

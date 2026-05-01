@@ -172,3 +172,50 @@ users/{uid}/
 ```
 
 All data is private to the authenticated user — enforced by the Firestore security rules above.
+
+---
+
+## AI Features Setup (New)
+
+The AI generate/rewrite features use Firebase Functions as a secure proxy.
+
+### 1) Deploy Functions
+
+From the project root:
+
+```bash
+cd functions
+npm install
+cd ..
+firebase deploy --only functions --project searches-app
+```
+
+### 2) Configure Encryption Secret
+
+Store the encryption secret in Firebase Secret Manager:
+
+```bash
+firebase functions:secrets:set AI_PROXY_SECRET
+```
+
+Then redeploy functions.
+
+### 3) GitHub Actions Secret
+
+The new workflow `.github/workflows/deploy-functions.yml` expects:
+
+- `FIREBASE_SERVICE_ACCOUNT_SEARCHES_APP`
+
+This should contain the JSON credentials for a service account allowed to deploy Firebase Functions in your project.
+
+### 4) In-App Configuration
+
+After deployment:
+
+1. Sign in to the app.
+2. Open the **Settings** tab.
+3. Choose provider (`OpenAI`, `Anthropic`, or `GitHub Models / Copilot`).
+4. Save API key and optionally model.
+5. Use AI actions in the Pattern Editor:
+  - New pattern: generate from selected existing patterns.
+  - Edit step: rewrite or append with optional tone presets.
