@@ -172,21 +172,23 @@ function buildStepPrompt(input) {
   var taskPrompt = String(input.taskPrompt || '').trim();
   var stepTitle = String(input.stepTitle || '').trim();
   var stepContent = String(input.stepContent || '').trim();
+  var targetSection = String(input.targetSection || 'searchPattern').trim();
 
   return [
-    'You are a radiology assistant refining one search-pattern step.',
+    'You are a radiology assistant refining one section of a search-pattern step.',
     'Return ONLY valid JSON with this exact schema:',
     '{"step":{"stepTitle":"string","content":"string"}}',
     'Requirements:',
     '- Preserve clinical correctness and clarity.',
     '- Tone preset: ' + tone + '.',
     '- Mode: ' + mode + ' (rewrite = replace, append = add useful content).',
+    '- Target section: ' + targetSection + ' (only modify this section\'s content).',
     taskPrompt ? ('- User instruction: ' + taskPrompt) : '- No extra user instruction provided.',
     '',
     'Current step title:',
     stepTitle,
     '',
-    'Current step content:',
+    'Current section content:',
     stepContent
   ].join('\n');
 }

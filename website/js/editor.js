@@ -8,6 +8,7 @@ var activeStepIndex = null;
 var _allPatternsRef = [];
 var _stepAiUndoSnapshot = null;
 var activeStepSectionKey = 'briefSearchPattern';
+var _stepAiTargetSection = 'briefSearchPattern';
 var EDITOR_STEP_SECTION_ORDER = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
 var EDITOR_STEP_SECTION_LABELS = {
   briefSearchPattern: 'Brief Search Pattern',
@@ -122,6 +123,7 @@ function closeEditor() {
   editorSteps = [];
   activeStepIndex = null;
   activeStepSectionKey = 'briefSearchPattern';
+  _stepAiTargetSection = 'briefSearchPattern';
   _stepAiUndoSnapshot = null;
 }
 
@@ -436,6 +438,12 @@ function renderStepEditPanel() {
 
     ${activeStepSectionKey === 'hyperlinks' ? '' : `
     <div class="step-ai-card">
+      <label class="form-label">AI Target Section
+        <select id="step-ai-section" class="form-input">
+          ${EDITOR_STEP_SECTION_ORDER.map(key => key !== 'hyperlinks' ? `<option value="${key}">${EDITOR_STEP_SECTION_LABELS[key] || key}</option>` : '').join('')}
+        </select>
+      </label>
+
       <label class="form-label">AI Instruction
         <textarea id="step-ai-prompt" class="form-input" rows="2" placeholder="Example: Add pitfalls and common mimics."></textarea>
       </label>
@@ -449,8 +457,8 @@ function renderStepEditPanel() {
         </label>
       </div>
       <div class="step-ai-row">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-rewrite-step">Rewrite Step With AI</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-append-step">Append To Step With AI</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-rewrite-step">Rewrite Section With AI</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-append-step">Append To Section With AI</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-undo-step" ${_stepAiUndoSnapshot ? '' : 'disabled'}>Undo AI Change</button>
       </div>
     </div>
@@ -486,6 +494,14 @@ function renderStepEditPanel() {
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
     document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
     document.getElementById('tool-move-down').addEventListener('click', () => moveStep(1));
+    const aiSectionSelect = document.getElementById('step-ai-section');
+    if (aiSectionSelect) {
+      aiSectionSelect.value = _stepAiTargetSection;
+      aiSectionSelect.addEventListener('change', function() {
+        _stepAiTargetSection = this.value;
+      });
+    }
+
     document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
     document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
     document.getElementById('btn-ai-undo-step').addEventListener('click', undoLastAiStepChange);
@@ -537,6 +553,7 @@ async function handleAiStepModify(mode) {
   const step = editorSteps[activeStepIndex];
   const taskPrompt = ((document.getElementById('step-ai-prompt') || {}).value || '').trim();
   const tonePreset = (document.getElementById('step-ai-tone') || {}).value || 'concise';
+  const aiTargetSection = _stepAiTargetSection || 'briefSearchPattern';
 
   if (!taskPrompt && mode === 'append') {
     showToast('Add an AI instruction before append.', true);
@@ -555,6 +572,11 @@ async function handleAiStepModify(mode) {
   setStepAiButtonsBusy(true, mode);
 
   try {
+    // Get content from the target section, not the current display section
+    const targetSectionContent = step.sections && step.sections[aiTargetSection]
+      ? step.sections[aiTargetSection]
+      : (aiTargetSection === 'searchPattern' ? step.richContent : []);
+
     const response = await modifyStepWithAi({
       provider,
       model,
@@ -562,7 +584,8 @@ async function handleAiStepModify(mode) {
       tonePreset,
       taskPrompt,
       stepTitle: step.stepTitle || '',
-      stepContent: richContentToPlainText(getCurrentEditorSectionContent(step))
+      stepContent: richContentToPlainText(targetSectionContent),
+      targetSection: aiTargetSection
     });
 
     const nextStep = response && response.step ? response.step : null;
@@ -580,8 +603,19 @@ async function handleAiStepModify(mode) {
       step: originalSnapshot
     };
 
-    editorSteps[activeStepIndex].stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
-    setCurrentEditorSectionContent(editorSteps[activeStepIndex], plainTextToRichContent(nextText));
+    // Apply AI result to the target section, not the currently displayed section
+    const updatedStep = editorSteps[activeStepIndex];
+    updatedStep.stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
+    
+    if (!updatedStep.sections) {
+      updatedStep.sections = normaliseStepSectionsForEditor(null, updatedStep.richContent || []);
+    }
+    updatedStep.sections[aiTargetSection] = plainTextToRichContent(nextText);
+    
+    // Also keep searchPattern in sync with richContent for compatibility
+    if (aiTargetSection === 'searchPattern') {
+      updatedStep.richContent = plainTextToRichContent(nextText).slice();
+    }
 
     renderStepList();
     renderStepEditPanel();
