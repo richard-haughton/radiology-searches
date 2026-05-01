@@ -789,14 +789,13 @@ function saveActiveStepToState() {
     const subsections = [];
     rows.forEach(row => {
       const title = ((row.querySelector('.subsection-title-input') || {}).value || '').trim();
-      const contentText = ((row.querySelector('.subsection-content-input') || {}).value || '').trim();
-      if (!title && !contentText) return;
+      const rowEditor = row.querySelector('.subsection-rich-editor');
+      const content = rowEditor ? extractRichContent(rowEditor) : [];
+      if (!title && !hasAnyRichContent(content)) return;
       subsections.push({
         type: 'subsection',
         title: title || `Subsection ${subsections.length + 1}`,
-        content: contentText
-          ? [{ type: 'text', text: contentText, bold: false, color: null }]
-          : []
+        content: content
       });
     });
     setCurrentEditorSectionContent(editorSteps[activeStepIndex], subsections);
@@ -836,6 +835,16 @@ function addLinkRow() {
   row.querySelector('.link-url-input').focus();
 }
 
+function hasAnyRichContent(content) {
+  const chunks = normaliseRichContent(content || []);
+  return chunks.some(chunk => {
+    if (chunk.type === 'image') return Boolean(chunk.data);
+    if (chunk.type === 'link') return Boolean((chunk.url || '').trim() || (chunk.text || '').trim());
+    if (chunk.type === 'subsection') return Boolean((chunk.title || '').trim()) || hasAnyRichContent(chunk.content || []);
+    return Boolean((chunk.text || '').trim());
+  });
+}
+
 function getSubsectionRowsFromContent(content) {
   const chunks = normaliseRichContent(content || []);
   const rows = [];
@@ -844,21 +853,21 @@ function getSubsectionRowsFromContent(content) {
     if (chunk.type === 'subsection') {
       rows.push({
         title: (chunk.title || '').trim(),
-        content: richContentToPlainText(chunk.content || [])
+        content: normaliseRichContent(chunk.content || [])
       });
       return;
     }
     if (chunk.type === 'text' && (chunk.text || '').trim()) {
       rows.push({
         title: `Subsection ${rows.length + 1}`,
-        content: chunk.text
+        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
       });
       return;
     }
     if (chunk.type === 'image' || chunk.type === 'link') {
       rows.push({
         title: `Subsection ${rows.length + 1}`,
-        content: richContentToPlainText([chunk])
+        content: [chunk]
       });
     }
   });
@@ -872,10 +881,10 @@ function renderSubsectionRows(step) {
   container.innerHTML = '';
 
   const rows = getSubsectionRowsFromContent(getCurrentEditorSectionContent(step));
-  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || '')));
+  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [])));
 
   if (!rows.length) {
-    container.appendChild(createSubsectionRow('', ''));
+    container.appendChild(createSubsectionRow('', []));
   }
 }
 
@@ -884,9 +893,14 @@ function createSubsectionRow(title, content) {
   row.className = 'subsection-row';
   row.innerHTML = `
     <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Subsection title">
-    <textarea class="form-input subsection-content-input" rows="3" placeholder="Dropdown content">${escapeHtml(content)}</textarea>
+    <div class="rich-editor subsection-rich-editor" contenteditable="true" spellcheck="true"></div>
     <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
   `;
+
+  const rowEditor = row.querySelector('.subsection-rich-editor');
+  populateRichEditor(rowEditor, content || []);
+  rowEditor.addEventListener('paste', handleEditorPaste);
+
   row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
   return row;
 }
@@ -894,7 +908,7 @@ function createSubsectionRow(title, content) {
 function addSubsectionRow() {
   const container = document.getElementById('subsection-rows');
   if (!container) return;
-  const row = createSubsectionRow('', '');
+  const row = createSubsectionRow('', []);
   container.appendChild(row);
   row.querySelector('.subsection-title-input').focus();
 }
@@ -1082,20 +1096,23 @@ async function handlePasteImageFromClipboard() {
 function handleEditorPaste(e) {
   const items = e.clipboardData?.items;
   if (!items) return;
+  const targetEditor = e.currentTarget && e.currentTarget.classList && e.currentTarget.classList.contains('rich-editor')
+    ? e.currentTarget
+    : document.getElementById('rich-editor');
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       e.preventDefault();
       const blob = item.getAsFile();
-      insertImageBlob(blob);
+      insertImageBlob(blob, targetEditor);
       return;
     }
   }
 }
 
-function insertImageBlob(blob) {
+function insertImageBlob(blob, targetEditor) {
   const reader = new FileReader();
   reader.onload = ev => {
-    const editor = document.getElementById('rich-editor');
+    const editor = targetEditor || document.getElementById('rich-editor');
     if (!editor) return;
     const img = document.createElement('img');
     img.src = ev.target.result;

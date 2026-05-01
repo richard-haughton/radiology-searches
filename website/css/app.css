@@ -674,6 +674,25 @@ body {
   background: rgba(255,255,255,0.6);
 }
 .subsection-title-input { grid-area: title; }
+.subsection-rich-editor {
+  grid-area: content;
+  min-height: 84px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  line-height: 1.55;
+}
+.subsection-rich-editor:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.subsection-rich-editor img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin: 6px 0;
+  display: block;
+}
 .subsection-content-input {
   grid-area: content;
   min-height: 84px;
@@ -954,6 +973,7 @@ html.dark .step-link,
 html.dark .step-content a,
 html.dark .rich-editor a            { color: #7db4ff; }
 html.dark .subsection-row           { background: rgba(25,43,30,0.75); }
+html.dark .subsection-rich-editor   { background: #192b1e; }
 
 /* Editor */
 html.dark .rich-toolbar             { background: #192b1e; }
