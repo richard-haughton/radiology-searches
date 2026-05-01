@@ -964,9 +964,11 @@ async function savePattern() {
   btn.textContent = 'Saving…';
 
   try {
+    const stepsForStorage = await prepareStepsForStorage(editorSteps);
+
     if (editingPatternId) {
-      await updatePattern(editorUid, editingPatternId, { name, modality, steps: editorSteps });
-      const updatedCount = await propagateLinkedSteps(editorUid, editingPatternId, editorSteps, _allPatternsRef);
+      await updatePattern(editorUid, editingPatternId, { name, modality, steps: stepsForStorage });
+      const updatedCount = await propagateLinkedSteps(editorUid, editingPatternId, stepsForStorage, _allPatternsRef);
       if (updatedCount > 0) {
         showToast(`Pattern updated. Synced linked steps in ${updatedCount} pattern(s).`);
       } else {
@@ -976,8 +978,8 @@ async function savePattern() {
         rememberStepForPattern(editingPatternId, activeStepIndex);
       }
     } else {
-      const newPatternId = await createPattern(editorUid, { name, modality, steps: editorSteps });
-      const updatedCount = await propagateLinkedSteps(editorUid, newPatternId, editorSteps, _allPatternsRef);
+      const newPatternId = await createPattern(editorUid, { name, modality, steps: stepsForStorage });
+      const updatedCount = await propagateLinkedSteps(editorUid, newPatternId, stepsForStorage, _allPatternsRef);
       if (updatedCount > 0) {
         showToast(`Pattern created. Synced linked steps in ${updatedCount} pattern(s).`);
       } else {
@@ -987,11 +989,133 @@ async function savePattern() {
     closeEditor();
   } catch (err) {
     console.error(err);
-    showToast('Failed to save: ' + (err.message || err), true);
+    const message = String(err && err.message ? err.message : err || '');
+    if (/exceeds the maximum allowed size|cannot be written because its size/i.test(message)) {
+      showToast('Failed to save: pattern is still too large. Try fewer/smaller images in this step.', true);
+    } else {
+      showToast('Failed to save: ' + message, true);
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save Pattern';
   }
+}
+
+async function prepareStepsForStorage(steps) {
+  const srcSteps = Array.isArray(steps) ? steps : [];
+  const out = [];
+
+  for (const step of srcSteps) {
+    const normalizedSections = normaliseStepSectionsForEditor(step && step.sections, step && step.richContent || []);
+    const compressedSections = {};
+
+    for (const key of EDITOR_STEP_SECTION_ORDER) {
+      compressedSections[key] = await compressRichContentForStorage(normalizedSections[key] || []);
+    }
+
+    // Keep legacy field lightweight to avoid duplicating large image payloads.
+    const legacySearchPattern = (compressedSections.searchPattern || []).filter(function(chunk) {
+      return chunk && chunk.type !== 'image' && chunk.type !== 'subsection';
+    });
+
+    out.push({
+      stepTitle: (step && step.stepTitle) || '',
+      linkedStepId: (step && step.linkedStepId) || '',
+      sections: compressedSections,
+      richContent: legacySearchPattern
+    });
+  }
+
+  return out;
+}
+
+async function compressRichContentForStorage(richContent) {
+  const chunks = normaliseRichContent(richContent || []);
+  const out = [];
+
+  for (const chunk of chunks) {
+    if (!chunk) continue;
+
+    if (chunk.type === 'image') {
+      if (!chunk.data) continue;
+      let data = chunk.data;
+      let format = chunk.format || 'png';
+      try {
+        data = await compressBase64ImageForStorage(data, format);
+        format = 'jpeg';
+      } catch (e) {
+        // Keep original chunk if compression fails.
+      }
+      out.push({ type: 'image', format: format, data: data });
+      continue;
+    }
+
+    if (chunk.type === 'subsection') {
+      out.push({
+        type: 'subsection',
+        title: chunk.title || '',
+        content: await compressRichContentForStorage(chunk.content || [])
+      });
+      continue;
+    }
+
+    if (chunk.type === 'link') {
+      const url = sanitiseEditorLinkUrl(chunk.url || '');
+      if (!url && !(chunk.text || '').trim()) continue;
+      out.push({ type: 'link', text: chunk.text || url, url: url });
+      continue;
+    }
+
+    out.push({
+      type: 'text',
+      text: chunk.text || '',
+      bold: Boolean(chunk.bold),
+      color: chunk.color || null
+    });
+  }
+
+  return out;
+}
+
+function compressBase64ImageForStorage(base64Data, format) {
+  return new Promise(function(resolve, reject) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX = 1024;
+      let w = img.width;
+      let h = img.height;
+
+      if (w > MAX || h > MAX) {
+        if (w > h) {
+          h = Math.round((h * MAX) / w);
+          w = MAX;
+        } else {
+          w = Math.round((w * MAX) / h);
+          h = MAX;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas context unavailable'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      const pieces = dataUrl.split(',');
+      if (pieces.length < 2) {
+        reject(new Error('Image compression failed'));
+        return;
+      }
+      resolve(pieces[1]);
+    };
+    img.onerror = reject;
+    img.src = 'data:image/' + (format || 'png') + ';base64,' + base64Data;
+  });
 }
 
 // ── Formatting helpers ───────────────────────────────────────
