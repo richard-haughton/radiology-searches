@@ -1,1 +1,0 @@
-../Resources/search_patterns.py
