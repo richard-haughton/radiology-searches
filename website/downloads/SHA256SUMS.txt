@@ -1,0 +1,3 @@
+e1c8ccb02140663622044791669ef2a5efa97becde3dbe099893943f94b10848  /Users/dillonhaughton/Documents/Searches_Export/website/downloads/Searches-macOS.zip
+4ef2b77b9457bbc8e468a8a351c62170b0e5616e95fd7bb8a0a12b4ffacf73c2  /Users/dillonhaughton/Documents/Searches_Export/website/downloads/radiology_search_patterns.h5
+854b25676f1710a85253ab57c7d99c54eaa173fb31f45f776802cb2d4dd0cba9  /Users/dillonhaughton/Documents/Searches_Export/website/downloads/study_times.csv

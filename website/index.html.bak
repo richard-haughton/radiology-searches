@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Searches | Radiology Workflow Assistant</title>
+  <meta name="description" content="Download Searches for macOS, including blank starter data files for your own pattern library and study logs." />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <img src="images/icon.png" alt="Searches App Icon" class="app-icon" />
+    <div>
+      <p class="eyebrow">Radiology Utility</p>
+      <h1>Searches</h1>
+      <p class="subtitle">A focused desktop assistant for search patterns, study tracking, and faster reads.</p>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="card primary">
+      <h2>Download for macOS</h2>
+      <p>The app package includes blank starter files so each user can build a personal workflow from scratch.</p>
+      <div class="button-row">
+        <a class="btn btn-main" href="downloads/Searches-macOS.zip">Download Searches-macOS.zip</a>
+      </div>
+      <ul class="meta-list">
+        <li>Starter file 1: <a href="downloads/radiology_search_patterns.h5">radiology_search_patterns.h5</a> (blank and ready)</li>
+        <li>Starter file 2: <a href="downloads/study_times.csv">study_times.csv</a> (header-only template)</li>
+      </ul>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>First Launch</h3>
+        <ol>
+          <li>Open the app and begin creating your own patterns.</li>
+          <li>Or use File > Import Search Patterns (.h5).</li>
+          <li>Use File > Import Study Log CSV for your own study log.</li>
+        </ol>
+      </article>
+
+      <article class="card">
+        <h3>Data Storage</h3>
+        <p>User-editable files are copied on first run into your local app data folder:</p>
+        <p class="path">~/.radiology_assistant/</p>
+        <p>This keeps app updates separate from user data.</p>
+      </article>
+
+      <article class="card">
+        <h3>Install</h3>
+        <ol>
+          <li>Download the zip.</li>
+          <li>Drag Searches.app into Applications.</li>
+          <li>Right-click > Open the first time to bypass Gatekeeper prompts.</li>
+        </ol>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Searches for radiology workflows.</p>
+  </footer>
+
+  <script src="js/site.js"></script>
+</body>
+</html>

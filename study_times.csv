@@ -1,0 +1,55 @@
+timestamp,date,study,seconds,duration,rvu
+1/12/26 13:46,1/12/26,CT Abdomen Pelvis,114,1m 54s,1.27
+1/12/26 14:45,1/12/26,Abdominal Radiograph,248,4m 08s,0.18
+1/12/26 14:54,1/12/26,Abdominal Radiograph,504,8m 24s,0.18
+1/12/26 15:27,1/12/26,CT Abdomen Pelvis,842,14m 02s,1.82
+1/12/26 15:43,1/12/26,Abdominal Radiograph,596,9m 56s,0.18
+1/12/26 16:33,1/12/26,CT Chest Abdomen Pelvis,2889,48m 09s,3
+1/12/26 17:04,1/12/26,CT Abdomen Pelvis,1752,29m 12s,1.82
+1/13/26 12:06,1/13/26,CT Abdomen Pelvis,2388,39m 48s,1.82
+1/13/26 13:11,1/13/26,Abdominal Radiograph,850,14m 10s,0.18
+1/13/26 13:28,1/13/26,Abdominal Radiograph,577,9m 37s,0.18
+1/13/26 14:07,1/13/26,CT Abdomen Pelvis,2317,38m 37s,1.82
+1/13/26 14:49,1/13/26,CT Abdomen Pelvis,1616,26m 56s,1.82
+1/13/26 15:09,1/13/26,Abdominal Radiograph,440,7m 20s,0.18
+1/13/26 15:28,1/13/26,Abdominal Radiograph,359,5m 59s,0.18
+1/13/26 15:40,1/13/26,Abdominal Radiograph,394,6m 34s,0.18
+1/13/26 15:55,1/13/26,Abdominal Radiograph,770,12m 50s,0.18
+1/14/26 8:44,1/14/26,CT Abdomen Pelvis,1574,26m 14s,1.82
+1/14/26 9:31,1/14/26,CT Chest Abdomen Pelvis,2571,42m 51s,3
+1/14/26 10:20,1/14/26,CTA Aorta (Dissection Study),2772,46m 12s,1.27
+1/14/26 11:09,1/14/26,Abdominal Radiograph,813,13m 33s,0.18
+1/14/26 11:57,1/14/26,CT Abdomen Pelvis,672,11m 12s,1.82
+1/14/26 13:32,1/14/26,CT Abdomen Pelvis,1533,25m 33s,1.82
+1/14/26 14:26,1/14/26,CT Chest Abdomen Pelvis,3107,51m 47s,3
+1/14/26 16:00,1/14/26,CT Abdomen Pelvis,1584,26m 24s,1.74
+1/14/26 16:31,1/14/26,CT Abdomen Pelvis,1771,29m 31s,1.82
+1/15/26 9:19,1/15/26,CT Abdomen Pelvis,2624,43m 44s,1.82
+1/15/26 10:02,1/15/26,CT Abdomen Pelvis,2454,40m 54s,1.82
+1/15/26 10:45,1/15/26,CT Abdomen Pelvis,1494,24m 54s,1.82
+1/15/26 11:29,1/15/26,CT Chest Abdomen Pelvis,2174,36m 14s,3
+1/15/26 14:16,1/15/26,CT Chest Abdomen Pelvis,2912,48m 32s,3
+1/15/26 14:51,1/15/26,CT Abdomen Pelvis,1622,27m 02s,1.82
+1/15/26 15:22,1/15/26,CT Abdomen Pelvis,1803,30m 03s,1.82
+1/15/26 16:25,1/15/26,CT Abdomen Pelvis,2139,35m 39s,2.2
+1/15/26 16:49,1/15/26,CT Abdomen Pelvis,1034,17m 14s,1.09
+1/16/26 8:56,1/16/26,CT Abdomen Pelvis,1129,18m 49s,1.82
+1/16/26 9:36,1/16/26,CT Abdomen Pelvis,2399,39m 59s,1.19
+1/16/26 11:06,1/16/26,CT Chest Abdomen Pelvis,3045,50m 45s,3
+1/19/26 8:54,1/19/26,CT Abdomen Pelvis,2446,40m 46s,1.82
+1/19/26 9:25,1/19/26,CT Abdomen Pelvis,1296,21m 36s,1.82
+1/19/26 10:29,1/19/26,CT Chest Abdomen Pelvis,2903,48m 23s,3
+1/19/26 10:48,1/19/26,CT Abdomen Pelvis,1067,17m 47s,1.74
+1/19/26 11:26,1/19/26,CT Chest Abdomen Pelvis,2198,36m 38s,3
+1/19/26 13:06,1/19/26,CT Abdomen Pelvis,116,20m 00s,1.74
+1/19/26 13:35,1/19/26,CT Chest Abdomen Pelvis,1585,26m 25s,3
+1/19/26 13:54,1/19/26,CT Abdomen Pelvis,944,15m 44s,1.82
+1/19/26 14:22,1/19/26,CT Abdomen Pelvis,1137,18m 57s,1.74
+1/19/26 15:18,1/19/26,CT Abdomen Pelvis,1485,24m 45s,1.82
+1/19/26 15:52,1/19/26,CT Abdomen Pelvis,785,13m 05s,3
+1/19/26 16:36,1/19/26,CT Chest Abdomen Pelvis,2568,42m 48s,3
+1/20/26 9:55,1/20/26,CT Abdomen Pelvis,3348,55m 48s,2.4
+1/20/26 10:15,1/20/26,CT Abdomen Pelvis,1134,18m 54s,1.82
+1/20/26 11:50,1/20/26,CT Chest Abdomen Pelvis,1416,23m 36s,3
+1/20/26 14:22,1/20/26,CT Chest Abdomen Pelvis,2293,38m 13s,3
+1/20/26 14:54,1/20/26,CT Abdomen Pelvis,1390,23m 10s,3
