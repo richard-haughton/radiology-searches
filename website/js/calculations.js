@@ -156,14 +156,22 @@ function lftHtml() {
   return `
   <div class="calc-card">
     <h2>LFT Pattern Analysis</h2>
-    <p class="calc-description">Classifies liver injury pattern using the R-factor. Requires ALT and ALP with their upper limits of normal (ULN).</p>
+    <p class="calc-description">Classifies liver injury pattern using the R-factor. Enter AST, ALT, ALP, and bilirubin values with their upper limits of normal (ULN).</p>
     <div class="calc-form">
+      <div class="calc-row">
+        <label class="form-label">AST (U/L)
+          <input id="lft-ast" type="number" class="form-input" min="0" step="1" placeholder="e.g. 55">
+        </label>
+        <label class="form-label">AST ULN (U/L)
+          <input id="lft-ast-uln" type="number" class="form-input" min="1" step="1" value="40">
+        </label>
+      </div>
       <div class="calc-row">
         <label class="form-label">ALT (U/L)
           <input id="lft-alt" type="number" class="form-input" min="0" step="1" placeholder="e.g. 180">
         </label>
         <label class="form-label">ALT ULN (U/L)
-          <input id="lft-alt-uln" type="number" class="form-input" min="1" step="1" placeholder="e.g. 40">
+          <input id="lft-alt-uln" type="number" class="form-input" min="1" step="1" value="40">
         </label>
       </div>
       <div class="calc-row">
@@ -171,7 +179,20 @@ function lftHtml() {
           <input id="lft-alp" type="number" class="form-input" min="0" step="1" placeholder="e.g. 95">
         </label>
         <label class="form-label">ALP ULN (U/L)
-          <input id="lft-alp-uln" type="number" class="form-input" min="1" step="1" placeholder="e.g. 120">
+          <input id="lft-alp-uln" type="number" class="form-input" min="1" step="1" value="120">
+        </label>
+      </div>
+      <div class="calc-row">
+        <label class="form-label">Total bilirubin (mg/dL)
+          <input id="lft-tbili" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 1.8">
+        </label>
+        <label class="form-label">Total bilirubin ULN (mg/dL)
+          <input id="lft-tbili-uln" type="number" class="form-input" min="0.1" step="0.1" value="1.2">
+        </label>
+      </div>
+      <div class="calc-row">
+        <label class="form-label">Direct bilirubin (mg/dL, optional)
+          <input id="lft-dbili" type="number" class="form-input" min="0" step="0.1" placeholder="optional">
         </label>
       </div>
     </div>
@@ -188,42 +209,110 @@ function lftHtml() {
 }
 
 function bindLft() {
-  ['lft-alt', 'lft-alt-uln', 'lft-alp', 'lft-alp-uln'].forEach(id => {
+  ['lft-ast', 'lft-ast-uln', 'lft-alt', 'lft-alt-uln', 'lft-alp', 'lft-alp-uln', 'lft-tbili', 'lft-tbili-uln', 'lft-dbili'].forEach(id => {
     document.getElementById(id).addEventListener('input', calcLft);
   });
   document.getElementById('lft-calc').addEventListener('click', calcLft);
-  bindEnterToCalculate(['lft-alt', 'lft-alt-uln', 'lft-alp', 'lft-alp-uln'], calcLft);
+  bindEnterToCalculate(['lft-ast', 'lft-ast-uln', 'lft-alt', 'lft-alt-uln', 'lft-alp', 'lft-alp-uln', 'lft-tbili', 'lft-tbili-uln', 'lft-dbili'], calcLft);
 }
 
 function calcLft() {
-  const alt    = parseFloat(document.getElementById('lft-alt').value);
-  const altUln = parseFloat(document.getElementById('lft-alt-uln').value);
-  const alp    = parseFloat(document.getElementById('lft-alp').value);
-  const alpUln = parseFloat(document.getElementById('lft-alp-uln').value);
-  const result = document.getElementById('lft-result');
+  const ast      = parseFloat(document.getElementById('lft-ast').value);
+  const astUln   = parseFloat(document.getElementById('lft-ast-uln').value);
+  const alt      = parseFloat(document.getElementById('lft-alt').value);
+  const altUln   = parseFloat(document.getElementById('lft-alt-uln').value);
+  const alp      = parseFloat(document.getElementById('lft-alp').value);
+  const alpUln   = parseFloat(document.getElementById('lft-alp-uln').value);
+  const tbili    = parseFloat(document.getElementById('lft-tbili').value);
+  const tbiliUln = parseFloat(document.getElementById('lft-tbili-uln').value);
+  const dbiliRaw = document.getElementById('lft-dbili').value.trim();
+  const dbili    = dbiliRaw !== '' ? parseFloat(dbiliRaw) : null;
+  const result   = document.getElementById('lft-result');
 
-  if ([alt, altUln, alp, alpUln].some(v => isNaN(v) || v <= 0)) { result.hidden = true; return; }
+  if ([ast, astUln, alt, altUln, alp, alpUln, tbili, tbiliUln].some(v => isNaN(v) || v <= 0)) { result.hidden = true; return; }
 
-  const r = (alt / altUln) / (alp / alpUln);
-  let pattern, cls, detail;
+  const astRatio   = ast / astUln;
+  const altRatio   = alt / altUln;
+  const alpRatio   = alp / alpUln;
+  const tbiliRatio = tbili / tbiliUln;
+  const r          = alpRatio > 0 ? altRatio / alpRatio : Infinity;
 
-  if (r >= 5) {
-    pattern = 'Hepatocellular';
-    cls = 'calc-result is-danger';
-    detail = `R = ${r.toFixed(2)} (≥5). Predominantly hepatocellular injury pattern. Consider hepatitis (viral, autoimmune, drug-induced), ischaemia, or metabolic liver disease.`;
-  } else if (r <= 2) {
-    pattern = 'Cholestatic';
-    cls = 'calc-result is-warning';
-    detail = `R = ${r.toFixed(2)} (≤2). Predominantly cholestatic pattern. Consider biliary obstruction, primary biliary cholangitis, drug-induced cholestasis.`;
-  } else {
-    pattern = 'Mixed';
+  let pattern, cls, lines = [];
+
+  if (altRatio <= 1 && alpRatio <= 1 && tbiliRatio <= 1) {
+    pattern = 'No significant LFT elevation pattern';
     cls = 'calc-result';
-    detail = `R = ${r.toFixed(2)} (2–5). Mixed hepatocellular/cholestatic pattern. Broad differential — consider cross-sectional imaging for biliary/hepatic assessment.`;
+    lines.push('AST, ALT, ALP, and bilirubin are not above the entered upper limits of normal.');
+    lines.push('Correlate with symptoms and trend over time if clinical concern remains high.');
+  } else if (altRatio <= 1 && alpRatio <= 1 && tbiliRatio > 1) {
+    pattern = 'Isolated hyperbilirubinemia';
+    cls = 'calc-result is-warning';
+    lines.push('Bilirubin is elevated without a clear hepatocellular or cholestatic enzyme pattern.');
+    if (dbili !== null && tbili > 0) {
+      const directFraction = dbili / tbili;
+      if (directFraction < 0.2) {
+        lines.push('Predominantly indirect bilirubin can suggest Gilbert syndrome or hemolysis.');
+      } else if (directFraction > 0.5) {
+        lines.push('Predominantly direct bilirubin can suggest cholestasis or impaired hepatic excretion.');
+      }
+    }
+    lines.push('If bilirubin remains elevated, correlate with hemolysis labs and biliary imaging as appropriate.');
+  } else {
+    if (altRatio > 1 && alpRatio > 1) {
+      if (r >= 5) {
+        pattern = 'Hepatocellular pattern';
+        cls = 'calc-result is-danger';
+        lines.push('ALT elevation is dominant relative to ALP, which fits a hepatocellular injury pattern.');
+        lines.push('Typical considerations include viral hepatitis, ischaemic injury, toxin or medication-related hepatitis, and autoimmune hepatitis.');
+      } else if (r <= 2) {
+        pattern = 'Cholestatic pattern';
+        cls = 'calc-result is-warning';
+        lines.push('ALP elevation is dominant relative to ALT, which fits a cholestatic pattern.');
+        lines.push('This can suggest biliary obstruction, choledocholithiasis, PSC, PBC, infiltrative disease, or cholestatic drug injury.');
+      } else {
+        pattern = 'Mixed hepatocellular/cholestatic pattern';
+        cls = 'calc-result';
+        lines.push('Both ALT and ALP are elevated with an intermediate R factor, which fits a mixed injury pattern.');
+        lines.push('This can be seen with drug-induced liver injury, biliary disease with superimposed hepatitis, or evolving obstruction.');
+      }
+    } else if (altRatio > 1) {
+      pattern = 'Predominantly hepatocellular pattern';
+      cls = 'calc-result is-danger';
+      lines.push('Transaminase elevation is greater than ALP elevation, favouring hepatocellular injury.');
+      lines.push('Consider viral, ischaemic, inflammatory, metabolic, or drug-related causes in the right clinical context.');
+    } else {
+      pattern = 'Predominantly cholestatic pattern';
+      cls = 'calc-result is-warning';
+      lines.push('ALP elevation exceeds the transaminase pattern, favouring cholestasis.');
+      lines.push('Consider biliary obstruction or hepatic cholestatic processes; if ALP is isolated, confirm hepatic source with GGT or isoenzymes.');
+    }
+
+    if (tbiliRatio > 1) {
+      lines.push('Concurrent bilirubin elevation suggests more significant cholestasis or reduced hepatic excretory function.');
+    }
   }
 
-  document.getElementById('lft-value').textContent = r.toFixed(2);
-  document.getElementById('lft-label').textContent = pattern + ' pattern';
-  document.getElementById('lft-detail').textContent = detail;
+  if (!isNaN(ast) && !isNaN(alt) && alt > 0 && (astRatio > 1 || altRatio > 1)) {
+    const astAlt = ast / alt;
+    if (astAlt >= 2) {
+      lines.push('AST:ALT ratio ≥ 2 can be seen with alcohol-associated liver injury, especially when both are elevated.');
+    } else if (astAlt > 1) {
+      lines.push('AST:ALT ratio > 1 can be seen with advanced fibrosis or cirrhosis, but is nonspecific.');
+    }
+  }
+
+  const ratioLine = [
+    `AST ${astRatio.toFixed(1)}× ULN`,
+    `ALT ${altRatio.toFixed(1)}× ULN`,
+    `ALP ${alpRatio.toFixed(1)}× ULN`,
+    `Total bilirubin ${tbiliRatio.toFixed(1)}× ULN`,
+    isFinite(r) ? `R factor ${r.toFixed(2)}` : null,
+    (!isNaN(ast) && alt > 0) ? `AST:ALT ${(ast/alt).toFixed(2)}` : null,
+  ].filter(Boolean).join(' | ');
+
+  document.getElementById('lft-value').textContent = isFinite(r) ? `R = ${r.toFixed(2)}` : '';
+  document.getElementById('lft-label').textContent = pattern;
+  document.getElementById('lft-detail').innerHTML = ratioLine + '<br><br>' + lines.join('<br>');
   result.className = cls;
   result.hidden = false;
 }
