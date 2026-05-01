@@ -15,13 +15,14 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
-var STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images'];
+var STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images', 'hyperlinks'];
 var STEP_SECTION_LABELS = {
   searchPattern: 'Search Pattern',
   notes: 'Notes',
   dontMissPathology: 'Dont Miss Pathology',
   measurements: 'Measurements',
-  images: 'Images'
+  images: 'Images',
+  hyperlinks: 'Hyperlinks'
 };
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
@@ -29,7 +30,8 @@ var _stepSectionsOpenState = {
   notes: false,
   dontMissPathology: false,
   measurements: false,
-  images: false
+  images: false,
+  hyperlinks: false
 };
 
 // ── Init ─────────────────────────────────────────────────────
@@ -289,7 +291,8 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
     notes: [],
     dontMissPathology: [],
     measurements: [],
-    images: []
+    images: [],
+    hyperlinks: []
   };
 
   STEP_SECTION_ORDER.forEach(key => {
@@ -413,6 +416,21 @@ function renderRichContent(container, richContent) {
       img.alt = 'Step image';
       img.addEventListener('click', () => openLightbox(img.src));
       container.appendChild(img);
+    } else if (chunk.type === 'link') {
+      const href = sanitiseLinkUrl(chunk.url || '');
+      const label = chunk.text || chunk.url || '';
+      if (!href || !label) return;
+      if (!currentParagraph) {
+        currentParagraph = document.createElement('p');
+      }
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.textContent = label;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.className = 'step-link';
+      currentParagraph.appendChild(anchor);
+      currentParagraph.appendChild(document.createTextNode(' '));
     } else {
       // text chunk
       if (!currentParagraph) {
@@ -762,13 +780,21 @@ function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
   return richContent.map(chunk => {
-    const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : 'text');
+    const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : 'text'));
 
     if (type === 'image') {
       return {
         type: 'image',
         format: chunk?.format || chunk?.image_format || 'png',
         data: chunk?.data || chunk?.image_data || ''
+      };
+    }
+
+    if (type === 'link') {
+      return {
+        type: 'link',
+        text: chunk?.text || chunk?.content || chunk?.url || '',
+        url: chunk?.url || ''
       };
     }
 
@@ -779,4 +805,13 @@ function normaliseRichContent(richContent) {
       color: chunk?.color || null
     };
   });
+}
+
+function sanitiseLinkUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^mailto:/i.test(raw)) return raw;
+  if (/^tel:/i.test(raw)) return raw;
+  return 'https://' + raw;
 }

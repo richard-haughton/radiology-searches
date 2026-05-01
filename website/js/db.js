@@ -5,7 +5,7 @@ function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
-var STEP_SECTION_KEYS = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images'];
+var STEP_SECTION_KEYS = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images', 'hyperlinks'];
 
 function normaliseStepSections(sections, fallbackRichContent) {
   var source = sections || {};
@@ -14,12 +14,21 @@ function normaliseStepSections(sections, fallbackRichContent) {
     var raw = source[key];
     if (!Array.isArray(raw)) raw = [];
     out[key] = raw.map(function(chunk) {
-      var type = chunk && chunk.type ? chunk.type : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : 'text');
+      var type = chunk && chunk.type
+        ? chunk.type
+        : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : 'text'));
       if (type === 'image') {
         return {
           type: 'image',
           format: (chunk && (chunk.format || chunk.image_format)) || 'png',
           data: (chunk && (chunk.data || chunk.image_data)) || ''
+        };
+      }
+      if (type === 'link') {
+        return {
+          type: 'link',
+          text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
+          url: (chunk && chunk.url) || ''
         };
       }
       return {
@@ -135,6 +144,13 @@ function cloneRichContentForStorage(richContent) {
         type: 'image',
         format: chunk.format || 'png',
         data: chunk.data || ''
+      };
+    }
+    if (chunk && chunk.type === 'link') {
+      return {
+        type: 'link',
+        text: chunk.text || chunk.url || '',
+        url: chunk.url || ''
       };
     }
     return {

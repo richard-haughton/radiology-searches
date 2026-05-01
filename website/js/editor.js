@@ -8,13 +8,14 @@ var activeStepIndex = null;
 var _allPatternsRef = [];
 var _stepAiUndoSnapshot = null;
 var activeStepSectionKey = 'searchPattern';
-var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images'];
+var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images', 'hyperlinks'];
 var EDITOR_STEP_SECTION_LABELS = {
   searchPattern: 'Search Pattern',
   notes: 'Notes',
   dontMissPathology: 'Dont Miss Pathology',
   measurements: 'Measurements',
-  images: 'Images'
+  images: 'Images',
+  hyperlinks: 'Hyperlinks'
 };
 
 function setAllPatternsRef(patterns) {
@@ -133,7 +134,8 @@ function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
     notes: [],
     dontMissPathology: [],
     measurements: [],
-    images: []
+    images: [],
+    hyperlinks: []
   };
 
   EDITOR_STEP_SECTION_ORDER.forEach(function(key) {
@@ -414,6 +416,8 @@ function renderStepEditPanel() {
           <button type="button" class="rich-tool rich-tool-red" id="tool-red" title="Red text">A</button>
           <button type="button" class="rich-tool rich-tool-green" id="tool-green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" id="tool-blue" title="Blue text">A</button>
+          <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
+          <button type="button" class="rich-tool" id="tool-unlink" title="Remove hyperlink">Unlink</button>
           <button type="button" class="rich-tool" id="tool-clear" title="Clear formatting">&#x2715; Format</button>
           <button type="button" class="rich-tool" id="tool-image" title="Paste image from clipboard">&#128247; Image</button>
           <button type="button" class="rich-tool" id="tool-move-up" title="Move step up">&#8593; Up</button>
@@ -461,6 +465,8 @@ function renderStepEditPanel() {
   document.getElementById('tool-red').addEventListener('click', () => execColor('red'));
   document.getElementById('tool-green').addEventListener('click', () => execColor('green'));
   document.getElementById('tool-blue').addEventListener('click', () => execColor('blue'));
+  document.getElementById('tool-link').addEventListener('click', addHyperlinkToSelection);
+  document.getElementById('tool-unlink').addEventListener('click', removeHyperlinkFromSelection);
   document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
   document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
   document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
@@ -607,6 +613,18 @@ function populateRichEditor(editor, richContent) {
       img.alt = 'Embedded image';
       img.style.cursor = 'pointer';
       editor.appendChild(img);
+    } else if (chunk.type === 'link') {
+      if (!currentLine) { currentLine = document.createElement('div'); }
+      var href = sanitiseEditorLinkUrl(chunk.url || '');
+      var label = chunk.text || chunk.url || '';
+      if (!href || !label) return;
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.textContent = label;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      currentLine.appendChild(anchor);
+      currentLine.appendChild(document.createTextNode(' '));
     } else {
       const text = chunk.text || '';
       if (!currentLine) { currentLine = document.createElement('div'); }
@@ -650,6 +668,12 @@ function extractRichContent(editor) {
       const match = src.match(/^data:image\/(\w+);base64,(.+)$/);
       if (match) {
         chunks.push({ type: 'image', format: match[1], data: match[2] });
+      }
+    } else if (node.nodeName === 'A') {
+      const url = node.getAttribute('href') || '';
+      const text = node.textContent || url;
+      if (url || text) {
+        chunks.push({ type: 'link', text, url: sanitiseEditorLinkUrl(url) });
       }
     } else if (node.nodeName === 'SPAN' || node.nodeName === 'B' || node.nodeName === 'STRONG') {
       const bold = node.style.fontWeight === '700' || node.nodeName === 'B' || node.nodeName === 'STRONG';
@@ -799,6 +823,56 @@ function execRemoveFormat() {
     span.removeAttribute('data-color');
     span.style.color = '';
   });
+}
+
+function addHyperlinkToSelection() {
+  const editor = document.getElementById('rich-editor');
+  if (!editor) return;
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    showToast('Select text first to add a hyperlink.', true);
+    return;
+  }
+
+  const existing = findParentAnchor(selection.anchorNode);
+  const existingHref = existing ? (existing.getAttribute('href') || '') : '';
+  const input = window.prompt('Enter hyperlink URL', existingHref || 'https://');
+  if (input === null) return;
+  const href = sanitiseEditorLinkUrl(input);
+  if (!href) {
+    showToast('Enter a valid URL.', true);
+    return;
+  }
+
+  document.execCommand('createLink', false, href);
+  selection.removeAllRanges();
+  editor.focus();
+}
+
+function removeHyperlinkFromSelection() {
+  const editor = document.getElementById('rich-editor');
+  if (!editor) return;
+  document.execCommand('unlink', false, null);
+  editor.focus();
+}
+
+function findParentAnchor(node) {
+  let current = node;
+  while (current && current !== document.body) {
+    if (current.nodeName === 'A') return current;
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function sanitiseEditorLinkUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^mailto:/i.test(raw)) return raw;
+  if (/^tel:/i.test(raw)) return raw;
+  return 'https://' + raw;
 }
 
 // ── Image paste ──────────────────────────────────────────────

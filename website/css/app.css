@@ -317,6 +317,16 @@ body {
   box-shadow: 0 2px 10px rgba(0,0,0,0.12);
   display: block;
 }
+.step-link,
+.step-content a {
+  color: #1d5fbf;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.step-link:hover,
+.step-content a:hover {
+  color: #144992;
+}
 
 .step-section {
   border: 1px solid var(--line);
@@ -702,6 +712,11 @@ body {
 }
 .rich-editor:focus { border-color: var(--accent); }
 .rich-editor img { max-width: 100%; border-radius: 6px; margin: 4px 0; display: block; cursor: pointer; }
+.rich-editor a {
+  color: #1d5fbf;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .step-move-btns { display: flex; gap: 6px; }
 
@@ -834,6 +849,9 @@ html.dark .step-ai-card             { background: #192b1e; }
 html.dark .step-section             { background: rgba(21,31,22,0.75); }
 html.dark .step-section-toggle      { background: #192b1e; }
 html.dark .step-section-tab         { background: #192b1e; }
+html.dark .step-link,
+html.dark .step-content a,
+html.dark .rich-editor a            { color: #7db4ff; }
 
 /* Editor */
 html.dark .rich-toolbar             { background: #192b1e; }
