@@ -375,6 +375,8 @@ body {
   margin: 0;
   font-style: italic;
 }
+.step-hyperlink-row { padding: 3px 0; }
+.step-hyperlink-row .step-link { display: inline-block; }
 
 /* ============================================================
    STUDY LOG TAB

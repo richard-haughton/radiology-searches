@@ -342,7 +342,11 @@ function renderStepSections(container, step) {
     panelInner.className = 'step-section-content';
     const content = sections[key] || [];
     if (content.length) {
-      renderRichContent(panelInner, content);
+      if (key === 'hyperlinks') {
+        renderHyperlinkSection(panelInner, content);
+      } else {
+        renderRichContent(panelInner, content);
+      }
     } else {
       const empty = document.createElement('p');
       empty.className = 'step-section-empty';
@@ -399,6 +403,43 @@ function isStepSectionOpen(key) {
 function rememberStepForPattern(patternId, stepIndex) {
   if (!patternId || patternId !== selectedPatternId) return;
   _preferredStepIndex = typeof stepIndex === 'number' ? stepIndex : null;
+}
+
+function renderHyperlinkSection(container, content) {
+  const chunks = normaliseRichContent(content);
+  var links = [];
+  chunks.forEach(function(chunk) {
+    if (chunk.type === 'link' && (chunk.url || chunk.text)) {
+      links.push({ url: chunk.url || chunk.text, label: chunk.text || chunk.url });
+    } else if (chunk.type === 'text' && chunk.text) {
+      // auto-linkify plain text that looks like a URL
+      var urlMatch = chunk.text.match(/https?:\/\/\S+|www\.\S+/i);
+      if (urlMatch) {
+        links.push({ url: urlMatch[0], label: chunk.text });
+      }
+    }
+  });
+  if (!links.length) {
+    var empty = document.createElement('p');
+    empty.className = 'step-section-empty';
+    empty.textContent = 'No links yet.';
+    container.appendChild(empty);
+    return;
+  }
+  links.forEach(function(link) {
+    var href = sanitiseLinkUrl(link.url || '');
+    if (!href) return;
+    var row = document.createElement('div');
+    row.className = 'step-hyperlink-row';
+    var anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.textContent = link.label || href;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.className = 'step-link';
+    row.appendChild(anchor);
+    container.appendChild(row);
+  });
 }
 
 function renderRichContent(container, richContent) {
