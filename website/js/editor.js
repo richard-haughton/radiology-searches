@@ -7,15 +7,16 @@ var editorSteps = [];
 var activeStepIndex = null;
 var _allPatternsRef = [];
 var _stepAiUndoSnapshot = null;
-var activeStepSectionKey = 'searchPattern';
-var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images', 'hyperlinks'];
+var activeStepSectionKey = 'briefSearchPattern';
+var EDITOR_STEP_SECTION_ORDER = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
 var EDITOR_STEP_SECTION_LABELS = {
-  searchPattern: 'Search Pattern',
-  notes: 'Notes',
-  dontMissPathology: 'Dont Miss Pathology',
+  briefSearchPattern: 'Brief Search Pattern',
+  dontMissPathology: 'Dont Miss / Dont Forget',
   measurements: 'Measurements',
+  hyperlinks: 'Hyperlinks',
   images: 'Images',
-  hyperlinks: 'Hyperlinks'
+  notes: 'Notes',
+  searchPattern: 'Search Pattern'
 };
 
 function setAllPatternsRef(patterns) {
@@ -60,7 +61,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
   editorUid = uid;
   editingPatternId = patternId;
   activeStepIndex = null;
-  activeStepSectionKey = 'searchPattern';
+  activeStepSectionKey = 'briefSearchPattern';
   _stepAiUndoSnapshot = null;
 
   const overlay = document.getElementById('modal-editor');
@@ -120,7 +121,7 @@ function closeEditor() {
   document.getElementById('modal-editor').style.display = 'none';
   editorSteps = [];
   activeStepIndex = null;
-  activeStepSectionKey = 'searchPattern';
+  activeStepSectionKey = 'briefSearchPattern';
   _stepAiUndoSnapshot = null;
 }
 
@@ -130,12 +131,13 @@ function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
   }
 
   var out = {
-    searchPattern: [],
-    notes: [],
+    briefSearchPattern: [],
     dontMissPathology: [],
     measurements: [],
+    hyperlinks: [],
     images: [],
-    hyperlinks: []
+    notes: [],
+    searchPattern: []
   };
 
   EDITOR_STEP_SECTION_ORDER.forEach(function(key) {
@@ -346,7 +348,7 @@ function addStep() {
     sections: normaliseStepSectionsForEditor(null, [{ type: 'text', text: '', bold: false, color: null }])
   });
   activeStepIndex = editorSteps.length - 1;
-  activeStepSectionKey = 'searchPattern';
+  activeStepSectionKey = 'briefSearchPattern';
   renderStepList();
   renderStepEditPanel();
   // scroll step list to bottom
@@ -370,7 +372,7 @@ function selectStep(idx) {
     editorSteps[idx] = resolveLinkedStepForEditor(editorSteps[idx]);
   }
   activeStepIndex = idx;
-  activeStepSectionKey = 'searchPattern';
+  activeStepSectionKey = 'briefSearchPattern';
   renderStepList();
   renderStepEditPanel();
 }

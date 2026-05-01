@@ -15,23 +15,25 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
-var STEP_SECTION_ORDER = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images', 'hyperlinks'];
+var STEP_SECTION_ORDER = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
 var STEP_SECTION_LABELS = {
-  searchPattern: 'Search Pattern',
-  notes: 'Notes',
-  dontMissPathology: 'Dont Miss Pathology',
+  briefSearchPattern: 'Brief Search Pattern',
+  dontMissPathology: 'Dont Miss / Dont Forget',
   measurements: 'Measurements',
+  hyperlinks: 'Hyperlinks',
   images: 'Images',
-  hyperlinks: 'Hyperlinks'
+  notes: 'Notes',
+  searchPattern: 'Search Pattern'
 };
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
-  searchPattern: true,
-  notes: false,
+  briefSearchPattern: true,
   dontMissPathology: false,
   measurements: false,
+  hyperlinks: false,
   images: false,
-  hyperlinks: false
+  notes: false,
+  searchPattern: false
 };
 
 // ── Init ─────────────────────────────────────────────────────
@@ -287,12 +289,13 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
 
   const fallback = normaliseRichContent(fallbackRichContent || []);
   const out = {
-    searchPattern: [],
-    notes: [],
+    briefSearchPattern: [],
     dontMissPathology: [],
     measurements: [],
+    hyperlinks: [],
     images: [],
-    hyperlinks: []
+    notes: [],
+    searchPattern: []
   };
 
   STEP_SECTION_ORDER.forEach(key => {

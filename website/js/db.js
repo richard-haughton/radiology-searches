@@ -5,7 +5,7 @@ function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
-var STEP_SECTION_KEYS = ['searchPattern', 'notes', 'dontMissPathology', 'measurements', 'images', 'hyperlinks'];
+var STEP_SECTION_KEYS = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
 
 function normaliseStepSections(sections, fallbackRichContent) {
   var source = sections || {};
