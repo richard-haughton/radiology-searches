@@ -23,10 +23,24 @@ async function callAiFunction(functionName, payload) {
     var response = await callable(payload || {});
     return response && response.data ? response.data : {};
   } catch (err) {
-    var message = (err && err.message) || 'AI request failed.';
+    var code = (err && err.code) ? String(err.code) : '';
+    var message = (err && err.message) ? String(err.message) : 'AI request failed.';
+
     if (err && err.details && typeof err.details.message === 'string') {
+      // Custom message from our backend — use it directly.
       message = err.details.message;
+    } else if (code === 'functions/not-found' || message === 'not-found') {
+      message = 'AI functions are not deployed yet. Follow the Firebase Functions setup in SETUP.md.';
+    } else if (code === 'functions/failed-precondition' || message === 'failed-precondition') {
+      message = 'AI secret not configured on the server. Run: firebase functions:secrets:set AI_PROXY_SECRET';
+    } else if (code === 'functions/unauthenticated' || message === 'unauthenticated') {
+      message = 'Sign in required to use AI features.';
+    } else if (code === 'functions/permission-denied' || message === 'permission-denied') {
+      message = 'Permission denied. Check Firestore security rules.';
+    } else if (code === 'functions/internal' || message.toLowerCase() === 'internal') {
+      message = 'AI service error. Make sure Firebase Functions are deployed and AI_PROXY_SECRET is set in Secret Manager.';
     }
+
     throw new Error(message);
   }
 }

@@ -4,12 +4,36 @@ var _settingsUid = null;
 var _settingsInitialised = false;
 var _aiProviderStatus = {};
 
+var PROVIDER_MODELS = {
+  openai: [
+    { value: 'gpt-4o',        label: 'GPT-4o' },
+    { value: 'gpt-4o-mini',   label: 'GPT-4o mini (default)' },
+    { value: 'gpt-4-turbo',   label: 'GPT-4 Turbo' },
+    { value: 'gpt-4',         label: 'GPT-4' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+  ],
+  anthropic: [
+    { value: 'claude-opus-4-5',          label: 'Claude Opus 4.5' },
+    { value: 'claude-sonnet-4-5',        label: 'Claude Sonnet 4.5' },
+    { value: 'claude-3-5-haiku-latest',  label: 'Claude Haiku 3.5 (default)' },
+    { value: 'claude-3-5-sonnet-latest', label: 'Claude Sonnet 3.5' },
+    { value: 'claude-3-opus-20240229',   label: 'Claude 3 Opus' }
+  ],
+  githubModels: [
+    { value: 'gpt-4o',                      label: 'GPT-4o' },
+    { value: 'gpt-4o-mini',                 label: 'GPT-4o mini (default)' },
+    { value: 'Meta-Llama-3.1-70B-Instruct', label: 'Meta Llama 3.1 70B' },
+    { value: 'Phi-4',                       label: 'Phi-4' },
+    { value: 'Mistral-large',               label: 'Mistral Large' }
+  ]
+};
+
 function initSettings(uid) {
   _settingsUid = uid;
   initAiClient(uid);
 
   if (_settingsInitialised) {
-    refreshAiProviderStatus();
+    updateModelDropdown(document.getElementById('ai-provider-select').value);
     return;
   }
 
@@ -21,6 +45,7 @@ function initSettings(uid) {
   var visibilityBtn = document.getElementById('btn-ai-key-visibility');
 
   providerSelect.addEventListener('change', function() {
+    updateModelDropdown(providerSelect.value);
     hydrateProviderInputs();
     renderAiProviderStatus();
   });
@@ -38,7 +63,7 @@ function initSettings(uid) {
   document.getElementById('btn-ai-save').addEventListener('click', async function() {
     var provider = providerSelect.value;
     var apiKey = keyInput.value.trim();
-    var defaultModel = modelInput.value.trim();
+    var defaultModel = modelInput ? modelInput.value : '';
 
     if (!apiKey) {
       showToast('Enter an API key before saving.', true);
@@ -63,7 +88,7 @@ function initSettings(uid) {
 
   document.getElementById('btn-ai-test').addEventListener('click', async function() {
     var provider = providerSelect.value;
-    var model = modelInput.value.trim();
+    var model = modelInput ? modelInput.value : '';
 
     setSettingsBusy(true, 'Testing provider...');
     try {
@@ -94,8 +119,16 @@ function initSettings(uid) {
     }
   });
 
+  updateModelDropdown(providerSelect.value);
   hydrateProviderInputs();
-  refreshAiProviderStatus();
+
+  // Refresh status lazily when the Settings tab is opened, not on every app init.
+  var settingsTabBtn = document.querySelector('.tab-btn[data-tab="settings"]');
+  if (settingsTabBtn) {
+    settingsTabBtn.addEventListener('click', function() {
+      refreshAiProviderStatus();
+    });
+  }
 }
 
 function setSettingsBusy(isBusy, statusText) {
@@ -123,16 +156,33 @@ async function refreshAiProviderStatus() {
   renderAiProviderStatus();
 }
 
+function updateModelDropdown(provider) {
+  var modelSelect = document.getElementById('ai-model-input');
+  if (!modelSelect) return;
+  var models = PROVIDER_MODELS[provider] || [];
+  modelSelect.innerHTML = models.map(function(m) {
+    return '<option value="' + m.value + '">' + m.label + '</option>';
+  }).join('');
+}
+
 function hydrateProviderInputs() {
   var providerSelect = document.getElementById('ai-provider-select');
-  var modelInput = document.getElementById('ai-model-input');
-  if (!providerSelect || !modelInput) return;
+  var modelSelect = document.getElementById('ai-model-input');
+  if (!providerSelect || !modelSelect) return;
 
   var provider = providerSelect.value;
   var status = _aiProviderStatus[provider] || {};
 
   if (status.defaultModel) {
-    modelInput.value = status.defaultModel;
+    // Select the saved model if it exists in the dropdown, otherwise add and select it.
+    var opt = modelSelect.querySelector('option[value="' + status.defaultModel + '"]');
+    if (!opt) {
+      opt = document.createElement('option');
+      opt.value = status.defaultModel;
+      opt.textContent = status.defaultModel;
+      modelSelect.appendChild(opt);
+    }
+    modelSelect.value = status.defaultModel;
   }
 }
 
@@ -159,8 +209,8 @@ function getSelectedAiProvider() {
 }
 
 function getSelectedAiModel() {
-  var modelInput = document.getElementById('ai-model-input');
-  return modelInput ? modelInput.value.trim() : '';
+  var modelSelect = document.getElementById('ai-model-input');
+  return modelSelect ? modelSelect.value : '';
 }
 
 function isAiProviderConfigured(provider) {
