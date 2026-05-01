@@ -175,47 +175,23 @@ All data is private to the authenticated user — enforced by the Firestore secu
 
 ---
 
-## AI Features Setup (New)
+## AI Features Setup
 
-The AI generate/rewrite features use Firebase Functions as a secure proxy.
+The AI generate/rewrite features run directly from the browser.
 
-### 1) Deploy Functions
-
-From the project root:
-
-```bash
-cd functions
-npm install
-cd ..
-firebase deploy --only functions --project searches-app
-```
-
-### 2) Configure Encryption Secret
-
-Store the encryption secret in Firebase Secret Manager:
-
-```bash
-firebase functions:secrets:set AI_PROXY_SECRET
-```
-
-Then redeploy functions.
-
-### 3) GitHub Actions Secret
-
-The new workflow `.github/workflows/deploy-functions.yml` expects:
-
-- `FIREBASE_SERVICE_ACCOUNT_SEARCHES_APP`
-
-This should contain the JSON credentials for a service account allowed to deploy Firebase Functions in your project.
-
-### 4) In-App Configuration
-
-After deployment:
+### 1) In-App Configuration
 
 1. Sign in to the app.
 2. Open the **Settings** tab.
 3. Choose provider (`OpenAI`, `Anthropic`, or `GitHub Models / Copilot`).
-4. Save API key and optionally model.
-5. Use AI actions in the Pattern Editor:
+4. Paste API key, choose model, and click **Save Key**.
+5. Click **Test Provider**.
+6. Use AI actions in the Pattern Editor:
   - New pattern: generate from selected existing patterns.
   - Edit step: rewrite or append with optional tone presets.
+
+### 2) Security Notes
+
+- API keys are stored in local browser storage for the current device/profile.
+- Clearing site data or switching browsers/devices requires re-entering keys.
+- Do not include API keys or credentials in pattern content.

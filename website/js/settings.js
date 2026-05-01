@@ -6,10 +6,10 @@ var _aiProviderStatus = {};
 
 var PROVIDER_MODELS = {
   openai: [
+    { value: 'gpt-4.5',       label: 'GPT-4.5' },
     { value: 'gpt-4o',        label: 'GPT-4o' },
     { value: 'gpt-4o-mini',   label: 'GPT-4o mini (default)' },
     { value: 'gpt-4-turbo',   label: 'GPT-4 Turbo' },
-    { value: 'gpt-4',         label: 'GPT-4' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
   ],
   anthropic: [
@@ -34,6 +34,7 @@ function initSettings(uid) {
 
   if (_settingsInitialised) {
     updateModelDropdown(document.getElementById('ai-provider-select').value);
+    refreshAiProviderStatus();
     return;
   }
 
@@ -121,8 +122,9 @@ function initSettings(uid) {
 
   updateModelDropdown(providerSelect.value);
   hydrateProviderInputs();
+  refreshAiProviderStatus();
 
-  // Refresh status lazily when the Settings tab is opened, not on every app init.
+  // Also refresh when Settings tab is opened to pick up any recent local changes.
   var settingsTabBtn = document.querySelector('.tab-btn[data-tab="settings"]');
   if (settingsTabBtn) {
     settingsTabBtn.addEventListener('click', function() {
