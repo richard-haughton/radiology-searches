@@ -582,6 +582,30 @@ body {
   border-color: var(--accent);
 }
 
+.link-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.link-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.link-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.link-row .form-input {
+  flex: 1;
+}
+.link-row .link-del-btn {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+
 /* ============================================================
    FORMS
    ============================================================ */

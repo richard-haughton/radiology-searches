@@ -410,14 +410,18 @@ function renderStepEditPanel() {
           >${EDITOR_STEP_SECTION_LABELS[key] || key}</button>
         `).join('')}
       </div>
+      ${activeStepSectionKey === 'hyperlinks' ? `
+      <div class="link-manager">
+        <div id="link-rows" class="link-rows"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-link-row">+ Add Link</button>
+      </div>
+      ` : `
       <div>
         <div class="rich-toolbar">
           <button type="button" class="rich-tool" id="tool-bold" title="Bold (Ctrl+B)"><b>B</b></button>
           <button type="button" class="rich-tool rich-tool-red" id="tool-red" title="Red text">A</button>
           <button type="button" class="rich-tool rich-tool-green" id="tool-green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" id="tool-blue" title="Blue text">A</button>
-          <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
-          <button type="button" class="rich-tool" id="tool-unlink" title="Remove hyperlink">Unlink</button>
           <button type="button" class="rich-tool" id="tool-clear" title="Clear formatting">&#x2715; Format</button>
           <button type="button" class="rich-tool" id="tool-image" title="Paste image from clipboard">&#128247; Image</button>
           <button type="button" class="rich-tool" id="tool-move-up" title="Move step up">&#8593; Up</button>
@@ -425,8 +429,10 @@ function renderStepEditPanel() {
         </div>
         <div id="rich-editor" class="rich-editor" contenteditable="true" spellcheck="true"></div>
       </div>
+      `}
     </div>
 
+    ${activeStepSectionKey === 'hyperlinks' ? '' : `
     <div class="step-ai-card">
       <label class="form-label">AI Instruction
         <textarea id="step-ai-prompt" class="form-input" rows="2" placeholder="Example: Add pitfalls and common mimics."></textarea>
@@ -446,50 +452,56 @@ function renderStepEditPanel() {
         <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-undo-step" ${_stepAiUndoSnapshot ? '' : 'disabled'}>Undo AI Change</button>
       </div>
     </div>
+    `}
   `;
 
-  // Populate rich editor from richContent
-  const editor = document.getElementById('rich-editor');
-  editor.contentEditable = 'true';
-  editor.setAttribute('spellcheck', 'true');
-  populateRichEditor(editor, getCurrentEditorSectionContent(step));
-
+  // Section tabs — always present
   Array.from(document.querySelectorAll('.step-section-tab')).forEach(btn => {
     btn.addEventListener('click', () => {
       setActiveStepSection(btn.dataset.sectionKey);
     });
   });
 
-  // Toolbar handlers
-  document.getElementById('tool-bold').addEventListener('click', () => execFormat('bold'));
-  document.getElementById('tool-red').addEventListener('click', () => execColor('red'));
-  document.getElementById('tool-green').addEventListener('click', () => execColor('green'));
-  document.getElementById('tool-blue').addEventListener('click', () => execColor('blue'));
-  document.getElementById('tool-link').addEventListener('click', addHyperlinkToSelection);
-  document.getElementById('tool-unlink').addEventListener('click', removeHyperlinkFromSelection);
-  document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
-  document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
-  document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
-  document.getElementById('tool-move-down').addEventListener('click', () => moveStep(1));
   document.getElementById('btn-generate-linked-id').addEventListener('click', generateLinkedStepId);
   document.getElementById('btn-clear-linked-id').addEventListener('click', clearLinkedStepId);
-  document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
-  document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
-  document.getElementById('btn-ai-undo-step').addEventListener('click', undoLastAiStepChange);
 
-  // Keyboard shortcut for bold
-  editor.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-      e.preventDefault();
-      execFormat('bold');
-    }
-  });
+  if (activeStepSectionKey === 'hyperlinks') {
+    renderLinkRows(step);
+    document.getElementById('btn-add-link-row').addEventListener('click', addLinkRow);
+  } else {
+    // Populate rich editor from richContent
+    const editor = document.getElementById('rich-editor');
+    editor.contentEditable = 'true';
+    editor.setAttribute('spellcheck', 'true');
+    populateRichEditor(editor, getCurrentEditorSectionContent(step));
 
-  // Handle image paste
-  editor.addEventListener('paste', handleEditorPaste);
+    // Toolbar handlers
+    document.getElementById('tool-bold').addEventListener('click', () => execFormat('bold'));
+    document.getElementById('tool-red').addEventListener('click', () => execColor('red'));
+    document.getElementById('tool-green').addEventListener('click', () => execColor('green'));
+    document.getElementById('tool-blue').addEventListener('click', () => execColor('blue'));
+    document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
+    document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
+    document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
+    document.getElementById('tool-move-down').addEventListener('click', () => moveStep(1));
+    document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
+    document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
+    document.getElementById('btn-ai-undo-step').addEventListener('click', undoLastAiStepChange);
 
-  // Focus editor
-  editor.focus();
+    // Keyboard shortcut for bold
+    editor.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault();
+        execFormat('bold');
+      }
+    });
+
+    // Handle image paste
+    editor.addEventListener('paste', handleEditorPaste);
+
+    // Focus editor
+    editor.focus();
+  }
 }
 
 function setStepAiButtonsBusy(isBusy, mode) {
@@ -706,12 +718,57 @@ function saveActiveStepToState() {
   if (activeStepIndex === null) return;
   const titleInput = document.getElementById('step-title-input');
   const linkedIdInput = document.getElementById('step-linked-id-input');
-  const editor     = document.getElementById('rich-editor');
-  if (!titleInput || !editor) return;
+  if (!titleInput) return;
 
   editorSteps[activeStepIndex].stepTitle   = titleInput.value;
   editorSteps[activeStepIndex].linkedStepId = linkedIdInput ? linkedIdInput.value.trim() : '';
-  setCurrentEditorSectionContent(editorSteps[activeStepIndex], extractRichContent(editor));
+
+  if (activeStepSectionKey === 'hyperlinks') {
+    const rows = document.querySelectorAll('.link-row');
+    const links = [];
+    rows.forEach(row => {
+      const text = ((row.querySelector('.link-text-input') || {}).value || '').trim();
+      const rawUrl = ((row.querySelector('.link-url-input') || {}).value || '').trim();
+      const url = sanitiseEditorLinkUrl(rawUrl);
+      if (url) {
+        links.push({ type: 'link', text: text || url, url });
+      }
+    });
+    setCurrentEditorSectionContent(editorSteps[activeStepIndex], links);
+  } else {
+    const editor = document.getElementById('rich-editor');
+    if (!editor) return;
+    setCurrentEditorSectionContent(editorSteps[activeStepIndex], extractRichContent(editor));
+  }
+}
+
+// ── Hyperlink row management ─────────────────────────────────
+function renderLinkRows(step) {
+  const container = document.getElementById('link-rows');
+  if (!container) return;
+  container.innerHTML = '';
+  const links = (getCurrentEditorSectionContent(step) || []).filter(c => c.type === 'link');
+  links.forEach(link => container.appendChild(createLinkRow(link.text || '', link.url || '')));
+}
+
+function createLinkRow(text, url) {
+  const row = document.createElement('div');
+  row.className = 'link-row';
+  row.innerHTML = `
+    <input type="text" class="form-input link-text-input" value="${escapeHtml(text)}" placeholder="Label (e.g. Radiopaedia)">
+    <input type="url" class="form-input link-url-input" value="${escapeHtml(url)}" placeholder="https://...">
+    <button type="button" class="btn btn-ghost btn-sm link-del-btn" aria-label="Remove link">&#x2715;</button>
+  `;
+  row.querySelector('.link-del-btn').addEventListener('click', () => row.remove());
+  return row;
+}
+
+function addLinkRow() {
+  const container = document.getElementById('link-rows');
+  if (!container) return;
+  const row = createLinkRow('', '');
+  container.appendChild(row);
+  row.querySelector('.link-url-input').focus();
 }
 
 function generateLinkedStepId() {
