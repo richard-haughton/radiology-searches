@@ -200,6 +200,8 @@ function loadPattern(id, preferredStepIndex) {
   startTimer(pattern.name);
 
   renderCurrentStep(pattern);
+  const viewer = document.getElementById('step-viewer');
+  if (viewer) viewer.focus({ preventScroll: true });
 }
 
 function getSelectedPattern() {
