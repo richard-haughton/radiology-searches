@@ -15,10 +15,11 @@ var EDITOR_STEP_SECTION_LABELS = {
   dontMissPathology: 'Dont Miss / Dont Forget',
   measurements: 'Measurements',
   hyperlinks: 'Hyperlinks',
-  images: 'Images',
+  images: 'Workflow / Decision Tree',
   notes: 'Notes',
   searchPattern: 'Search Pattern'
 };
+var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology', 'images'];
 
 function setAllPatternsRef(patterns) {
   _allPatternsRef = patterns;
@@ -177,6 +178,10 @@ function setActiveStepSection(key) {
   saveActiveStepToState();
   activeStepSectionKey = key;
   renderStepEditPanel();
+}
+
+function isSubsectionSectionKey(key) {
+  return EDITOR_SUBSECTION_SECTION_KEYS.indexOf(key) !== -1;
 }
 
 function renderCreateAiPanel() {
@@ -419,6 +424,11 @@ function renderStepEditPanel() {
         <div id="link-rows" class="link-rows"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-link-row">+ Add Link</button>
       </div>
+      ` : isSubsectionSectionKey(activeStepSectionKey) ? `
+      <div class="subsection-manager">
+        <div id="subsection-rows" class="subsection-rows"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Subsection</button>
+      </div>
       ` : `
       <div>
         <div class="rich-toolbar">
@@ -478,6 +488,9 @@ function renderStepEditPanel() {
   if (activeStepSectionKey === 'hyperlinks') {
     renderLinkRows(step);
     document.getElementById('btn-add-link-row').addEventListener('click', addLinkRow);
+  } else if (isSubsectionSectionKey(activeStepSectionKey)) {
+    renderSubsectionRows(step);
+    document.getElementById('btn-add-subsection-row').addEventListener('click', addSubsectionRow);
   } else {
     // Populate rich editor from richContent
     const editor = document.getElementById('rich-editor');
@@ -771,6 +784,22 @@ function saveActiveStepToState() {
       }
     });
     setCurrentEditorSectionContent(editorSteps[activeStepIndex], links);
+  } else if (isSubsectionSectionKey(activeStepSectionKey)) {
+    const rows = document.querySelectorAll('.subsection-row');
+    const subsections = [];
+    rows.forEach(row => {
+      const title = ((row.querySelector('.subsection-title-input') || {}).value || '').trim();
+      const contentText = ((row.querySelector('.subsection-content-input') || {}).value || '').trim();
+      if (!title && !contentText) return;
+      subsections.push({
+        type: 'subsection',
+        title: title || `Subsection ${subsections.length + 1}`,
+        content: contentText
+          ? [{ type: 'text', text: contentText, bold: false, color: null }]
+          : []
+      });
+    });
+    setCurrentEditorSectionContent(editorSteps[activeStepIndex], subsections);
   } else {
     const editor = document.getElementById('rich-editor');
     if (!editor) return;
@@ -805,6 +834,69 @@ function addLinkRow() {
   const row = createLinkRow('', '');
   container.appendChild(row);
   row.querySelector('.link-url-input').focus();
+}
+
+function getSubsectionRowsFromContent(content) {
+  const chunks = normaliseRichContent(content || []);
+  const rows = [];
+
+  chunks.forEach(chunk => {
+    if (chunk.type === 'subsection') {
+      rows.push({
+        title: (chunk.title || '').trim(),
+        content: richContentToPlainText(chunk.content || [])
+      });
+      return;
+    }
+    if (chunk.type === 'text' && (chunk.text || '').trim()) {
+      rows.push({
+        title: `Subsection ${rows.length + 1}`,
+        content: chunk.text
+      });
+      return;
+    }
+    if (chunk.type === 'image' || chunk.type === 'link') {
+      rows.push({
+        title: `Subsection ${rows.length + 1}`,
+        content: richContentToPlainText([chunk])
+      });
+    }
+  });
+
+  return rows;
+}
+
+function renderSubsectionRows(step) {
+  const container = document.getElementById('subsection-rows');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const rows = getSubsectionRowsFromContent(getCurrentEditorSectionContent(step));
+  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || '')));
+
+  if (!rows.length) {
+    container.appendChild(createSubsectionRow('', ''));
+  }
+}
+
+function createSubsectionRow(title, content) {
+  const row = document.createElement('div');
+  row.className = 'subsection-row';
+  row.innerHTML = `
+    <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Subsection title">
+    <textarea class="form-input subsection-content-input" rows="3" placeholder="Dropdown content">${escapeHtml(content)}</textarea>
+    <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
+  `;
+  row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
+  return row;
+}
+
+function addSubsectionRow() {
+  const container = document.getElementById('subsection-rows');
+  if (!container) return;
+  const row = createSubsectionRow('', '');
+  container.appendChild(row);
+  row.querySelector('.subsection-title-input').focus();
 }
 
 function generateLinkedStepId() {
@@ -1030,13 +1122,29 @@ function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
   return richContent.map(chunk => {
-    const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : 'text');
+    const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : ((chunk?.title || chunk?.name) && Array.isArray(chunk?.content) ? 'subsection' : 'text')));
 
     if (type === 'image') {
       return {
         type: 'image',
         format: chunk?.format || chunk?.image_format || 'png',
         data: chunk?.data || chunk?.image_data || ''
+      };
+    }
+
+    if (type === 'link') {
+      return {
+        type: 'link',
+        text: chunk?.text || chunk?.content || chunk?.url || '',
+        url: chunk?.url || ''
+      };
+    }
+
+    if (type === 'subsection') {
+      return {
+        type: 'subsection',
+        title: chunk?.title || chunk?.name || '',
+        content: normaliseRichContent(chunk?.content || [])
       };
     }
 

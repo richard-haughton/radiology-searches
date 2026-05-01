@@ -378,6 +378,47 @@ body {
 .step-hyperlink-row { padding: 3px 0; }
 .step-hyperlink-row .step-link { display: inline-block; }
 
+.step-subsection {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.75);
+}
+.step-subsection-toggle {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: #f7fbf8;
+  color: var(--ink-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.step-subsection-toggle[aria-expanded="true"] {
+  border-bottom-color: var(--line);
+}
+.step-subsection-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.step-subsection-chevron {
+  color: var(--ink-muted);
+}
+.step-subsection-panel {
+  padding: 8px 10px;
+}
+.step-subsection-content {
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
 /* ============================================================
    STUDY LOG TAB
    ============================================================ */
@@ -607,6 +648,38 @@ body {
   flex-shrink: 0;
   color: var(--danger);
 }
+
+.subsection-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.subsection-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.subsection-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "title del"
+    "content content";
+  gap: 6px;
+  align-items: start;
+  background: rgba(255,255,255,0.6);
+}
+.subsection-title-input { grid-area: title; }
+.subsection-content-input {
+  grid-area: content;
+  min-height: 84px;
+  resize: vertical;
+}
+.subsection-del-btn { grid-area: del; color: var(--danger); }
 
 /* ============================================================
    FORMS
@@ -874,10 +947,13 @@ html.dark .editor-ai-create-panel   { background: #192b1e; }
 html.dark .step-ai-card             { background: #192b1e; }
 html.dark .step-section             { background: rgba(21,31,22,0.75); }
 html.dark .step-section-toggle      { background: #192b1e; }
+html.dark .step-subsection          { background: rgba(21,31,22,0.82); }
+html.dark .step-subsection-toggle   { background: #1b2d21; }
 html.dark .step-section-tab         { background: #192b1e; }
 html.dark .step-link,
 html.dark .step-content a,
 html.dark .rich-editor a            { color: #7db4ff; }
+html.dark .subsection-row           { background: rgba(25,43,30,0.75); }
 
 /* Editor */
 html.dark .rich-toolbar             { background: #192b1e; }

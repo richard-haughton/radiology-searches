@@ -7,6 +7,15 @@ function _now()              { return firebase.firestore.FieldValue.serverTimest
 
 var STEP_SECTION_KEYS = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
 
+function normaliseSubsectionChunk(chunk) {
+  var content = Array.isArray(chunk && chunk.content) ? chunk.content : [];
+  return {
+    type: 'subsection',
+    title: (chunk && (chunk.title || chunk.name)) || '',
+    content: cloneRichContentForStorage(content)
+  };
+}
+
 function normaliseStepSections(sections, fallbackRichContent) {
   var source = sections || {};
   var out = {};
@@ -16,7 +25,7 @@ function normaliseStepSections(sections, fallbackRichContent) {
     out[key] = raw.map(function(chunk) {
       var type = chunk && chunk.type
         ? chunk.type
-        : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : 'text'));
+        : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
         return {
           type: 'image',
@@ -30,6 +39,9 @@ function normaliseStepSections(sections, fallbackRichContent) {
           text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
           url: (chunk && chunk.url) || ''
         };
+      }
+      if (type === 'subsection') {
+        return normaliseSubsectionChunk(chunk);
       }
       return {
         type: 'text',
@@ -77,13 +89,25 @@ function _normalisePatternDoc(doc) {
     if (!Array.isArray(rawRich)) rawRich = [];
 
     var richContent = rawRich.map(function(chunk) {
-      var type = chunk && chunk.type ? chunk.type : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : 'text');
+      var type = chunk && chunk.type
+        ? chunk.type
+        : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
         return {
           type: 'image',
           format: (chunk && (chunk.format || chunk.image_format)) || 'png',
           data: (chunk && (chunk.data || chunk.image_data)) || ''
         };
+      }
+      if (type === 'link') {
+        return {
+          type: 'link',
+          text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
+          url: (chunk && chunk.url) || ''
+        };
+      }
+      if (type === 'subsection') {
+        return normaliseSubsectionChunk(chunk);
       }
       return {
         type: 'text',
@@ -152,6 +176,9 @@ function cloneRichContentForStorage(richContent) {
         text: chunk.text || chunk.url || '',
         url: chunk.url || ''
       };
+    }
+    if (chunk && chunk.type === 'subsection') {
+      return normaliseSubsectionChunk(chunk);
     }
     return {
       type: 'text',

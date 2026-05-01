@@ -21,10 +21,11 @@ var STEP_SECTION_LABELS = {
   dontMissPathology: 'Dont Miss / Dont Forget',
   measurements: 'Measurements',
   hyperlinks: 'Hyperlinks',
-  images: 'Images',
+  images: 'Workflow / Decision Tree',
   notes: 'Notes',
   searchPattern: 'Search Pattern'
 };
+var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology', 'images'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
   briefSearchPattern: true,
@@ -347,6 +348,8 @@ function renderStepSections(container, step) {
     if (content.length) {
       if (key === 'hyperlinks') {
         renderHyperlinkSection(panelInner, content);
+      } else if (SECTION_WITH_SUBSECTIONS_KEYS.indexOf(key) !== -1) {
+        renderNestedSubsections(panelInner, content);
       } else {
         renderRichContent(panelInner, content);
       }
@@ -442,6 +445,99 @@ function renderHyperlinkSection(container, content) {
     anchor.className = 'step-link';
     row.appendChild(anchor);
     container.appendChild(row);
+  });
+}
+
+function normaliseSubsectionEntries(content) {
+  const chunks = normaliseRichContent(content);
+  const entries = [];
+
+  chunks.forEach((chunk, idx) => {
+    if (chunk.type === 'subsection') {
+      entries.push({
+        title: (chunk.title || '').trim() || `Subsection ${entries.length + 1}`,
+        content: normaliseRichContent(chunk.content || [])
+      });
+      return;
+    }
+    if (chunk.type === 'text' && (chunk.text || '').trim()) {
+      entries.push({
+        title: `Subsection ${entries.length + 1}`,
+        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
+      });
+      return;
+    }
+    if (chunk.type === 'image' || chunk.type === 'link') {
+      entries.push({
+        title: `Subsection ${entries.length + 1}`,
+        content: [chunk]
+      });
+      return;
+    }
+    if (idx === chunks.length - 1 && !entries.length) {
+      entries.push({
+        title: 'Subsection 1',
+        content: []
+      });
+    }
+  });
+
+  return entries;
+}
+
+function renderNestedSubsections(container, content) {
+  const entries = normaliseSubsectionEntries(content).filter(entry => {
+    return (entry.title || '').trim() || (entry.content || []).length;
+  });
+  if (!entries.length) {
+    const empty = document.createElement('p');
+    empty.className = 'step-section-empty';
+    empty.textContent = 'No subsections yet.';
+    container.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry, idx) => {
+    const wrap = document.createElement('section');
+    wrap.className = 'step-subsection';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'step-subsection-toggle';
+    btn.setAttribute('aria-expanded', idx === 0 ? 'true' : 'false');
+    btn.innerHTML = `
+      <span>${entry.title || `Subsection ${idx + 1}`}</span>
+      <span class="step-subsection-chevron" aria-hidden="true">${idx === 0 ? '▾' : '▸'}</span>
+    `;
+
+    const panel = document.createElement('div');
+    panel.className = 'step-subsection-panel';
+    if (idx !== 0) panel.style.display = 'none';
+
+    const panelInner = document.createElement('div');
+    panelInner.className = 'step-subsection-content';
+    if ((entry.content || []).length) {
+      renderRichContent(panelInner, entry.content);
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'step-section-empty';
+      empty.textContent = 'No content yet.';
+      panelInner.appendChild(empty);
+    }
+
+    panel.appendChild(panelInner);
+    btn.addEventListener('click', () => {
+      const isOpen = btn.getAttribute('aria-expanded') === 'true';
+      const nextOpen = !isOpen;
+      btn.setAttribute('aria-expanded', String(nextOpen));
+      panel.style.display = nextOpen ? '' : 'none';
+      const chevron = btn.querySelector('.step-subsection-chevron');
+      if (chevron) chevron.textContent = nextOpen ? '▾' : '▸';
+    });
+
+    wrap.appendChild(btn);
+    wrap.appendChild(panel);
+    container.appendChild(wrap);
   });
 }
 
@@ -824,7 +920,7 @@ function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
   return richContent.map(chunk => {
-    const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : 'text'));
+    const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : ((chunk?.title || chunk?.name) && Array.isArray(chunk?.content) ? 'subsection' : 'text')));
 
     if (type === 'image') {
       return {
@@ -839,6 +935,14 @@ function normaliseRichContent(richContent) {
         type: 'link',
         text: chunk?.text || chunk?.content || chunk?.url || '',
         url: chunk?.url || ''
+      };
+    }
+
+    if (type === 'subsection') {
+      return {
+        type: 'subsection',
+        title: chunk?.title || chunk?.name || '',
+        content: normaliseRichContent(chunk?.content || [])
       };
     }
 
