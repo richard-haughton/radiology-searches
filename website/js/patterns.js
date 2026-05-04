@@ -285,10 +285,27 @@ function getStepLinkKeyForViewer(step) {
 }
 
 function findLinkedStepData(linkedStepId) {
+  const target = String(linkedStepId || '').trim();
+  if (!target) return null;
+
   for (const pattern of allPatterns) {
     const steps = pattern.steps || [];
     for (const step of steps) {
-      if (getStepLinkKeyForViewer(step) === linkedStepId) {
+      if (String((step && step.stepId) || '').trim() === target) {
+        return {
+          stepTitle: step.stepTitle || '',
+          richContent: normaliseRichContent(step.richContent || step.rich_content || []),
+          sections: normaliseStepSectionsSafe(step.sections, step.richContent || step.rich_content || [])
+        };
+      }
+    }
+  }
+
+  // Legacy fallback for previously saved manual link keys.
+  for (const pattern of allPatterns) {
+    const steps = pattern.steps || [];
+    for (const step of steps) {
+      if (getStepLinkKeyForViewer(step) === target) {
         return {
           stepTitle: step.stepTitle || '',
           richContent: normaliseRichContent(step.richContent || step.rich_content || []),

@@ -6,9 +6,10 @@ var editingPatternId = null;
 var editorSteps = [];
 var activeStepIndex = null;
 var _allPatternsRef = [];
-var _linkStepIndexByKey = {};
+var _linkStepIndexByStepId = {};
+var _linkStepIndexByLegacyKey = {};
 var _linkStepIndexByPattern = {};
-var _linkKeyDuplicateCounts = {};
+var _linkDuplicateCounts = {};
 var _stepAiUndoSnapshot = null;
 var activeStepSectionKey = 'dontMissPathology';
 var _stepAiTargetSection = 'dontMissPathology';
@@ -21,7 +22,6 @@ var EDITOR_STEP_SECTION_LABELS = {
   searchPattern: 'Search Pattern'
 };
 var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology', 'images'];
-var LINK_TOKEN_PREFIX = 'ra-link-v1.';
 
 function makeStepId() {
   if (window.crypto && window.crypto.randomUUID) {
@@ -38,11 +38,9 @@ function ensureStepId(step) {
   return step.stepId;
 }
 
-function getStepLinkKey(step) {
+function getLegacyStepLinkKey(step) {
   if (!step) return '';
-  var linked = String(step.linkedStepId || '').trim();
-  if (linked) return linked;
-  return String(step.stepId || '').trim();
+  return String(step.linkedStepId || '').trim();
 }
 
 function cloneStepSnapshot(step) {
@@ -58,40 +56,11 @@ function cloneStepSnapshot(step) {
   };
 }
 
-function base64UrlEncode(text) {
-  var b64 = window.btoa(unescape(encodeURIComponent(text)));
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function base64UrlDecode(input) {
-  var b64 = String(input || '').replace(/-/g, '+').replace(/_/g, '/');
-  while (b64.length % 4) b64 += '=';
-  return decodeURIComponent(escape(window.atob(b64)));
-}
-
-function encodeLinkToken(payload) {
-  return LINK_TOKEN_PREFIX + base64UrlEncode(JSON.stringify(payload));
-}
-
-function parseLinkToken(rawToken) {
-  var token = String(rawToken || '').trim();
-  if (!token) throw new Error('Enter a link token first.');
-  if (token.indexOf(LINK_TOKEN_PREFIX) !== 0) {
-    throw new Error('Invalid token format.');
-  }
-  var encoded = token.slice(LINK_TOKEN_PREFIX.length);
-  var decoded = base64UrlDecode(encoded);
-  var payload = JSON.parse(decoded);
-  if (!payload || payload.v !== 1 || payload.kind !== 'searches-step-link') {
-    throw new Error('Unsupported token payload.');
-  }
-  return payload;
-}
-
 function rebuildEditorLinkIndex() {
-  _linkStepIndexByKey = {};
+  _linkStepIndexByStepId = {};
+  _linkStepIndexByLegacyKey = {};
   _linkStepIndexByPattern = {};
-  _linkKeyDuplicateCounts = {};
+  _linkDuplicateCounts = {};
 
   (_allPatternsRef || []).forEach(function(pattern) {
     var patternId = String((pattern && pattern.id) || '');
@@ -100,7 +69,8 @@ function rebuildEditorLinkIndex() {
 
     steps.forEach(function(step, idx) {
       var stepClone = cloneStepSnapshot(step);
-      var linkKey = getStepLinkKey(stepClone);
+      var stepId = String(stepClone.stepId || '').trim();
+      var legacyKey = getLegacyStepLinkKey(stepClone);
       var entry = {
         patternId: patternId,
         patternName: (pattern && pattern.name) || 'Untitled Pattern',
@@ -108,22 +78,39 @@ function rebuildEditorLinkIndex() {
         stepId: stepClone.stepId,
         stepTitle: stepClone.stepTitle || ('Step ' + (idx + 1)),
         linkedStepId: String(stepClone.linkedStepId || '').trim(),
-        linkKey: linkKey,
         richContent: normaliseRichContent(stepClone.richContent || []),
         sections: normaliseStepSectionsForEditor(stepClone.sections, stepClone.richContent || [])
       };
 
       _linkStepIndexByPattern[patternId].push(entry);
 
-      if (!linkKey) return;
-      if (!_linkStepIndexByKey[linkKey]) {
-        _linkStepIndexByKey[linkKey] = entry;
-        _linkKeyDuplicateCounts[linkKey] = 1;
-      } else {
-        _linkKeyDuplicateCounts[linkKey] = (_linkKeyDuplicateCounts[linkKey] || 1) + 1;
+      if (stepId) {
+        if (!_linkStepIndexByStepId[stepId]) {
+          _linkStepIndexByStepId[stepId] = entry;
+          _linkDuplicateCounts[stepId] = 1;
+        } else {
+          _linkDuplicateCounts[stepId] = (_linkDuplicateCounts[stepId] || 1) + 1;
+        }
+      }
+
+      if (legacyKey) {
+        if (!_linkStepIndexByLegacyKey[legacyKey]) {
+          _linkStepIndexByLegacyKey[legacyKey] = entry;
+          _linkDuplicateCounts[legacyKey] = 1;
+        } else {
+          _linkDuplicateCounts[legacyKey] = (_linkDuplicateCounts[legacyKey] || 1) + 1;
+        }
       }
     });
   });
+}
+
+function findSourceEntryForLinkedId(linkedId) {
+  var key = String(linkedId || '').trim();
+  if (!key) return null;
+  if (_linkStepIndexByStepId[key]) return _linkStepIndexByStepId[key];
+  if (_linkStepIndexByLegacyKey[key]) return _linkStepIndexByLegacyKey[key];
+  return null;
 }
 
 function setAllPatternsRef(patterns) {
@@ -163,7 +150,7 @@ function resolveLinkedStepForEditor(step) {
 }
 
 function findLinkedStepDataForEditor(linkedStepId) {
-  var entry = _linkStepIndexByKey[String(linkedStepId || '').trim()];
+  var entry = findSourceEntryForLinkedId(linkedStepId);
   if (!entry) return null;
   return {
     stepTitle: entry.stepTitle || '',
@@ -195,15 +182,41 @@ function getLinkStatusForStep(step) {
   var key = String(step.linkedStepId || '').trim();
   if (!key) return { tone: 'muted', text: 'No link set for this step.' };
 
-  var source = _linkStepIndexByKey[key];
-  if (!source) return { tone: 'error', text: 'Link key not found in your patterns. Choose a source step or paste a token.' };
+  var source = findSourceEntryForLinkedId(key);
+  if (!source) return { tone: 'error', text: 'Linked source not found. Choose another step to relink.' };
 
-  var duplicateCount = _linkKeyDuplicateCounts[key] || 1;
-  var duplicateMsg = duplicateCount > 1 ? ' Warning: multiple sources share this key.' : '';
+  var duplicateCount = _linkDuplicateCounts[key] || 1;
+  var duplicateMsg = duplicateCount > 1 ? ' Warning: multiple sources share this ID.' : '';
   return {
     tone: duplicateCount > 1 ? 'warn' : 'ok',
     text: 'Live link to ' + source.patternName + ' / ' + source.stepTitle + '.' + duplicateMsg
   };
+}
+
+function getCurrentPatternLinkedStepSummary() {
+  return editorSteps.reduce(function(out, step, idx) {
+    var linkedId = String((step && step.linkedStepId) || '').trim();
+    if (!linkedId) return out;
+    out.push({
+      index: idx,
+      title: (step && step.stepTitle) || ('Step ' + (idx + 1)),
+      source: findSourceEntryForLinkedId(linkedId)
+    });
+    return out;
+  }, []);
+}
+
+function getCurrentStepLinkedSourceLabel(step) {
+  if (!step) return 'No link set.';
+  if (step.linkMeta && step.linkMeta.mode === 'snapshot') {
+    var fromLabel = (step.linkMeta.sourcePatternName || 'shared token') + ' / ' + (step.linkMeta.sourceStepTitle || 'Snapshot step');
+    return 'Snapshot: ' + fromLabel;
+  }
+  var linkedId = String(step.linkedStepId || '').trim();
+  if (!linkedId) return 'No link set.';
+  var source = findSourceEntryForLinkedId(step.linkedStepId || '');
+  if (!source) return 'Linked source not found.';
+  return source.patternName + ' / ' + source.stepTitle;
 }
 
 // ── Open editor ──────────────────────────────────────────────
@@ -581,10 +594,12 @@ function renderStepEditPanel() {
   const step = editorSteps[activeStepIndex];
   ensureStepId(step);
   const sourceOptions = getActiveStepSourceOptions();
-  const selectedPatternForLink = (step.linkMeta && step.linkMeta.sourcePatternId)
-    ? String(step.linkMeta.sourcePatternId)
+  const currentLinkedSource = findSourceEntryForLinkedId(step.linkedStepId || '');
+  const selectedPatternForLink = currentLinkedSource
+    ? String(currentLinkedSource.patternId || '')
     : (sourceOptions.length ? sourceOptions[0].patternId : '');
   const status = getLinkStatusForStep(step);
+  const linkedSummary = getCurrentPatternLinkedStepSummary();
 
   panel.innerHTML = `
     <label class="form-label">Step Title
@@ -592,7 +607,21 @@ function renderStepEditPanel() {
     </label>
 
     <div class="step-link-card">
-      <label class="form-label">Link To Existing Step (Recommended)
+      <div class="step-link-summary">
+        <div class="step-link-summary-title">Linked Steps In This Pattern</div>
+        <div class="step-link-summary-list">
+          ${linkedSummary.length
+            ? linkedSummary.map(item => {
+                const sourceLabel = item.source
+                  ? `${escapeHtml(item.source.patternName || 'Untitled Pattern')} / ${escapeHtml(item.source.stepTitle || 'Untitled Step')}`
+                  : 'Missing source';
+                return `<div class="step-link-summary-item">Step ${item.index + 1}: ${escapeHtml(item.title)} &rarr; ${sourceLabel}</div>`;
+              }).join('')
+            : '<div class="step-link-summary-item">No linked steps in this pattern yet.</div>'}
+        </div>
+      </div>
+
+      <label class="form-label">Link This Step To Another Pattern Step
         <div class="step-link-picker-grid">
           <select id="step-link-pattern-select" class="form-input">
             ${sourceOptions.length
@@ -607,22 +636,11 @@ function renderStepEditPanel() {
           </select>
           <select id="step-link-step-select" class="form-input"></select>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-apply-step-link">Apply Link</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-linked-id">Unlink</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-step-link">Unlink</button>
         </div>
       </label>
 
-      <label class="form-label">Share Token (Cross-user snapshot)
-        <div class="step-link-picker-grid">
-          <input id="step-link-token-input" type="text" class="form-input" placeholder="Paste token to import snapshot link">
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-import-link-token">Import Token</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-link-token">Copy Token</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-generate-linked-id">Generate Key</button>
-        </div>
-      </label>
-
-      <label class="form-label">Link Key (Advanced)
-        <input id="step-linked-id-input" type="text" class="form-input" value="${escapeHtml(step.linkedStepId || '')}" placeholder="Optional legacy/manual key">
-      </label>
+      <div class="step-link-current">Current Source: ${escapeHtml(getCurrentStepLinkedSourceLabel(step))}</div>
 
       <div id="step-link-status" class="step-link-status step-link-status-${status.tone}">${escapeHtml(status.text)}</div>
     </div>
@@ -701,17 +719,9 @@ function renderStepEditPanel() {
     });
   });
 
-  document.getElementById('btn-generate-linked-id').addEventListener('click', generateLinkedStepId);
-  document.getElementById('btn-clear-linked-id').addEventListener('click', clearLinkedStepId);
+  document.getElementById('btn-clear-step-link').addEventListener('click', clearLinkedStep);
   document.getElementById('btn-apply-step-link').addEventListener('click', applyLinkFromPicker);
-  document.getElementById('btn-import-link-token').addEventListener('click', importLinkToken);
-  document.getElementById('btn-copy-link-token').addEventListener('click', copyLinkToken);
   document.getElementById('step-link-pattern-select').addEventListener('change', populateStepLinkStepSelect);
-  document.getElementById('step-linked-id-input').addEventListener('input', function() {
-    saveActiveStepToState();
-    updateStepLinkStatus();
-    renderStepList();
-  });
   populateStepLinkStepSelect();
   updateStepLinkStatus();
 
@@ -806,7 +816,7 @@ async function handleAiStepModify(mode) {
   if (String(step.linkedStepId || '').trim()) {
     const okLinked = await showConfirm(
       'Linked Step Warning',
-      'This step has a Linked Step ID. Saving changes may propagate this content to other patterns using the same link.'
+      'This step is linked. Saving changes may propagate this content to other patterns using the same source step.'
     );
     if (!okLinked) return;
   }
@@ -996,13 +1006,11 @@ function extractRichContent(editor) {
 function saveActiveStepToState() {
   if (activeStepIndex === null) return;
   const titleInput = document.getElementById('step-title-input');
-  const linkedIdInput = document.getElementById('step-linked-id-input');
   if (!titleInput) return;
 
   const activeStep = editorSteps[activeStepIndex];
   ensureStepId(activeStep);
   activeStep.stepTitle = titleInput.value;
-  activeStep.linkedStepId = linkedIdInput ? linkedIdInput.value.trim() : '';
 
   if (!activeStep.linkedStepId && activeStep.linkMeta && activeStep.linkMeta.mode === 'internal') {
     activeStep.linkMeta = null;
@@ -1149,37 +1157,15 @@ function addSubsectionRow() {
   row.querySelector('.subsection-title-input').focus();
 }
 
-function generateLinkedStepId() {
-  const input = document.getElementById('step-linked-id-input');
-  if (!input) return;
-  input.value = makeStepId();
+function clearLinkedStep() {
   if (activeStepIndex !== null && editorSteps[activeStepIndex]) {
-    const step = editorSteps[activeStepIndex];
-    step.linkMeta = {
-      mode: 'internal',
-      sourcePatternId: editingPatternId || '',
-      sourcePatternName: (document.getElementById('editor-pattern-name') || {}).value || 'Current Pattern',
-      sourceStepId: String(step.stepId || '').trim(),
-      sourceStepTitle: step.stepTitle || 'Current Step',
-      tokenVersion: 1
-    };
-  }
-  saveActiveStepToState();
-  updateStepLinkStatus();
-  renderStepList();
-}
-
-function clearLinkedStepId() {
-  const input = document.getElementById('step-linked-id-input');
-  const tokenInput = document.getElementById('step-link-token-input');
-  if (input) input.value = '';
-  if (tokenInput) tokenInput.value = '';
-  if (activeStepIndex !== null && editorSteps[activeStepIndex]) {
+    editorSteps[activeStepIndex].linkedStepId = '';
     editorSteps[activeStepIndex].linkMeta = null;
   }
   saveActiveStepToState();
   updateStepLinkStatus();
   renderStepList();
+  renderStepEditPanel();
 }
 
 function getSourceEntriesForPattern(patternId) {
@@ -1206,6 +1192,15 @@ function populateStepLinkStepSelect() {
     option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (entry.stepTitle || 'Untitled Step');
     stepSelect.appendChild(option);
   });
+
+  var activeStep = editorSteps[activeStepIndex] || null;
+  var linkedId = activeStep ? String(activeStep.linkedStepId || '').trim() : '';
+  if (!linkedId) return;
+
+  var linkedSource = findSourceEntryForLinkedId(linkedId);
+  if (linkedSource && String(linkedSource.patternId || '') === String(patternSelect.value || '')) {
+    stepSelect.value = String(linkedSource.stepId || '');
+  }
 }
 
 function updateStepLinkStatus() {
@@ -1245,13 +1240,10 @@ function applyLinkFromPicker() {
   }
 
   var targetStep = editorSteps[activeStepIndex];
-  var linkKey = String(sourceEntry.linkKey || '').trim();
-  if (!linkKey) {
-    showToast('This source step has no usable link key yet.', true);
-    return;
-  }
+  var sourceStepId = String(sourceEntry.stepId || '').trim();
+  if (!sourceStepId) return;
 
-  targetStep.linkedStepId = linkKey;
+  targetStep.linkedStepId = sourceStepId;
   targetStep.linkMeta = {
     mode: 'internal',
     sourcePatternId: sourceEntry.patternId,
@@ -1265,118 +1257,11 @@ function applyLinkFromPicker() {
   targetStep.richContent = normaliseRichContent(sourceEntry.richContent || []);
   targetStep.sections = normaliseStepSectionsForEditor(sourceEntry.sections, sourceEntry.richContent || []);
 
-  var linkedIdInput = document.getElementById('step-linked-id-input');
-  if (linkedIdInput) linkedIdInput.value = linkKey;
-
   saveActiveStepToState();
   updateStepLinkStatus();
   renderStepList();
   renderStepEditPanel();
   showToast('Linked step applied.');
-}
-
-function makeLinkTokenPayload(step) {
-  var safeStep = cloneStepSnapshot(step);
-  var linkKey = getStepLinkKey(safeStep);
-  return {
-    v: 1,
-    kind: 'searches-step-link',
-    source: {
-      linkedStepId: String(safeStep.linkedStepId || '').trim() || linkKey,
-      stepId: String(safeStep.stepId || '').trim(),
-      patternId: editingPatternId || '',
-      patternName: ((document.getElementById('editor-pattern-name') || {}).value || '').trim() || 'Unnamed Pattern',
-      stepTitle: safeStep.stepTitle || ''
-    },
-    snapshot: {
-      stepTitle: safeStep.stepTitle || '',
-      stepId: safeStep.stepId,
-      linkedStepId: String(safeStep.linkedStepId || '').trim() || linkKey,
-      richContent: normaliseRichContent(safeStep.richContent || []),
-      sections: normaliseStepSectionsForEditor(safeStep.sections, safeStep.richContent || [])
-    }
-  };
-}
-
-async function copyLinkToken() {
-  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
-  saveActiveStepToState();
-  var step = editorSteps[activeStepIndex];
-  var token = encodeLinkToken(makeLinkTokenPayload(step));
-
-  try {
-    await navigator.clipboard.writeText(token);
-    showToast('Link token copied.');
-  } catch (err) {
-    var tokenInput = document.getElementById('step-link-token-input');
-    if (tokenInput) {
-      tokenInput.value = token;
-      tokenInput.select();
-    }
-    showToast('Clipboard blocked. Token is shown for manual copy.', true);
-  }
-}
-
-function importLinkToken() {
-  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
-  var tokenInput = document.getElementById('step-link-token-input');
-  var rawToken = tokenInput ? tokenInput.value : '';
-
-  try {
-    var payload = parseLinkToken(rawToken);
-    var targetStep = editorSteps[activeStepIndex];
-    var source = payload.source || {};
-    var snapshot = payload.snapshot || {};
-    var key = String(source.linkedStepId || source.stepId || '').trim();
-
-    var sourceEntry = key ? (_linkStepIndexByKey[key] || findSourceEntryByStepId(source.stepId || '')) : null;
-    if (sourceEntry) {
-      targetStep.linkedStepId = String(sourceEntry.linkKey || key).trim();
-      targetStep.linkMeta = {
-        mode: 'internal',
-        sourcePatternId: sourceEntry.patternId,
-        sourcePatternName: sourceEntry.patternName,
-        sourceStepId: sourceEntry.stepId,
-        sourceStepTitle: sourceEntry.stepTitle,
-        tokenVersion: 1
-      };
-      targetStep.stepTitle = sourceEntry.stepTitle || targetStep.stepTitle;
-      targetStep.richContent = normaliseRichContent(sourceEntry.richContent || []);
-      targetStep.sections = normaliseStepSectionsForEditor(sourceEntry.sections, sourceEntry.richContent || []);
-      showToast('Token resolved to a live link in this account.');
-    } else {
-      targetStep.linkedStepId = '';
-      targetStep.linkMeta = {
-        mode: 'snapshot',
-        sourcePatternId: String(source.patternId || '').trim(),
-        sourcePatternName: String(source.patternName || '').trim(),
-        sourceStepId: String(source.stepId || '').trim(),
-        sourceStepTitle: String(source.stepTitle || '').trim(),
-        tokenVersion: 1,
-        snapshot: {
-          stepTitle: snapshot.stepTitle || targetStep.stepTitle || '',
-          stepId: String(snapshot.stepId || '').trim() || makeStepId(),
-          linkedStepId: String(snapshot.linkedStepId || '').trim(),
-          richContent: normaliseRichContent(snapshot.richContent || []),
-          sections: normaliseStepSectionsForEditor(snapshot.sections, snapshot.richContent || [])
-        }
-      };
-      targetStep.stepTitle = targetStep.linkMeta.snapshot.stepTitle || targetStep.stepTitle;
-      targetStep.richContent = normaliseRichContent(targetStep.linkMeta.snapshot.richContent || []);
-      targetStep.sections = normaliseStepSectionsForEditor(targetStep.linkMeta.snapshot.sections, targetStep.linkMeta.snapshot.richContent || []);
-      showToast('Snapshot link imported from token.');
-    }
-
-    var linkedIdInput = document.getElementById('step-linked-id-input');
-    if (linkedIdInput) linkedIdInput.value = targetStep.linkedStepId || '';
-
-    saveActiveStepToState();
-    updateStepLinkStatus();
-    renderStepList();
-    renderStepEditPanel();
-  } catch (err) {
-    showToast(err.message || 'Invalid link token.', true);
-  }
 }
 
 // ── Move step ────────────────────────────────────────────────

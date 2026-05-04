@@ -827,11 +827,42 @@ body {
   gap: 10px;
 }
 
+.step-link-summary {
+  border: 1px solid #d6e5dc;
+  border-radius: var(--radius-sm);
+  background: #eef7f1;
+  padding: 8px 10px;
+}
+
+.step-link-summary-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #24583f;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.step-link-summary-list {
+  display: grid;
+  gap: 4px;
+}
+
+.step-link-summary-item {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
 .step-link-picker-grid {
   display: grid;
   grid-template-columns: 1fr 1fr auto auto;
   gap: 8px;
   align-items: center;
+}
+
+.step-link-current {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
 }
 
 .step-link-status {
@@ -1048,6 +1079,9 @@ html.dark .step-subsection          { background: rgba(21,31,22,0.82); }
 html.dark .step-subsection-toggle   { background: #1b2d21; }
 html.dark .step-section-tab         { background: #192b1e; }
 html.dark .step-link-card           { background: #192b1e; border-color: #2a4035; }
+html.dark .step-link-summary        { background: #1a2e22; border-color: #2f4b3b; }
+html.dark .step-link-summary-title  { color: #8ad7af; }
+html.dark .step-link-summary-item   { color: var(--ink-soft); }
 html.dark .step-link-status-muted   { background: #1a2d21; border-color: #2a4035; color: var(--ink-muted); }
 html.dark .step-link-status-ok      { background: #1a2f23; border-color: #2e5a44; color: #84d0ab; }
 html.dark .step-link-status-warn    { background: #342615; border-color: #5f4326; color: #f3bf77; }

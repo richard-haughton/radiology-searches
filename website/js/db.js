@@ -37,10 +37,13 @@ function _normaliseLinkMeta(raw) {
   return out;
 }
 
-function _getStepLinkKey(step) {
-  var linked = String((step && step.linkedStepId) || '').trim();
-  if (linked) return linked;
-  return String((step && step.stepId) || '').trim();
+function _getStepLinkIds(step) {
+  var ids = [];
+  var primary = String((step && step.stepId) || '').trim();
+  var legacy = String((step && step.linkedStepId) || '').trim();
+  if (primary) ids.push(primary);
+  if (legacy && ids.indexOf(legacy) === -1) ids.push(legacy);
+  return ids;
 }
 
 function normaliseSubsectionChunk(chunk) {
@@ -234,15 +237,20 @@ function _areStepsEquivalent(a, b) {
 function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
   var linkedMap = {};
   (sourceSteps || []).forEach(function(step) {
-    var linkKey = _getStepLinkKey(step);
-    if (!linkKey) return;
-    linkedMap[linkKey] = {
+    var linkIds = _getStepLinkIds(step);
+    if (!linkIds.length) return;
+
+    var sharedData = {
       stepTitle: (step && step.stepTitle) || '',
       stepId: String((step && step.stepId) || '').trim() || _makeStepId(),
       richContent: cloneRichContentForStorage(step && step.richContent),
       sections: cloneStepSectionsForStorage(step && step.sections, step && step.richContent),
       linkMeta: _normaliseLinkMeta(step && step.linkMeta)
     };
+
+    linkIds.forEach(function(linkId) {
+      linkedMap[linkId] = sharedData;
+    });
   });
 
   var linkedIds = Object.keys(linkedMap);
