@@ -12,7 +12,7 @@ var _linkKeyDuplicateCounts = {};
 var _stepAiUndoSnapshot = null;
 var activeStepSectionKey = 'dontMissPathology';
 var _stepAiTargetSection = 'dontMissPathology';
-var EDITOR_STEP_SECTION_ORDER = ['dontMissPathology', 'measurements', 'hyperlinks', 'images', 'searchPattern'];
+var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
 var EDITOR_STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
   measurements: 'Measurements',
@@ -267,6 +267,37 @@ function initEditor() {
 
   document.getElementById('btn-editor-save').addEventListener('click', savePattern);
   document.getElementById('btn-add-step').addEventListener('click', addStep);
+
+  // ── Step-list resize handle ──────────────────────────────────
+  (function() {
+    const resizer  = document.getElementById('step-list-resizer');
+    const panel    = document.getElementById('step-list-panel');
+    const STORAGE_KEY = 'editor-step-list-width';
+    let startX, startWidth;
+
+    const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+    if (saved && saved >= 140) panel.style.width = saved + 'px';
+
+    resizer.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      startX     = e.clientX;
+      startWidth = panel.offsetWidth;
+      resizer.classList.add('resizing');
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup',   onMouseUp);
+    });
+
+    function onMouseMove(e) {
+      const newWidth = Math.max(140, startWidth + (e.clientX - startX));
+      panel.style.width = newWidth + 'px';
+    }
+    function onMouseUp() {
+      resizer.classList.remove('resizing');
+      localStorage.setItem(STORAGE_KEY, parseInt(panel.style.width, 10));
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup',   onMouseUp);
+    }
+  })();
 }
 
 function closeEditor() {

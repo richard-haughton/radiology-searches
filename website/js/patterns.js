@@ -15,7 +15,7 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
-var STEP_SECTION_ORDER = ['dontMissPathology', 'measurements', 'hyperlinks', 'images', 'searchPattern'];
+var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
 var STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
   measurements: 'Measurements',
@@ -26,11 +26,11 @@ var STEP_SECTION_LABELS = {
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology', 'images'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
-  dontMissPathology: true,
+  searchPattern: true,
+  dontMissPathology: false,
   measurements: false,
   hyperlinks: false,
-  images: false,
-  searchPattern: false
+  images: false
 };
 
 // ── Init ─────────────────────────────────────────────────────

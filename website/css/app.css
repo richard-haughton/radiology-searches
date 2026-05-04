@@ -757,10 +757,20 @@ body {
   flex: 1; display: flex; overflow: hidden; min-height: 0;
 }
 .step-list-panel {
-  width: 240px; flex-shrink: 0;
-  border-right: 1px solid var(--line);
+  width: 240px; flex-shrink: 0; min-width: 140px; max-width: 60%;
+  border-right: none;
   display: flex; flex-direction: column;
   overflow: hidden;
+}
+.step-list-resizer {
+  width: 6px; flex-shrink: 0; cursor: col-resize;
+  background: var(--line);
+  transition: background 0.15s;
+  position: relative;
+}
+.step-list-resizer:hover,
+.step-list-resizer.resizing {
+  background: var(--accent);
 }
 .step-list-header {
   display: flex; align-items: center; justify-content: space-between;

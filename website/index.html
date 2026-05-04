@@ -96,9 +96,6 @@
             <button id="btn-new-pattern" class="btn btn-accent btn-block">+ New Pattern</button>
             <button id="btn-edit-pattern" class="btn btn-ghost btn-block" disabled>Edit Pattern</button>
             <button id="btn-delete-pattern" class="btn btn-danger btn-block" disabled>Delete Pattern</button>
-            <hr class="sidebar-divider">
-            <button id="btn-import-h5" class="btn btn-ghost btn-block">Import .h5 File</button>
-            <input id="import-h5-input" type="file" accept=".h5,.hdf5" style="display:none">
           </div>
         </aside>
 
@@ -225,6 +222,12 @@
 
           <p class="settings-note">Security note: this browser-direct mode stores AI keys in local browser storage for this device/profile only. Do not share keys in pattern content.</p>
         </div>
+        <div class="settings-card">
+          <h2>Data Import</h2>
+          <p class="settings-subtitle">Import search patterns from an HDF5 file exported by the desktop app.</p>
+          <button id="btn-import-h5" class="btn btn-ghost">Import .h5 File</button>
+          <input id="import-h5-input" type="file" accept=".h5,.hdf5" style="display:none">
+        </div>
       </div>
     </section>
   </div>
@@ -268,13 +271,14 @@
       </div>
       <div id="editor-ai-create-panel" class="editor-ai-create-panel" style="display:none"></div>
       <div class="editor-body">
-        <div class="step-list-panel">
+        <div class="step-list-panel" id="step-list-panel">
           <div class="step-list-header">
             <span>Steps</span>
             <button id="btn-add-step" class="btn btn-accent btn-sm">+ Add Step</button>
           </div>
           <ul id="editor-step-list" class="editor-step-list"></ul>
         </div>
+        <div id="step-list-resizer" class="step-list-resizer" title="Drag to resize"></div>
         <div class="step-edit-panel" id="step-edit-panel">
           <p class="step-edit-empty">Select a step to edit, or add a new step.</p>
         </div>
