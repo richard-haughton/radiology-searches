@@ -1146,6 +1146,12 @@ function getSourceEntriesForPattern(patternId) {
   return (_linkStepIndexByPattern[selected] || []).slice();
 }
 
+function getDisplayTitleWithoutLeadingNumbering(title) {
+  var raw = String(title || '').trim();
+  if (!raw) return '';
+  return raw.replace(/^\d+\s*[.)\-:]\s*/, '').trim();
+}
+
 function populateStepLinkStepSelect() {
   var patternSelect = document.getElementById('step-link-pattern-select');
   var stepSelect = document.getElementById('step-link-step-select');
@@ -1161,7 +1167,8 @@ function populateStepLinkStepSelect() {
   entries.forEach(function(entry) {
     var option = document.createElement('option');
     option.value = String(entry.stepId || '');
-    option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (entry.stepTitle || 'Untitled Step');
+    var cleanedTitle = getDisplayTitleWithoutLeadingNumbering(entry.stepTitle || '');
+    option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (cleanedTitle || entry.stepTitle || 'Untitled Step');
     stepSelect.appendChild(option);
   });
 
