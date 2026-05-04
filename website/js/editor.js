@@ -193,19 +193,6 @@ function getLinkStatusForStep(step) {
   };
 }
 
-function getCurrentPatternLinkedStepSummary() {
-  return editorSteps.reduce(function(out, step, idx) {
-    var linkedId = String((step && step.linkedStepId) || '').trim();
-    if (!linkedId) return out;
-    out.push({
-      index: idx,
-      title: (step && step.stepTitle) || ('Step ' + (idx + 1)),
-      source: findSourceEntryForLinkedId(linkedId)
-    });
-    return out;
-  }, []);
-}
-
 function getCurrentStepLinkedSourceLabel(step) {
   if (!step) return 'No link set.';
   if (step.linkMeta && step.linkMeta.mode === 'snapshot') {
@@ -599,7 +586,6 @@ function renderStepEditPanel() {
     ? String(currentLinkedSource.patternId || '')
     : (sourceOptions.length ? sourceOptions[0].patternId : '');
   const status = getLinkStatusForStep(step);
-  const linkedSummary = getCurrentPatternLinkedStepSummary();
 
   panel.innerHTML = `
     <label class="form-label">Step Title
@@ -607,20 +593,6 @@ function renderStepEditPanel() {
     </label>
 
     <div class="step-link-card">
-      <div class="step-link-summary">
-        <div class="step-link-summary-title">Linked Steps In This Pattern</div>
-        <div class="step-link-summary-list">
-          ${linkedSummary.length
-            ? linkedSummary.map(item => {
-                const sourceLabel = item.source
-                  ? `${escapeHtml(item.source.patternName || 'Untitled Pattern')} / ${escapeHtml(item.source.stepTitle || 'Untitled Step')}`
-                  : 'Missing source';
-                return `<div class="step-link-summary-item">Step ${item.index + 1}: ${escapeHtml(item.title)} &rarr; ${sourceLabel}</div>`;
-              }).join('')
-            : '<div class="step-link-summary-item">No linked steps in this pattern yet.</div>'}
-        </div>
-      </div>
-
       <label class="form-label">Link This Step To Another Pattern Step
         <div class="step-link-picker-grid">
           <select id="step-link-pattern-select" class="form-input">
