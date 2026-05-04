@@ -783,6 +783,20 @@ body {
 .editor-step-item .step-drag-handle { cursor: grab; color: var(--ink-muted); opacity: 0.6; }
 .editor-step-item .step-item-num { font-size: 0.75rem; opacity: 0.5; min-width: 18px; }
 .editor-step-item .step-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-linked-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0f5e47;
+  background: #dff2ea;
+}
+.step-linked-badge.snapshot {
+  color: #8a4f0b;
+  background: #fbe7cf;
+}
 .editor-step-item .step-item-del {
   opacity: 0; font-size: 0.85rem; color: var(--danger); background: none; border: none; cursor: pointer;
   transition: opacity var(--transition);
@@ -792,6 +806,54 @@ body {
 
 .step-edit-panel { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
 .step-edit-empty { color: var(--ink-muted); font-size: 0.9rem; padding: 20px 0; text-align: center; }
+
+.step-link-card {
+  border: 1px solid var(--line);
+  background: #f7fbf8;
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.step-link-picker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.step-link-status {
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.step-link-status-ok {
+  background: #e5f5eb;
+  color: #0f5e47;
+  border: 1px solid #b9dfc8;
+}
+
+.step-link-status-warn {
+  background: #fff5e9;
+  color: #8a4f0b;
+  border: 1px solid #f3d5ab;
+}
+
+.step-link-status-error {
+  background: #fdecea;
+  color: #8f2d22;
+  border: 1px solid #f3c0b8;
+}
+
+.step-link-status-muted {
+  background: #f0f4f1;
+  color: var(--ink-muted);
+  border: 1px solid #d3ddd5;
+}
 
 .editor-footer {
   padding: 14px 20px; border-top: 1px solid var(--line);
@@ -856,6 +918,12 @@ body {
   transition: background var(--transition);
 }
 .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+
+@media (max-width: 980px) {
+  .step-link-picker-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ============================================================
    TOAST
@@ -969,6 +1037,11 @@ html.dark .step-section-toggle      { background: #192b1e; }
 html.dark .step-subsection          { background: rgba(21,31,22,0.82); }
 html.dark .step-subsection-toggle   { background: #1b2d21; }
 html.dark .step-section-tab         { background: #192b1e; }
+html.dark .step-link-card           { background: #192b1e; border-color: #2a4035; }
+html.dark .step-link-status-muted   { background: #1a2d21; border-color: #2a4035; color: var(--ink-muted); }
+html.dark .step-link-status-ok      { background: #1a2f23; border-color: #2e5a44; color: #84d0ab; }
+html.dark .step-link-status-warn    { background: #342615; border-color: #5f4326; color: #f3bf77; }
+html.dark .step-link-status-error   { background: #3a1f1c; border-color: #6f3731; color: #ef9f95; }
 html.dark .step-link,
 html.dark .step-content a,
 html.dark .rich-editor a            { color: #7db4ff; }

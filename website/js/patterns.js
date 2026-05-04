@@ -15,25 +15,21 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
-var STEP_SECTION_ORDER = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
+var STEP_SECTION_ORDER = ['dontMissPathology', 'measurements', 'hyperlinks', 'images', 'searchPattern'];
 var STEP_SECTION_LABELS = {
-  briefSearchPattern: 'Brief Search Pattern',
-  dontMissPathology: 'Dont Miss / Dont Forget',
+  dontMissPathology: 'Findings',
   measurements: 'Measurements',
   hyperlinks: 'Hyperlinks',
   images: 'Workflow / Decision Tree',
-  notes: 'Notes',
   searchPattern: 'Search Pattern'
 };
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology', 'images'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
-  briefSearchPattern: true,
-  dontMissPathology: false,
+  dontMissPathology: true,
   measurements: false,
   hyperlinks: false,
   images: false,
-  notes: false,
   searchPattern: false
 };
 
@@ -255,6 +251,18 @@ function renderCurrentStep(pattern) {
 function resolveLinkedStep(step) {
   if (!step) return step;
 
+  if (step.linkMeta && step.linkMeta.mode === 'snapshot' && step.linkMeta.snapshot) {
+    const snapshot = step.linkMeta.snapshot;
+    return {
+      stepTitle: snapshot.stepTitle || step.stepTitle || '',
+      richContent: normaliseRichContent(snapshot.richContent || []),
+      linkedStepId: String(step.linkedStepId || '').trim(),
+      stepId: String(step.stepId || '').trim() || String(snapshot.stepId || '').trim(),
+      linkMeta: step.linkMeta,
+      sections: normaliseStepSectionsSafe(snapshot.sections, snapshot.richContent || [])
+    };
+  }
+
   const linkedStepId = String(step.linkedStepId || '').trim();
   if (!linkedStepId) return normaliseStepForViewer(step);
 
@@ -269,11 +277,18 @@ function resolveLinkedStep(step) {
   };
 }
 
+function getStepLinkKeyForViewer(step) {
+  if (!step) return '';
+  const linked = String(step.linkedStepId || '').trim();
+  if (linked) return linked;
+  return String(step.stepId || '').trim();
+}
+
 function findLinkedStepData(linkedStepId) {
   for (const pattern of allPatterns) {
     const steps = pattern.steps || [];
     for (const step of steps) {
-      if (String(step.linkedStepId || '').trim() === linkedStepId) {
+      if (getStepLinkKeyForViewer(step) === linkedStepId) {
         return {
           stepTitle: step.stepTitle || '',
           richContent: normaliseRichContent(step.richContent || step.rich_content || []),
@@ -292,12 +307,10 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
 
   const fallback = normaliseRichContent(fallbackRichContent || []);
   const out = {
-    briefSearchPattern: [],
     dontMissPathology: [],
     measurements: [],
     hyperlinks: [],
     images: [],
-    notes: [],
     searchPattern: []
   };
 
@@ -318,7 +331,9 @@ function normaliseStepForViewer(step) {
   return {
     stepTitle: (step && step.stepTitle) || '',
     richContent: fallback,
+    stepId: (step && step.stepId) || '',
     linkedStepId: (step && step.linkedStepId) || '',
+    linkMeta: (step && step.linkMeta) || null,
     sections: normaliseStepSectionsSafe(step && step.sections, fallback)
   };
 }
@@ -735,6 +750,9 @@ function handleKeydown(e) {
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
     e.preventDefault();
     navigateStep(-1);
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    navigateStep(e.shiftKey ? -1 : 1);
   } else if (e.key === ' ') {
     e.preventDefault();
     openRecordModal();

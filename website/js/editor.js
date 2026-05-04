@@ -6,27 +6,145 @@ var editingPatternId = null;
 var editorSteps = [];
 var activeStepIndex = null;
 var _allPatternsRef = [];
+var _linkStepIndexByKey = {};
+var _linkStepIndexByPattern = {};
+var _linkKeyDuplicateCounts = {};
 var _stepAiUndoSnapshot = null;
-var activeStepSectionKey = 'briefSearchPattern';
-var _stepAiTargetSection = 'briefSearchPattern';
-var EDITOR_STEP_SECTION_ORDER = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
+var activeStepSectionKey = 'dontMissPathology';
+var _stepAiTargetSection = 'dontMissPathology';
+var EDITOR_STEP_SECTION_ORDER = ['dontMissPathology', 'measurements', 'hyperlinks', 'images', 'searchPattern'];
 var EDITOR_STEP_SECTION_LABELS = {
-  briefSearchPattern: 'Brief Search Pattern',
-  dontMissPathology: 'Dont Miss / Dont Forget',
+  dontMissPathology: 'Findings',
   measurements: 'Measurements',
   hyperlinks: 'Hyperlinks',
   images: 'Workflow / Decision Tree',
-  notes: 'Notes',
   searchPattern: 'Search Pattern'
 };
 var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology', 'images'];
+var LINK_TOKEN_PREFIX = 'ra-link-v1.';
+
+function makeStepId() {
+  if (window.crypto && window.crypto.randomUUID) {
+    return 'step_' + window.crypto.randomUUID().replace(/-/g, '');
+  }
+  return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+function ensureStepId(step) {
+  if (!step) return '';
+  var current = String(step.stepId || '').trim();
+  if (current) return current;
+  step.stepId = makeStepId();
+  return step.stepId;
+}
+
+function getStepLinkKey(step) {
+  if (!step) return '';
+  var linked = String(step.linkedStepId || '').trim();
+  if (linked) return linked;
+  return String(step.stepId || '').trim();
+}
+
+function cloneStepSnapshot(step) {
+  var safeStep = step || {};
+  var fallback = normaliseRichContent(safeStep.richContent || safeStep.rich_content || []);
+  var sections = normaliseStepSectionsForEditor(safeStep.sections, fallback);
+  return {
+    stepTitle: safeStep.stepTitle || '',
+    stepId: String(safeStep.stepId || '').trim() || makeStepId(),
+    linkedStepId: String(safeStep.linkedStepId || '').trim(),
+    richContent: normaliseRichContent(fallback),
+    sections: JSON.parse(JSON.stringify(sections))
+  };
+}
+
+function base64UrlEncode(text) {
+  var b64 = window.btoa(unescape(encodeURIComponent(text)));
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(input) {
+  var b64 = String(input || '').replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  return decodeURIComponent(escape(window.atob(b64)));
+}
+
+function encodeLinkToken(payload) {
+  return LINK_TOKEN_PREFIX + base64UrlEncode(JSON.stringify(payload));
+}
+
+function parseLinkToken(rawToken) {
+  var token = String(rawToken || '').trim();
+  if (!token) throw new Error('Enter a link token first.');
+  if (token.indexOf(LINK_TOKEN_PREFIX) !== 0) {
+    throw new Error('Invalid token format.');
+  }
+  var encoded = token.slice(LINK_TOKEN_PREFIX.length);
+  var decoded = base64UrlDecode(encoded);
+  var payload = JSON.parse(decoded);
+  if (!payload || payload.v !== 1 || payload.kind !== 'searches-step-link') {
+    throw new Error('Unsupported token payload.');
+  }
+  return payload;
+}
+
+function rebuildEditorLinkIndex() {
+  _linkStepIndexByKey = {};
+  _linkStepIndexByPattern = {};
+  _linkKeyDuplicateCounts = {};
+
+  (_allPatternsRef || []).forEach(function(pattern) {
+    var patternId = String((pattern && pattern.id) || '');
+    _linkStepIndexByPattern[patternId] = [];
+    var steps = (pattern && pattern.steps) || [];
+
+    steps.forEach(function(step, idx) {
+      var stepClone = cloneStepSnapshot(step);
+      var linkKey = getStepLinkKey(stepClone);
+      var entry = {
+        patternId: patternId,
+        patternName: (pattern && pattern.name) || 'Untitled Pattern',
+        stepIndex: idx,
+        stepId: stepClone.stepId,
+        stepTitle: stepClone.stepTitle || ('Step ' + (idx + 1)),
+        linkedStepId: String(stepClone.linkedStepId || '').trim(),
+        linkKey: linkKey,
+        richContent: normaliseRichContent(stepClone.richContent || []),
+        sections: normaliseStepSectionsForEditor(stepClone.sections, stepClone.richContent || [])
+      };
+
+      _linkStepIndexByPattern[patternId].push(entry);
+
+      if (!linkKey) return;
+      if (!_linkStepIndexByKey[linkKey]) {
+        _linkStepIndexByKey[linkKey] = entry;
+        _linkKeyDuplicateCounts[linkKey] = 1;
+      } else {
+        _linkKeyDuplicateCounts[linkKey] = (_linkKeyDuplicateCounts[linkKey] || 1) + 1;
+      }
+    });
+  });
+}
 
 function setAllPatternsRef(patterns) {
   _allPatternsRef = patterns;
+  rebuildEditorLinkIndex();
 }
 
 function resolveLinkedStepForEditor(step) {
   if (!step) return step;
+
+  if (step.linkMeta && step.linkMeta.mode === 'snapshot' && step.linkMeta.snapshot) {
+    var snapshot = step.linkMeta.snapshot;
+    return {
+      stepTitle: snapshot.stepTitle || step.stepTitle || '',
+      stepId: String(step.stepId || '').trim() || String(snapshot.stepId || '').trim() || makeStepId(),
+      linkedStepId: String(step.linkedStepId || '').trim(),
+      linkMeta: step.linkMeta,
+      richContent: normaliseRichContent(snapshot.richContent || []),
+      sections: normaliseStepSectionsForEditor(snapshot.sections, snapshot.richContent || [])
+    };
+  }
 
   const linkedStepId = String(step.linkedStepId || '').trim();
   if (!linkedStepId) return step;
@@ -36,26 +154,56 @@ function resolveLinkedStepForEditor(step) {
 
   return {
     stepTitle: shared.stepTitle,
+    stepId: String(step.stepId || '').trim() || makeStepId(),
     linkedStepId,
+    linkMeta: step.linkMeta || null,
     richContent: shared.richContent,
     sections: shared.sections
   };
 }
 
 function findLinkedStepDataForEditor(linkedStepId) {
-  for (const pattern of _allPatternsRef) {
-    const steps = pattern.steps || [];
-    for (const step of steps) {
-      if (String(step.linkedStepId || '').trim() === linkedStepId) {
-        return {
-          stepTitle: step.stepTitle || '',
-          richContent: normaliseRichContent(step.richContent || step.rich_content || []),
-          sections: normaliseStepSectionsForEditor(step.sections, step.richContent || step.rich_content || [])
-        };
-      }
-    }
+  var entry = _linkStepIndexByKey[String(linkedStepId || '').trim()];
+  if (!entry) return null;
+  return {
+    stepTitle: entry.stepTitle || '',
+    richContent: normaliseRichContent(entry.richContent || []),
+    sections: normaliseStepSectionsForEditor(entry.sections, entry.richContent || [])
+  };
+}
+
+function getActiveStepSourceOptions() {
+  if (activeStepIndex === null) return [];
+  return (_allPatternsRef || []).reduce(function(out, pattern) {
+    if (!pattern || !pattern.id) return out;
+    if (editingPatternId && String(pattern.id) === String(editingPatternId)) return out;
+    var steps = _linkStepIndexByPattern[String(pattern.id)] || [];
+    steps.forEach(function(entry) {
+      out.push(entry);
+    });
+    return out;
+  }, []);
+}
+
+function getLinkStatusForStep(step) {
+  if (!step) return { tone: 'muted', text: 'No link set for this step.' };
+  if (step.linkMeta && step.linkMeta.mode === 'snapshot') {
+    var fromLabel = (step.linkMeta.sourcePatternName || 'shared token') + ' / ' + (step.linkMeta.sourceStepTitle || 'Snapshot step');
+    return { tone: 'warn', text: 'Snapshot link from ' + fromLabel + '. This does not auto-sync.' };
   }
-  return null;
+
+  var key = String(step.linkedStepId || '').trim();
+  if (!key) return { tone: 'muted', text: 'No link set for this step.' };
+
+  var source = _linkStepIndexByKey[key];
+  if (!source) return { tone: 'error', text: 'Link key not found in your patterns. Choose a source step or paste a token.' };
+
+  var duplicateCount = _linkKeyDuplicateCounts[key] || 1;
+  var duplicateMsg = duplicateCount > 1 ? ' Warning: multiple sources share this key.' : '';
+  return {
+    tone: duplicateCount > 1 ? 'warn' : 'ok',
+    text: 'Live link to ' + source.patternName + ' / ' + source.stepTitle + '.' + duplicateMsg
+  };
 }
 
 // ── Open editor ──────────────────────────────────────────────
@@ -63,7 +211,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
   editorUid = uid;
   editingPatternId = patternId;
   activeStepIndex = null;
-  activeStepSectionKey = 'briefSearchPattern';
+  activeStepSectionKey = 'dontMissPathology';
   _stepAiUndoSnapshot = null;
 
   const overlay = document.getElementById('modal-editor');
@@ -79,7 +227,9 @@ function openEditor(uid, patternId, preferredStepIndex) {
     editorSteps = JSON.parse(JSON.stringify(pattern.steps || []))
       .map(step => ({
         stepTitle: step.stepTitle || '',
+        stepId: ensureStepId(step),
         linkedStepId: step.linkedStepId || '',
+        linkMeta: step.linkMeta || null,
         richContent: normaliseRichContent(step.richContent || step.rich_content || []),
         sections: normaliseStepSectionsForEditor(step.sections, step.richContent || step.rich_content || [])
       }));
@@ -123,8 +273,8 @@ function closeEditor() {
   document.getElementById('modal-editor').style.display = 'none';
   editorSteps = [];
   activeStepIndex = null;
-  activeStepSectionKey = 'briefSearchPattern';
-  _stepAiTargetSection = 'briefSearchPattern';
+  activeStepSectionKey = 'dontMissPathology';
+  _stepAiTargetSection = 'dontMissPathology';
   _stepAiUndoSnapshot = null;
 }
 
@@ -134,12 +284,10 @@ function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
   }
 
   var out = {
-    briefSearchPattern: [],
     dontMissPathology: [],
     measurements: [],
     hyperlinks: [],
     images: [],
-    notes: [],
     searchPattern: []
   };
 
@@ -325,7 +473,11 @@ function renderStepList() {
     li.className = 'editor-step-item' + (i === activeStepIndex ? ' active' : '');
     li.dataset.index = i;
 
-    const linkedBadge = String(step.linkedStepId || '').trim() ? ' <span class="step-linked-badge">[Linked]</span>' : '';
+    const hasLiveLink = Boolean(String(step.linkedStepId || '').trim());
+    const isSnapshot = Boolean(step.linkMeta && step.linkMeta.mode === 'snapshot');
+    const linkedBadge = isSnapshot
+      ? ' <span class="step-linked-badge snapshot">[Snapshot]</span>'
+      : (hasLiveLink ? ' <span class="step-linked-badge">[Linked]</span>' : '');
     li.innerHTML = `
       <span class="step-item-num">${i + 1}.</span>
       <span class="step-item-title">${escapeHtml(step.stepTitle || 'Untitled step')}${linkedBadge}</span>
@@ -350,12 +502,14 @@ function addStep() {
 
   editorSteps.push({
     stepTitle: `Step ${editorSteps.length + 1}`,
+    stepId: makeStepId(),
     richContent: [{ type: 'text', text: '', bold: false, color: null }],
     linkedStepId: '',
+    linkMeta: null,
     sections: normaliseStepSectionsForEditor(null, [{ type: 'text', text: '', bold: false, color: null }])
   });
   activeStepIndex = editorSteps.length - 1;
-  activeStepSectionKey = 'briefSearchPattern';
+  activeStepSectionKey = 'dontMissPathology';
   renderStepList();
   renderStepEditPanel();
   // scroll step list to bottom
@@ -379,7 +533,7 @@ function selectStep(idx) {
     editorSteps[idx] = resolveLinkedStepForEditor(editorSteps[idx]);
   }
   activeStepIndex = idx;
-  activeStepSectionKey = 'briefSearchPattern';
+  activeStepSectionKey = 'dontMissPathology';
   renderStepList();
   renderStepEditPanel();
 }
@@ -394,19 +548,53 @@ function renderStepEditPanel() {
   }
 
   const step = editorSteps[activeStepIndex];
+  ensureStepId(step);
+  const sourceOptions = getActiveStepSourceOptions();
+  const selectedPatternForLink = (step.linkMeta && step.linkMeta.sourcePatternId)
+    ? String(step.linkMeta.sourcePatternId)
+    : (sourceOptions.length ? sourceOptions[0].patternId : '');
+  const status = getLinkStatusForStep(step);
 
   panel.innerHTML = `
     <label class="form-label">Step Title
       <input id="step-title-input" type="text" class="form-input" value="${escapeHtml(step.stepTitle || '')}" placeholder="e.g. 1. Aorta">
     </label>
 
-    <label class="form-label">Linked Step ID
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input id="step-linked-id-input" type="text" class="form-input" value="${escapeHtml(step.linkedStepId || '')}" placeholder="Optional shared step ID">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-generate-linked-id">Generate</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-linked-id">Clear</button>
-      </div>
-    </label>
+    <div class="step-link-card">
+      <label class="form-label">Link To Existing Step (Recommended)
+        <div class="step-link-picker-grid">
+          <select id="step-link-pattern-select" class="form-input">
+            ${sourceOptions.length
+              ? sourceOptions
+                .map(item => item.patternId)
+                .filter((value, index, array) => array.indexOf(value) === index)
+                .map(patternId => {
+                  const pattern = _allPatternsRef.find(p => String(p.id) === String(patternId));
+                  return `<option value="${escapeHtml(String(patternId))}" ${String(patternId) === String(selectedPatternForLink) ? 'selected' : ''}>${escapeHtml((pattern && pattern.name) || 'Untitled Pattern')}</option>`;
+                }).join('')
+              : '<option value="">No source patterns available</option>'}
+          </select>
+          <select id="step-link-step-select" class="form-input"></select>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-apply-step-link">Apply Link</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-linked-id">Unlink</button>
+        </div>
+      </label>
+
+      <label class="form-label">Share Token (Cross-user snapshot)
+        <div class="step-link-picker-grid">
+          <input id="step-link-token-input" type="text" class="form-input" placeholder="Paste token to import snapshot link">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-import-link-token">Import Token</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-link-token">Copy Token</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-generate-linked-id">Generate Key</button>
+        </div>
+      </label>
+
+      <label class="form-label">Link Key (Advanced)
+        <input id="step-linked-id-input" type="text" class="form-input" value="${escapeHtml(step.linkedStepId || '')}" placeholder="Optional legacy/manual key">
+      </label>
+
+      <div id="step-link-status" class="step-link-status step-link-status-${status.tone}">${escapeHtml(status.text)}</div>
+    </div>
 
     <div class="form-label">
       <span>Section Content</span>
@@ -484,6 +672,17 @@ function renderStepEditPanel() {
 
   document.getElementById('btn-generate-linked-id').addEventListener('click', generateLinkedStepId);
   document.getElementById('btn-clear-linked-id').addEventListener('click', clearLinkedStepId);
+  document.getElementById('btn-apply-step-link').addEventListener('click', applyLinkFromPicker);
+  document.getElementById('btn-import-link-token').addEventListener('click', importLinkToken);
+  document.getElementById('btn-copy-link-token').addEventListener('click', copyLinkToken);
+  document.getElementById('step-link-pattern-select').addEventListener('change', populateStepLinkStepSelect);
+  document.getElementById('step-linked-id-input').addEventListener('input', function() {
+    saveActiveStepToState();
+    updateStepLinkStatus();
+    renderStepList();
+  });
+  populateStepLinkStepSelect();
+  updateStepLinkStatus();
 
   if (activeStepSectionKey === 'hyperlinks') {
     renderLinkRows(step);
@@ -566,7 +765,7 @@ async function handleAiStepModify(mode) {
   const step = editorSteps[activeStepIndex];
   const taskPrompt = ((document.getElementById('step-ai-prompt') || {}).value || '').trim();
   const tonePreset = (document.getElementById('step-ai-tone') || {}).value || 'concise';
-  const aiTargetSection = _stepAiTargetSection || 'briefSearchPattern';
+  const aiTargetSection = _stepAiTargetSection || 'dontMissPathology';
 
   if (!taskPrompt && mode === 'append') {
     showToast('Add an AI instruction before append.', true);
@@ -769,8 +968,14 @@ function saveActiveStepToState() {
   const linkedIdInput = document.getElementById('step-linked-id-input');
   if (!titleInput) return;
 
-  editorSteps[activeStepIndex].stepTitle   = titleInput.value;
-  editorSteps[activeStepIndex].linkedStepId = linkedIdInput ? linkedIdInput.value.trim() : '';
+  const activeStep = editorSteps[activeStepIndex];
+  ensureStepId(activeStep);
+  activeStep.stepTitle = titleInput.value;
+  activeStep.linkedStepId = linkedIdInput ? linkedIdInput.value.trim() : '';
+
+  if (!activeStep.linkedStepId && activeStep.linkMeta && activeStep.linkMeta.mode === 'internal') {
+    activeStep.linkMeta = null;
+  }
 
   if (activeStepSectionKey === 'hyperlinks') {
     const rows = document.querySelectorAll('.link-row');
@@ -783,7 +988,7 @@ function saveActiveStepToState() {
         links.push({ type: 'link', text: text || url, url });
       }
     });
-    setCurrentEditorSectionContent(editorSteps[activeStepIndex], links);
+    setCurrentEditorSectionContent(activeStep, links);
   } else if (isSubsectionSectionKey(activeStepSectionKey)) {
     const rows = document.querySelectorAll('.subsection-row');
     const subsections = [];
@@ -798,11 +1003,11 @@ function saveActiveStepToState() {
         content: content
       });
     });
-    setCurrentEditorSectionContent(editorSteps[activeStepIndex], subsections);
+    setCurrentEditorSectionContent(activeStep, subsections);
   } else {
     const editor = document.getElementById('rich-editor');
     if (!editor) return;
-    setCurrentEditorSectionContent(editorSteps[activeStepIndex], extractRichContent(editor));
+    setCurrentEditorSectionContent(activeStep, extractRichContent(editor));
   }
 }
 
@@ -916,21 +1121,231 @@ function addSubsectionRow() {
 function generateLinkedStepId() {
   const input = document.getElementById('step-linked-id-input');
   if (!input) return;
-  if (window.crypto && window.crypto.randomUUID) {
-    input.value = window.crypto.randomUUID().replace(/-/g, '');
-  } else {
-    input.value = Math.random().toString(16).slice(2) + Date.now().toString(16);
+  input.value = makeStepId();
+  if (activeStepIndex !== null && editorSteps[activeStepIndex]) {
+    const step = editorSteps[activeStepIndex];
+    step.linkMeta = {
+      mode: 'internal',
+      sourcePatternId: editingPatternId || '',
+      sourcePatternName: (document.getElementById('editor-pattern-name') || {}).value || 'Current Pattern',
+      sourceStepId: String(step.stepId || '').trim(),
+      sourceStepTitle: step.stepTitle || 'Current Step',
+      tokenVersion: 1
+    };
   }
   saveActiveStepToState();
+  updateStepLinkStatus();
   renderStepList();
 }
 
 function clearLinkedStepId() {
   const input = document.getElementById('step-linked-id-input');
-  if (!input) return;
-  input.value = '';
+  const tokenInput = document.getElementById('step-link-token-input');
+  if (input) input.value = '';
+  if (tokenInput) tokenInput.value = '';
+  if (activeStepIndex !== null && editorSteps[activeStepIndex]) {
+    editorSteps[activeStepIndex].linkMeta = null;
+  }
   saveActiveStepToState();
+  updateStepLinkStatus();
   renderStepList();
+}
+
+function getSourceEntriesForPattern(patternId) {
+  var selected = String(patternId || '');
+  if (!selected) return [];
+  return (_linkStepIndexByPattern[selected] || []).slice();
+}
+
+function populateStepLinkStepSelect() {
+  var patternSelect = document.getElementById('step-link-pattern-select');
+  var stepSelect = document.getElementById('step-link-step-select');
+  if (!patternSelect || !stepSelect) return;
+
+  var entries = getSourceEntriesForPattern(patternSelect.value);
+  stepSelect.innerHTML = '';
+  if (!entries.length) {
+    stepSelect.innerHTML = '<option value="">No source steps found</option>';
+    return;
+  }
+
+  entries.forEach(function(entry) {
+    var option = document.createElement('option');
+    option.value = String(entry.stepId || '');
+    option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (entry.stepTitle || 'Untitled Step');
+    stepSelect.appendChild(option);
+  });
+}
+
+function updateStepLinkStatus() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  var statusEl = document.getElementById('step-link-status');
+  if (!statusEl) return;
+  var status = getLinkStatusForStep(editorSteps[activeStepIndex]);
+  statusEl.className = 'step-link-status step-link-status-' + status.tone;
+  statusEl.textContent = status.text;
+}
+
+function findSourceEntryByStepId(stepId) {
+  var target = String(stepId || '').trim();
+  if (!target) return null;
+  var patterns = Object.keys(_linkStepIndexByPattern || {});
+  for (var i = 0; i < patterns.length; i++) {
+    var entries = _linkStepIndexByPattern[patterns[i]] || [];
+    for (var j = 0; j < entries.length; j++) {
+      if (String(entries[j].stepId || '').trim() === target) {
+        return entries[j];
+      }
+    }
+  }
+  return null;
+}
+
+function applyLinkFromPicker() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  var patternSelect = document.getElementById('step-link-pattern-select');
+  var stepSelect = document.getElementById('step-link-step-select');
+  if (!patternSelect || !stepSelect) return;
+
+  var sourceEntry = findSourceEntryByStepId(stepSelect.value);
+  if (!sourceEntry) {
+    showToast('Select a valid source step first.', true);
+    return;
+  }
+
+  var targetStep = editorSteps[activeStepIndex];
+  var linkKey = String(sourceEntry.linkKey || '').trim();
+  if (!linkKey) {
+    showToast('This source step has no usable link key yet.', true);
+    return;
+  }
+
+  targetStep.linkedStepId = linkKey;
+  targetStep.linkMeta = {
+    mode: 'internal',
+    sourcePatternId: sourceEntry.patternId,
+    sourcePatternName: sourceEntry.patternName,
+    sourceStepId: sourceEntry.stepId,
+    sourceStepTitle: sourceEntry.stepTitle,
+    tokenVersion: 1
+  };
+
+  targetStep.stepTitle = sourceEntry.stepTitle || targetStep.stepTitle;
+  targetStep.richContent = normaliseRichContent(sourceEntry.richContent || []);
+  targetStep.sections = normaliseStepSectionsForEditor(sourceEntry.sections, sourceEntry.richContent || []);
+
+  var linkedIdInput = document.getElementById('step-linked-id-input');
+  if (linkedIdInput) linkedIdInput.value = linkKey;
+
+  saveActiveStepToState();
+  updateStepLinkStatus();
+  renderStepList();
+  renderStepEditPanel();
+  showToast('Linked step applied.');
+}
+
+function makeLinkTokenPayload(step) {
+  var safeStep = cloneStepSnapshot(step);
+  var linkKey = getStepLinkKey(safeStep);
+  return {
+    v: 1,
+    kind: 'searches-step-link',
+    source: {
+      linkedStepId: String(safeStep.linkedStepId || '').trim() || linkKey,
+      stepId: String(safeStep.stepId || '').trim(),
+      patternId: editingPatternId || '',
+      patternName: ((document.getElementById('editor-pattern-name') || {}).value || '').trim() || 'Unnamed Pattern',
+      stepTitle: safeStep.stepTitle || ''
+    },
+    snapshot: {
+      stepTitle: safeStep.stepTitle || '',
+      stepId: safeStep.stepId,
+      linkedStepId: String(safeStep.linkedStepId || '').trim() || linkKey,
+      richContent: normaliseRichContent(safeStep.richContent || []),
+      sections: normaliseStepSectionsForEditor(safeStep.sections, safeStep.richContent || [])
+    }
+  };
+}
+
+async function copyLinkToken() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  saveActiveStepToState();
+  var step = editorSteps[activeStepIndex];
+  var token = encodeLinkToken(makeLinkTokenPayload(step));
+
+  try {
+    await navigator.clipboard.writeText(token);
+    showToast('Link token copied.');
+  } catch (err) {
+    var tokenInput = document.getElementById('step-link-token-input');
+    if (tokenInput) {
+      tokenInput.value = token;
+      tokenInput.select();
+    }
+    showToast('Clipboard blocked. Token is shown for manual copy.', true);
+  }
+}
+
+function importLinkToken() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  var tokenInput = document.getElementById('step-link-token-input');
+  var rawToken = tokenInput ? tokenInput.value : '';
+
+  try {
+    var payload = parseLinkToken(rawToken);
+    var targetStep = editorSteps[activeStepIndex];
+    var source = payload.source || {};
+    var snapshot = payload.snapshot || {};
+    var key = String(source.linkedStepId || source.stepId || '').trim();
+
+    var sourceEntry = key ? (_linkStepIndexByKey[key] || findSourceEntryByStepId(source.stepId || '')) : null;
+    if (sourceEntry) {
+      targetStep.linkedStepId = String(sourceEntry.linkKey || key).trim();
+      targetStep.linkMeta = {
+        mode: 'internal',
+        sourcePatternId: sourceEntry.patternId,
+        sourcePatternName: sourceEntry.patternName,
+        sourceStepId: sourceEntry.stepId,
+        sourceStepTitle: sourceEntry.stepTitle,
+        tokenVersion: 1
+      };
+      targetStep.stepTitle = sourceEntry.stepTitle || targetStep.stepTitle;
+      targetStep.richContent = normaliseRichContent(sourceEntry.richContent || []);
+      targetStep.sections = normaliseStepSectionsForEditor(sourceEntry.sections, sourceEntry.richContent || []);
+      showToast('Token resolved to a live link in this account.');
+    } else {
+      targetStep.linkedStepId = '';
+      targetStep.linkMeta = {
+        mode: 'snapshot',
+        sourcePatternId: String(source.patternId || '').trim(),
+        sourcePatternName: String(source.patternName || '').trim(),
+        sourceStepId: String(source.stepId || '').trim(),
+        sourceStepTitle: String(source.stepTitle || '').trim(),
+        tokenVersion: 1,
+        snapshot: {
+          stepTitle: snapshot.stepTitle || targetStep.stepTitle || '',
+          stepId: String(snapshot.stepId || '').trim() || makeStepId(),
+          linkedStepId: String(snapshot.linkedStepId || '').trim(),
+          richContent: normaliseRichContent(snapshot.richContent || []),
+          sections: normaliseStepSectionsForEditor(snapshot.sections, snapshot.richContent || [])
+        }
+      };
+      targetStep.stepTitle = targetStep.linkMeta.snapshot.stepTitle || targetStep.stepTitle;
+      targetStep.richContent = normaliseRichContent(targetStep.linkMeta.snapshot.richContent || []);
+      targetStep.sections = normaliseStepSectionsForEditor(targetStep.linkMeta.snapshot.sections, targetStep.linkMeta.snapshot.richContent || []);
+      showToast('Snapshot link imported from token.');
+    }
+
+    var linkedIdInput = document.getElementById('step-linked-id-input');
+    if (linkedIdInput) linkedIdInput.value = targetStep.linkedStepId || '';
+
+    saveActiveStepToState();
+    updateStepLinkStatus();
+    renderStepList();
+    renderStepEditPanel();
+  } catch (err) {
+    showToast(err.message || 'Invalid link token.', true);
+  }
 }
 
 // ── Move step ────────────────────────────────────────────────
@@ -1006,6 +1421,7 @@ async function prepareStepsForStorage(steps) {
   const out = [];
 
   for (const step of srcSteps) {
+    ensureStepId(step);
     const normalizedSections = normaliseStepSectionsForEditor(step && step.sections, step && step.richContent || []);
     const compressedSections = {};
 
@@ -1020,7 +1436,9 @@ async function prepareStepsForStorage(steps) {
 
     out.push({
       stepTitle: (step && step.stepTitle) || '',
+      stepId: String((step && step.stepId) || '').trim() || makeStepId(),
       linkedStepId: (step && step.linkedStepId) || '',
+      linkMeta: (step && step.linkMeta) ? JSON.parse(JSON.stringify(step.linkMeta)) : null,
       sections: compressedSections,
       richContent: legacySearchPattern
     });

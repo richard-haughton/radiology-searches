@@ -5,7 +5,43 @@ function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
-var STEP_SECTION_KEYS = ['briefSearchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images', 'notes', 'searchPattern'];
+var STEP_SECTION_KEYS = ['dontMissPathology', 'measurements', 'hyperlinks', 'images', 'searchPattern'];
+
+function _makeStepId() {
+  return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+function _normaliseLinkMeta(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  var mode = raw.mode === 'snapshot' ? 'snapshot' : 'internal';
+  var out = {
+    mode: mode,
+    sourcePatternId: String(raw.sourcePatternId || '').trim(),
+    sourcePatternName: String(raw.sourcePatternName || '').trim(),
+    sourceStepId: String(raw.sourceStepId || '').trim(),
+    sourceStepTitle: String(raw.sourceStepTitle || '').trim(),
+    tokenVersion: Number(raw.tokenVersion || 1)
+  };
+
+  if (mode === 'snapshot' && raw.snapshot && typeof raw.snapshot === 'object') {
+    var snapshotRich = Array.isArray(raw.snapshot.richContent) ? raw.snapshot.richContent : [];
+    out.snapshot = {
+      stepTitle: String(raw.snapshot.stepTitle || '').trim(),
+      stepId: String(raw.snapshot.stepId || '').trim() || _makeStepId(),
+      linkedStepId: String(raw.snapshot.linkedStepId || '').trim(),
+      richContent: cloneRichContentForStorage(snapshotRich),
+      sections: cloneStepSectionsForStorage(raw.snapshot.sections, snapshotRich)
+    };
+  }
+
+  return out;
+}
+
+function _getStepLinkKey(step) {
+  var linked = String((step && step.linkedStepId) || '').trim();
+  if (linked) return linked;
+  return String((step && step.stepId) || '').trim();
+}
 
 function normaliseSubsectionChunk(chunk) {
   var content = Array.isArray(chunk && chunk.content) ? chunk.content : [];
@@ -119,8 +155,10 @@ function _normalisePatternDoc(doc) {
 
     return {
       stepTitle: (step && (step.stepTitle || step.step_title)) || '',
+      stepId: String((step && (step.stepId || step.step_id)) || '').trim() || _makeStepId(),
       richContent: richContent,
       linkedStepId: (step && (step.linkedStepId || step.linked_step_id)) || '',
+      linkMeta: _normaliseLinkMeta(step && (step.linkMeta || step.link_meta)),
       sections: normaliseStepSections(step && step.sections, richContent)
     };
   });
@@ -196,12 +234,14 @@ function _areStepsEquivalent(a, b) {
 function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
   var linkedMap = {};
   (sourceSteps || []).forEach(function(step) {
-    var linkedStepId = String((step && step.linkedStepId) || '').trim();
-    if (!linkedStepId) return;
-    linkedMap[linkedStepId] = {
+    var linkKey = _getStepLinkKey(step);
+    if (!linkKey) return;
+    linkedMap[linkKey] = {
       stepTitle: (step && step.stepTitle) || '',
+      stepId: String((step && step.stepId) || '').trim() || _makeStepId(),
       richContent: cloneRichContentForStorage(step && step.richContent),
-      sections: cloneStepSectionsForStorage(step && step.sections, step && step.richContent)
+      sections: cloneStepSectionsForStorage(step && step.sections, step && step.richContent),
+      linkMeta: _normaliseLinkMeta(step && step.linkMeta)
     };
   });
 
@@ -215,14 +255,16 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
     var steps = pattern.steps || [];
     var changed = false;
     var newSteps = steps.map(function(step) {
-      var linkedStepId = String((step && step.linkedStepId) || '').trim();
-      if (!linkedStepId || !linkedMap[linkedStepId]) return step;
+      var currentKey = String((step && step.linkedStepId) || '').trim();
+      if (!currentKey || !linkedMap[currentKey]) return step;
 
-      var shared = linkedMap[linkedStepId];
+      var shared = linkedMap[currentKey];
       var nextStep = Object.assign({}, step, {
         stepTitle: shared.stepTitle,
+        stepId: String((step && step.stepId) || '').trim() || shared.stepId || _makeStepId(),
         richContent: cloneRichContentForStorage(shared.richContent),
-        linkedStepId: linkedStepId,
+        linkedStepId: String((step && step.linkedStepId) || '').trim() || currentKey,
+        linkMeta: _normaliseLinkMeta(step && step.linkMeta) || shared.linkMeta || null,
         sections: cloneStepSectionsForStorage(shared.sections, shared.richContent)
       });
 
