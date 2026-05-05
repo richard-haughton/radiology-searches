@@ -834,6 +834,29 @@ body {
   align-items: center;
 }
 
+.step-link-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.step-link-row {
+  display: grid;
+  gap: 4px;
+}
+
+.step-link-row-label {
+  font-size: 0.76rem;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.step-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .step-link-current {
   font-size: 0.82rem;
   color: var(--ink-soft);

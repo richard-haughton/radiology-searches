@@ -660,22 +660,32 @@ function renderStepEditPanel() {
 
     <div class="step-link-card">
       <label class="form-label">Link This Step To Another Pattern Step
-        <div class="step-link-picker-grid">
-          <select id="step-link-pattern-select" class="form-input">
-            ${sourceOptions.length
-              ? sourceOptions
-                .map(item => item.patternId)
-                .filter((value, index, array) => array.indexOf(value) === index)
-                .map(patternId => {
-                  const pattern = _allPatternsRef.find(p => String(p.id) === String(patternId));
-                  return `<option value="${escapeHtml(String(patternId))}" ${String(patternId) === String(selectedPatternForLink) ? 'selected' : ''}>${escapeHtml((pattern && pattern.name) || 'Untitled Pattern')}</option>`;
-                }).join('')
-              : '<option value="">No source patterns available</option>'}
-          </select>
-          <select id="step-link-step-select" class="form-input"></select>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-pull-step-link">Pull Selected → Current</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-push-step-link">Push Current → Selected</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-step-link">Unlink</button>
+        <div class="step-link-stack">
+          <div class="step-link-row">
+            <div class="step-link-row-label">Study / Pattern</div>
+            <select id="step-link-pattern-select" class="form-input">
+              ${sourceOptions.length
+                ? sourceOptions
+                  .map(item => item.patternId)
+                  .filter((value, index, array) => array.indexOf(value) === index)
+                  .map(patternId => {
+                    const pattern = _allPatternsRef.find(p => String(p.id) === String(patternId));
+                    return `<option value="${escapeHtml(String(patternId))}" ${String(patternId) === String(selectedPatternForLink) ? 'selected' : ''}>${escapeHtml((pattern && pattern.name) || 'Untitled Pattern')}</option>`;
+                  }).join('')
+                : '<option value="">No source patterns available</option>'}
+            </select>
+          </div>
+
+          <div class="step-link-row">
+            <div class="step-link-row-label">Step</div>
+            <select id="step-link-step-select" class="form-input"></select>
+          </div>
+
+          <div class="step-link-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-pull-step-link">Pull Selected → Current</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-push-step-link">Push Current → Selected</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-step-link">Unlink</button>
+          </div>
         </div>
       </label>
 
