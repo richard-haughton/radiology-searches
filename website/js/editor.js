@@ -592,31 +592,6 @@ function renderStepEditPanel() {
       <input id="step-title-input" type="text" class="form-input" value="${escapeHtml(step.stepTitle || '')}" placeholder="e.g. 1. Aorta">
     </label>
 
-    <div class="step-link-card">
-      <label class="form-label">Link This Step To Another Pattern Step
-        <div class="step-link-picker-grid">
-          <select id="step-link-pattern-select" class="form-input">
-            ${sourceOptions.length
-              ? sourceOptions
-                .map(item => item.patternId)
-                .filter((value, index, array) => array.indexOf(value) === index)
-                .map(patternId => {
-                  const pattern = _allPatternsRef.find(p => String(p.id) === String(patternId));
-                  return `<option value="${escapeHtml(String(patternId))}" ${String(patternId) === String(selectedPatternForLink) ? 'selected' : ''}>${escapeHtml((pattern && pattern.name) || 'Untitled Pattern')}</option>`;
-                }).join('')
-              : '<option value="">No source patterns available</option>'}
-          </select>
-          <select id="step-link-step-select" class="form-input"></select>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-apply-step-link">Apply Link</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-step-link">Unlink</button>
-        </div>
-      </label>
-
-      <div class="step-link-current">Current Source: ${escapeHtml(getCurrentStepLinkedSourceLabel(step))}</div>
-
-      <div id="step-link-status" class="step-link-status step-link-status-${status.tone}">${escapeHtml(status.text)}</div>
-    </div>
-
     <div class="form-label">
       <span>Section Content</span>
       <div class="step-section-tabs" id="step-section-tabs">
@@ -682,6 +657,32 @@ function renderStepEditPanel() {
       </div>
     </div>
     `}
+
+    <div class="step-link-card">
+      <label class="form-label">Link This Step To Another Pattern Step
+        <div class="step-link-picker-grid">
+          <select id="step-link-pattern-select" class="form-input">
+            ${sourceOptions.length
+              ? sourceOptions
+                .map(item => item.patternId)
+                .filter((value, index, array) => array.indexOf(value) === index)
+                .map(patternId => {
+                  const pattern = _allPatternsRef.find(p => String(p.id) === String(patternId));
+                  return `<option value="${escapeHtml(String(patternId))}" ${String(patternId) === String(selectedPatternForLink) ? 'selected' : ''}>${escapeHtml((pattern && pattern.name) || 'Untitled Pattern')}</option>`;
+                }).join('')
+              : '<option value="">No source patterns available</option>'}
+          </select>
+          <select id="step-link-step-select" class="form-input"></select>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-pull-step-link">Pull Selected → Current</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-push-step-link">Push Current → Selected</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-step-link">Unlink</button>
+        </div>
+      </label>
+
+      <div class="step-link-current">Current Source: ${escapeHtml(getCurrentStepLinkedSourceLabel(step))}</div>
+
+      <div id="step-link-status" class="step-link-status step-link-status-${status.tone}">${escapeHtml(status.text)}</div>
+    </div>
   `;
 
   // Section tabs — always present
@@ -692,7 +693,8 @@ function renderStepEditPanel() {
   });
 
   document.getElementById('btn-clear-step-link').addEventListener('click', clearLinkedStep);
-  document.getElementById('btn-apply-step-link').addEventListener('click', applyLinkFromPicker);
+  document.getElementById('btn-pull-step-link').addEventListener('click', applyLinkFromPicker);
+  document.getElementById('btn-push-step-link').addEventListener('click', pushCurrentStepToSelectedLink);
   document.getElementById('step-link-pattern-select').addEventListener('change', populateStepLinkStepSelect);
   populateStepLinkStepSelect();
   updateStepLinkStatus();
@@ -1206,13 +1208,16 @@ function findSourceEntryByStepId(stepId) {
   return null;
 }
 
-function applyLinkFromPicker() {
-  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+function getSelectedSourceEntryFromPicker() {
   var patternSelect = document.getElementById('step-link-pattern-select');
   var stepSelect = document.getElementById('step-link-step-select');
-  if (!patternSelect || !stepSelect) return;
+  if (!patternSelect || !stepSelect) return null;
+  return findSourceEntryByStepId(stepSelect.value);
+}
 
-  var sourceEntry = findSourceEntryByStepId(stepSelect.value);
+function applyLinkFromPicker() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  var sourceEntry = getSelectedSourceEntryFromPicker();
   if (!sourceEntry) {
     showToast('Select a valid source step first.', true);
     return;
@@ -1241,6 +1246,88 @@ function applyLinkFromPicker() {
   renderStepList();
   renderStepEditPanel();
   showToast('Linked step applied.');
+}
+
+async function pushCurrentStepToSelectedLink() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  saveActiveStepToState();
+
+  var sourceEntry = getSelectedSourceEntryFromPicker();
+  if (!sourceEntry) {
+    showToast('Select a valid source step first.', true);
+    return;
+  }
+
+  var sourcePatternId = String(sourceEntry.patternId || '').trim();
+  var sourceStepId = String(sourceEntry.stepId || '').trim();
+  if (!sourcePatternId || !sourceStepId) {
+    showToast('Selected source step is missing identifiers.', true);
+    return;
+  }
+
+  var sourcePattern = (_allPatternsRef || []).find(function(p) {
+    return p && String(p.id || '') === sourcePatternId;
+  });
+  if (!sourcePattern) {
+    showToast('Selected source pattern was not found.', true);
+    return;
+  }
+
+  var okPush = await showConfirm(
+    'Push Current To Selected',
+    'Overwrite the selected source step with the current step content? This updates the selected pattern immediately.'
+  );
+  if (!okPush) return;
+
+  var sourceSteps = JSON.parse(JSON.stringify(sourcePattern.steps || []));
+  var sourceIdx = sourceSteps.findIndex(function(step) {
+    return String((step && step.stepId) || '').trim() === sourceStepId;
+  });
+  if (sourceIdx < 0) {
+    showToast('Selected source step was not found.', true);
+    return;
+  }
+
+  var currentStep = cloneStepSnapshot(editorSteps[activeStepIndex]);
+  var existingSourceStep = sourceSteps[sourceIdx] || {};
+
+  sourceSteps[sourceIdx] = Object.assign({}, existingSourceStep, {
+    stepTitle: currentStep.stepTitle || existingSourceStep.stepTitle || '',
+    richContent: normaliseRichContent(currentStep.richContent || []),
+    sections: normaliseStepSectionsForEditor(currentStep.sections, currentStep.richContent || []),
+    stepId: String(existingSourceStep.stepId || sourceStepId).trim() || sourceStepId
+  });
+
+  try {
+    var prepared = await prepareStepsForStorage(sourceSteps);
+    await updatePattern(editorUid, sourcePatternId, {
+      name: sourcePattern.name || 'Untitled Pattern',
+      modality: sourcePattern.modality || 'Other',
+      steps: prepared
+    });
+
+    sourcePattern.steps = prepared;
+    setAllPatternsRef(_allPatternsRef);
+
+    var targetStep = editorSteps[activeStepIndex];
+    targetStep.linkedStepId = sourceStepId;
+    targetStep.linkMeta = {
+      mode: 'internal',
+      sourcePatternId: sourceEntry.patternId,
+      sourcePatternName: sourceEntry.patternName,
+      sourceStepId: sourceEntry.stepId,
+      sourceStepTitle: currentStep.stepTitle || sourceEntry.stepTitle || 'Linked Step',
+      tokenVersion: 1
+    };
+
+    updateStepLinkStatus();
+    renderStepList();
+    renderStepEditPanel();
+    showToast('Pushed current step to selected linked step.');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to push current step: ' + (err.message || err), true);
+  }
 }
 
 // ── Move step ────────────────────────────────────────────────
