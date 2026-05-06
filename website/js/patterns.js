@@ -554,15 +554,15 @@ function renderNestedSubsections(container, content) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'step-subsection-toggle';
-    btn.setAttribute('aria-expanded', idx === 0 ? 'true' : 'false');
+    btn.setAttribute('aria-expanded', 'false');
     btn.innerHTML = `
       <span>${entry.title || `Subsection ${idx + 1}`}</span>
-      <span class="step-subsection-chevron" aria-hidden="true">${idx === 0 ? '▾' : '▸'}</span>
+      <span class="step-subsection-chevron" aria-hidden="true">▸</span>
     `;
 
     const panel = document.createElement('div');
     panel.className = 'step-subsection-panel';
-    if (idx !== 0) panel.style.display = 'none';
+    panel.style.display = 'none';
 
     const panelInner = document.createElement('div');
     panelInner.className = 'step-subsection-content';

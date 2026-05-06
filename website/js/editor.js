@@ -12,6 +12,7 @@ var _linkStepIndexByPattern = {};
 var _linkDuplicateCounts = {};
 var _stepAiUndoSnapshot = null;
 var _activeRichEditor = null;
+var _draggingStepIndex = null;
 var activeStepSectionKey = 'dontMissPathology';
 var _stepAiTargetSection = 'dontMissPathology';
 var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
@@ -500,10 +501,19 @@ function renderStepList() {
   const list = document.getElementById('editor-step-list');
   list.innerHTML = '';
 
+  function clearDragOverState() {
+    Array.from(list.querySelectorAll('.editor-step-item')).forEach(function(item) {
+      item.classList.remove('drag-over-before');
+      item.classList.remove('drag-over-after');
+      item.classList.remove('is-dragging');
+    });
+  }
+
   editorSteps.forEach((step, i) => {
     const li = document.createElement('li');
     li.className = 'editor-step-item' + (i === activeStepIndex ? ' active' : '');
     li.dataset.index = i;
+    li.draggable = true;
 
     const hasLiveLink = Boolean(String(step.linkedStepId || '').trim());
     const isSnapshot = Boolean(step.linkMeta && step.linkMeta.mode === 'snapshot');
@@ -511,6 +521,7 @@ function renderStepList() {
       ? ' <span class="step-linked-badge snapshot">[Snapshot]</span>'
       : (hasLiveLink ? ' <span class="step-linked-badge">[Linked]</span>' : '');
     li.innerHTML = `
+      <span class="step-drag-handle" title="Drag to reorder" aria-hidden="true">&#x2630;</span>
       <span class="step-item-num">${i + 1}.</span>
       <span class="step-item-title">${escapeHtml(step.stepTitle || 'Untitled step')}${linkedBadge}</span>
       <button class="step-item-del" aria-label="Delete step" data-idx="${i}">&#x2715;</button>
@@ -524,8 +535,69 @@ function renderStepList() {
       }
     });
 
+    li.addEventListener('dragstart', (e) => {
+      _draggingStepIndex = i;
+      saveActiveStepToState();
+      li.classList.add('is-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(i));
+      }
+    });
+
+    li.addEventListener('dragover', (e) => {
+      if (_draggingStepIndex === null || _draggingStepIndex === i) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+      const rect = li.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < (rect.height / 2);
+      li.classList.toggle('drag-over-before', before);
+      li.classList.toggle('drag-over-after', !before);
+    });
+
+    li.addEventListener('dragleave', () => {
+      li.classList.remove('drag-over-before');
+      li.classList.remove('drag-over-after');
+    });
+
+    li.addEventListener('drop', (e) => {
+      if (_draggingStepIndex === null) return;
+      e.preventDefault();
+
+      const rect = li.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < (rect.height / 2);
+      let targetIdx = before ? i : (i + 1);
+      if (_draggingStepIndex < targetIdx) targetIdx -= 1;
+
+      clearDragOverState();
+      moveStepToIndex(_draggingStepIndex, targetIdx);
+    });
+
+    li.addEventListener('dragend', () => {
+      _draggingStepIndex = null;
+      clearDragOverState();
+    });
+
     list.appendChild(li);
   });
+
+  list.ondragover = function(e) {
+    if (_draggingStepIndex === null) return;
+    if (e.target === list) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  list.ondrop = function(e) {
+    if (_draggingStepIndex === null) return;
+    if (e.target === list) {
+      e.preventDefault();
+      clearDragOverState();
+      moveStepToIndex(_draggingStepIndex, editorSteps.length - 1);
+    }
+  };
 }
 
 function addStep() {
@@ -1374,9 +1446,28 @@ function moveStep(delta) {
   const newIdx = activeStepIndex + delta;
   if (newIdx < 0 || newIdx >= editorSteps.length) return;
 
+  moveStepToIndex(activeStepIndex, newIdx);
+}
+
+function moveStepToIndex(fromIdx, toIdx) {
+  if (fromIdx === null || fromIdx === undefined) return;
+  if (toIdx === null || toIdx === undefined) return;
+  if (fromIdx < 0 || fromIdx >= editorSteps.length) return;
+  if (toIdx < 0 || toIdx >= editorSteps.length) return;
+  if (fromIdx === toIdx) return;
+
   saveActiveStepToState();
-  [editorSteps[activeStepIndex], editorSteps[newIdx]] = [editorSteps[newIdx], editorSteps[activeStepIndex]];
-  activeStepIndex = newIdx;
+
+  const activeStep = activeStepIndex !== null ? editorSteps[activeStepIndex] : null;
+  const moved = editorSteps.splice(fromIdx, 1)[0];
+  editorSteps.splice(toIdx, 0, moved);
+
+  if (activeStep) {
+    activeStepIndex = editorSteps.indexOf(activeStep);
+  } else {
+    activeStepIndex = toIdx;
+  }
+
   renderStepList();
   renderStepEditPanel();
 }

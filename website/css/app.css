@@ -804,7 +804,25 @@ body {
 }
 .editor-step-item:hover { background: #f0f6f2; color: var(--ink); }
 .editor-step-item.active { background: #e8f5ef; color: var(--accent); font-weight: 700; }
-.editor-step-item .step-drag-handle { cursor: grab; color: var(--ink-muted); opacity: 0.6; }
+.editor-step-item .step-drag-handle {
+  cursor: grab;
+  color: var(--ink-muted);
+  opacity: 0.75;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.editor-step-item.is-dragging {
+  opacity: 0.45;
+}
+.editor-step-item.is-dragging .step-drag-handle {
+  cursor: grabbing;
+}
+.editor-step-item.drag-over-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.editor-step-item.drag-over-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
 .editor-step-item .step-item-num { font-size: 0.75rem; opacity: 0.5; min-width: 18px; }
 .editor-step-item .step-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .step-linked-badge {
