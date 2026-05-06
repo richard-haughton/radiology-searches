@@ -516,7 +516,23 @@ function normaliseSubsectionEntries(content) {
     }
   });
 
-  return entries;
+  return sortSubsectionEntries(entries);
+}
+
+function sortSubsectionEntries(entries) {
+  return entries.slice().sort((left, right) => {
+    const leftTitle = String((left && left.title) || '').trim();
+    const rightTitle = String((right && right.title) || '').trim();
+
+    if (!leftTitle && !rightTitle) return 0;
+    if (!leftTitle) return 1;
+    if (!rightTitle) return -1;
+
+    return leftTitle.localeCompare(rightTitle, undefined, {
+      sensitivity: 'base',
+      numeric: true
+    });
+  });
 }
 
 function renderNestedSubsections(container, content) {

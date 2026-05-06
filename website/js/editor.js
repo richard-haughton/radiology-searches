@@ -11,6 +11,7 @@ var _linkStepIndexByLegacyKey = {};
 var _linkStepIndexByPattern = {};
 var _linkDuplicateCounts = {};
 var _stepAiUndoSnapshot = null;
+var _activeRichEditor = null;
 var activeStepSectionKey = 'dontMissPathology';
 var _stepAiTargetSection = 'dontMissPathology';
 var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
@@ -439,7 +440,7 @@ async function handleAiGeneratePattern() {
   const model = typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '';
 
   if (typeof isAiProviderConfigured === 'function' && !isAiProviderConfigured(provider)) {
-    showToast('Configure and save a key for ' + provider + ' in Settings first.', true);
+    showToast('AI service is not configured yet. Ask an admin to configure backend AI in Firebase.', true);
     return;
   }
 
@@ -783,7 +784,7 @@ async function handleAiStepModify(mode) {
   const model = typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '';
 
   if (typeof isAiProviderConfigured === 'function' && !isAiProviderConfigured(provider)) {
-    showToast('Configure and save a key for ' + provider + ' in Settings first.', true);
+    showToast('AI service is not configured yet. Ask an admin to configure backend AI in Firebase.', true);
     return;
   }
 
@@ -1100,7 +1101,23 @@ function getSubsectionRowsFromContent(content) {
     }
   });
 
-  return rows;
+  return sortEditorSubsectionEntries(rows);
+}
+
+function sortEditorSubsectionEntries(entries) {
+  return entries.slice().sort((left, right) => {
+    const leftTitle = String((left && left.title) || '').trim();
+    const rightTitle = String((right && right.title) || '').trim();
+
+    if (!leftTitle && !rightTitle) return 0;
+    if (!leftTitle) return 1;
+    if (!rightTitle) return -1;
+
+    return leftTitle.localeCompare(rightTitle, undefined, {
+      sensitivity: 'base',
+      numeric: true
+    });
+  });
 }
 
 function renderSubsectionRows(step) {
@@ -1121,12 +1138,23 @@ function createSubsectionRow(title, content) {
   row.className = 'subsection-row';
   row.innerHTML = `
     <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Subsection title">
+    <div class="rich-toolbar subsection-rich-toolbar" role="toolbar" aria-label="Subsection text formatting">
+      <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+      <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
+      <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
+      <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
+      <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
+    </div>
     <div class="rich-editor subsection-rich-editor" contenteditable="true" spellcheck="true"></div>
     <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
   `;
 
+  const toolbar = row.querySelector('.subsection-rich-toolbar');
   const rowEditor = row.querySelector('.subsection-rich-editor');
   populateRichEditor(rowEditor, content || []);
+  bindRichEditorToolbar(toolbar, rowEditor);
+  attachRichEditorFocusHandlers(rowEditor);
+  rowEditor.addEventListener('keydown', handleRichEditorKeydown);
   rowEditor.addEventListener('paste', handleEditorPaste);
 
   row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
@@ -1529,14 +1557,106 @@ function compressBase64ImageForStorage(base64Data, format) {
 }
 
 // ── Formatting helpers ───────────────────────────────────────
-function execFormat(cmd) {
+function findParentRichEditor(node) {
+  let current = node;
+  while (current && current !== document.body) {
+    if (current.nodeType === 1 && current.classList && current.classList.contains('rich-editor')) return current;
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function getActiveRichEditor(preferredEditor) {
+  if (preferredEditor && preferredEditor.classList && preferredEditor.classList.contains('rich-editor')) {
+    return preferredEditor;
+  }
+
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const anchorEditor = findParentRichEditor(selection.anchorNode);
+    if (anchorEditor) return anchorEditor;
+  }
+
+  if (_activeRichEditor && document.body.contains(_activeRichEditor)) {
+    return _activeRichEditor;
+  }
+
+  return document.getElementById('rich-editor');
+}
+
+function setActiveRichEditor(editor) {
+  if (!editor || !editor.classList || !editor.classList.contains('rich-editor')) return;
+  _activeRichEditor = editor;
+}
+
+function attachRichEditorFocusHandlers(editor) {
+  if (!editor || editor.dataset.richFocusBound === 'true') return;
+
+  const markActive = function() {
+    setActiveRichEditor(editor);
+  };
+
+  editor.addEventListener('focus', markActive);
+  editor.addEventListener('click', markActive);
+  editor.addEventListener('mouseup', markActive);
+  editor.addEventListener('keyup', markActive);
+  editor.dataset.richFocusBound = 'true';
+}
+
+function handleRichEditorKeydown(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+    e.preventDefault();
+    execFormat('bold', e.currentTarget);
+  }
+}
+
+function bindRichEditorToolbar(toolbar, editor) {
+  if (!toolbar || !editor) return;
+
+  toolbar.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    setActiveRichEditor(editor);
+  });
+
+  toolbar.querySelectorAll('[data-rich-action], [data-rich-color]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      setActiveRichEditor(editor);
+
+      const action = btn.dataset.richAction || '';
+      const color = btn.dataset.richColor || '';
+      if (action === 'bold') {
+        execFormat('bold', editor);
+      } else if (action === 'clear') {
+        execRemoveFormat(editor);
+      } else if (color) {
+        execColor(color, editor);
+      }
+    });
+  });
+}
+
+function execFormat(cmd, targetEditor) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (editor) {
+    setActiveRichEditor(editor);
+    editor.focus();
+  }
   document.execCommand(cmd, false, null);
 }
 
-function execColor(color) {
+function execColor(color, targetEditor) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (!editor) return;
+
+  setActiveRichEditor(editor);
+  editor.focus();
+
   const colorMap = { red: '#c0392b', green: '#1a7a4a', blue: '#1a5c9e' };
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed) return;
+
+  const anchorEditor = findParentRichEditor(sel.anchorNode);
+  if (anchorEditor && anchorEditor !== editor) return;
 
   // Wrap selection in a span with data-color
   const range = sel.getRangeAt(0);
@@ -1547,10 +1667,14 @@ function execColor(color) {
   sel.removeAllRanges();
 }
 
-function execRemoveFormat() {
+function execRemoveFormat(targetEditor) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (editor) {
+    setActiveRichEditor(editor);
+    editor.focus();
+  }
   document.execCommand('removeFormat', false, null);
   // Also strip any color spans we added
-  const editor = document.getElementById('rich-editor');
   if (!editor) return;
   editor.querySelectorAll('[data-color]').forEach(span => {
     span.removeAttribute('data-color');

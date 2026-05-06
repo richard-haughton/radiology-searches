@@ -1,17 +1,13 @@
-// ai.js - browser-direct AI client (no Firebase Functions required).
+// ai.js - frontend AI client via Firebase Functions proxy.
 
 var _aiClientUid = null;
-var AI_SETTINGS_STORAGE_KEY = 'searches.ai.settings.v1';
 var ALLOWED_AI_PROVIDERS = {
-  openai: true,
-  anthropic: true,
-  githubModels: true
+  openai: true
 };
 var DEFAULT_AI_MODELS = {
-  openai: 'gpt-4o-mini',
-  anthropic: 'claude-3-5-haiku-latest',
-  githubModels: 'gpt-4o-mini'
+  openai: 'gpt-4o-mini'
 };
+var AI_PROXY_FUNCTION_URL = null;
 
 function initAiClient(uid) {
   _aiClientUid = uid;
@@ -19,6 +15,23 @@ function initAiClient(uid) {
 
 function getAiClientUid() {
   return _aiClientUid;
+}
+
+function resolveAiProxyUrl() {
+  if (AI_PROXY_FUNCTION_URL) return AI_PROXY_FUNCTION_URL;
+
+  if (typeof window !== 'undefined' && window.SEARCHES_AI_PROXY_URL) {
+    AI_PROXY_FUNCTION_URL = String(window.SEARCHES_AI_PROXY_URL || '').trim();
+    return AI_PROXY_FUNCTION_URL;
+  }
+
+  if (typeof firebaseConfig !== 'undefined' && firebaseConfig && firebaseConfig.aiProxyUrl) {
+    AI_PROXY_FUNCTION_URL = String(firebaseConfig.aiProxyUrl || '').trim();
+    return AI_PROXY_FUNCTION_URL;
+  }
+
+  AI_PROXY_FUNCTION_URL = 'https://us-central1-searches-app.cloudfunctions.net/aiProxy';
+  return AI_PROXY_FUNCTION_URL;
 }
 
 function assertProvider(provider) {
@@ -29,51 +42,46 @@ function assertProvider(provider) {
   return key;
 }
 
-function readAiSettings() {
-  try {
-    var raw = localStorage.getItem(AI_SETTINGS_STORAGE_KEY);
-    if (!raw) return { providers: {} };
-    var parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { providers: {} };
-    if (!parsed.providers || typeof parsed.providers !== 'object') parsed.providers = {};
-    return parsed;
-  } catch (err) {
-    console.error('Failed to read AI settings from localStorage:', err);
-    return { providers: {} };
-  }
-}
-
-function writeAiSettings(settings) {
-  localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(settings || { providers: {} }));
-}
-
-function maskKeyHint(apiKey) {
-  var key = String(apiKey || '').trim();
-  if (key.length < 8) return '****';
-  return key.slice(0, 4) + '...' + key.slice(-4);
-}
-
-function getProviderConfig(provider) {
-  var safeProvider = assertProvider(provider);
-  var settings = readAiSettings();
-  var cfg = settings.providers[safeProvider] || {};
-  var apiKey = String(cfg.apiKey || '').trim();
-  if (!apiKey) {
-    throw new Error('No API key saved for ' + safeProvider + '.');
-  }
-  return {
-    provider: safeProvider,
-    apiKey: apiKey,
-    defaultModel: String(cfg.defaultModel || '').trim()
-  };
-}
-
 function getModelForProvider(provider, requestedModel) {
   var requested = String(requestedModel || '').trim();
   if (requested) return requested;
-  var cfg = getProviderConfig(provider);
-  if (cfg.defaultModel) return cfg.defaultModel;
   return DEFAULT_AI_MODELS[provider] || '';
+}
+
+async function getCurrentUserIdToken() {
+  try {
+    if (!appAuth || !appAuth.currentUser) return '';
+    return await appAuth.currentUser.getIdToken();
+  } catch (err) {
+    return '';
+  }
+}
+
+async function callAiProxy(action, payload) {
+  var url = resolveAiProxyUrl();
+  var token = await getCurrentUserIdToken();
+  var headers = {
+    'Content-Type': 'application/json'
+  };
+
+  if (token) headers.Authorization = 'Bearer ' + token;
+
+  var res = await fetch(url, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({
+      action: action,
+      payload: payload || {}
+    })
+  });
+
+  var data = await res.json().catch(function() { return {}; });
+  if (!res.ok) {
+    var errMsg = (data && data.error && data.error.message) || (data && data.message) || ('AI proxy request failed (' + res.status + ').');
+    throw new Error(errMsg);
+  }
+
+  return data;
 }
 
 function safeJsonParse(text) {
@@ -193,165 +201,52 @@ function buildStepPrompt(input) {
   ].join('\n');
 }
 
-async function postOpenAiCompatible(url, apiKey, model, prompt) {
-  var res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + apiKey
-    },
-    body: JSON.stringify({
-      model: model,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'system',
-          content: 'Return strict JSON only. Do not include markdown fences.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
+async function requestProviderText(provider, model, prompt) {
+  var safeProvider = assertProvider(provider);
+  var payload = await callAiProxy('completeText', {
+    provider: safeProvider,
+    model: String(model || '').trim(),
+    prompt: String(prompt || '')
   });
-
-  var payload = await res.json().catch(function() { return {}; });
-  if (!res.ok) {
-    var errMsg = (payload && payload.error && payload.error.message) || ('API request failed (' + res.status + ').');
-    throw new Error(errMsg);
+  var text = String((payload && payload.data && payload.data.text) || '').trim();
+  if (!text) {
+    throw new Error('AI proxy response did not contain text output.');
   }
-
-  var choices = (payload && payload.choices) || [];
-  var message = choices[0] && choices[0].message;
-  var content = message && message.content;
-
-  if (typeof content === 'string') {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content.map(function(part) {
-      if (typeof part === 'string') return part;
-      if (part && typeof part.text === 'string') return part.text;
-      return '';
-    }).join('');
-  }
-
-  throw new Error('API response did not contain text output.');
-}
-
-async function postAnthropic(apiKey, model, prompt) {
-  var res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: model,
-      max_tokens: 1400,
-      temperature: 0.2,
-      system: 'Return strict JSON only. Do not include markdown fences.',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
-  });
-
-  var payload = await res.json().catch(function() { return {}; });
-  if (!res.ok) {
-    var errMsg = (payload && payload.error && payload.error.message) || ('API request failed (' + res.status + ').');
-    throw new Error(errMsg);
-  }
-
-  var contentParts = (payload && payload.content) || [];
-  var text = contentParts.map(function(part) {
-    return (part && typeof part.text === 'string') ? part.text : '';
-  }).join('');
-
-  if (!text.trim()) {
-    throw new Error('Anthropic response did not contain text output.');
-  }
-
   return text;
 }
 
-async function requestProviderText(provider, model, prompt) {
-  var cfg = getProviderConfig(provider);
-
-  if (provider === 'openai') {
-    return postOpenAiCompatible('https://api.openai.com/v1/chat/completions', cfg.apiKey, model, prompt);
-  }
-  if (provider === 'githubModels') {
-    return postOpenAiCompatible('https://models.inference.ai.azure.com/chat/completions', cfg.apiKey, model, prompt);
-  }
-  if (provider === 'anthropic') {
-    return postAnthropic(cfg.apiKey, model, prompt);
-  }
-
-  throw new Error('Unsupported AI provider: ' + provider);
-}
-
-function saveAiProviderKey(provider, apiKey, defaultModel) {
-  var safeProvider = assertProvider(provider);
-  var key = String(apiKey || '').trim();
-  if (!key) throw new Error('API key is required.');
-
-  var settings = readAiSettings();
-  settings.providers[safeProvider] = {
-    apiKey: key,
-    defaultModel: String(defaultModel || '').trim(),
-    updatedAt: Date.now()
-  };
-  writeAiSettings(settings);
-
-  return Promise.resolve({ ok: true });
-}
-
-function removeAiProviderKey(provider) {
-  var safeProvider = assertProvider(provider);
-  var settings = readAiSettings();
-  delete settings.providers[safeProvider];
-  writeAiSettings(settings);
-  return Promise.resolve({ ok: true });
-}
-
 function getAiProviderStatus() {
-  var settings = readAiSettings();
-  var providers = {};
-
-  Object.keys(ALLOWED_AI_PROVIDERS).forEach(function(provider) {
-    var cfg = settings.providers[provider] || {};
-    var apiKey = String(cfg.apiKey || '').trim();
-    providers[provider] = {
-      configured: !!apiKey,
-      keyHint: apiKey ? maskKeyHint(apiKey) : '',
-      defaultModel: String(cfg.defaultModel || '').trim()
-    };
-  });
-
-  return Promise.resolve({ providers: providers });
+  return callAiProxy('status', {})
+    .then(function(payload) {
+      var providers = (payload && payload.data && payload.data.providers) || {};
+      return { providers: providers };
+    })
+    .catch(function() {
+      return {
+        providers: {
+          openai: {
+            configured: false,
+            defaultModel: DEFAULT_AI_MODELS.openai || 'gpt-4o-mini'
+          }
+        }
+      };
+    });
 }
 
 async function testAiProvider(provider, model) {
   var safeProvider = assertProvider(provider);
   var resolvedModel = getModelForProvider(safeProvider, model);
-  var prompt = [
-    'Respond with only this JSON:',
-    '{"ok":true,"message":"connection-ok"}'
-  ].join('\n');
-
-  var raw = await requestProviderText(safeProvider, resolvedModel, prompt);
-  var parsed = safeJsonParse(raw);
-  if (!parsed || parsed.ok !== true) {
-    throw new Error('Provider test failed: invalid response.');
-  }
-
-  return { ok: true, provider: safeProvider, model: resolvedModel };
+  var payload = await callAiProxy('test', {
+    provider: safeProvider,
+    model: resolvedModel
+  });
+  var ok = !!(payload && payload.data && payload.data.ok);
+  if (!ok) throw new Error('Provider test failed.');
+  return {
+    ok: true,
+    provider: safeProvider,
+    model: resolvedModel
+  };
 }
 
 async function generatePatternFromAi(options) {

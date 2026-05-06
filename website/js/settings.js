@@ -1,4 +1,4 @@
-// settings.js - AI provider settings UI.
+// settings.js - AI settings UI for managed backend provider access.
 
 var _settingsUid = null;
 var _settingsInitialised = false;
@@ -12,20 +12,8 @@ var PROVIDER_MODELS = {
     { value: 'gpt-4-turbo',   label: 'GPT-4 Turbo' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
   ],
-  anthropic: [
-    { value: 'claude-opus-4-5',          label: 'Claude Opus 4.5' },
-    { value: 'claude-sonnet-4-5',        label: 'Claude Sonnet 4.5' },
-    { value: 'claude-3-5-haiku-latest',  label: 'Claude Haiku 3.5 (default)' },
-    { value: 'claude-3-5-sonnet-latest', label: 'Claude Sonnet 3.5' },
-    { value: 'claude-3-opus-20240229',   label: 'Claude 3 Opus' }
-  ],
-  githubModels: [
-    { value: 'gpt-4o',                      label: 'GPT-4o' },
-    { value: 'gpt-4o-mini',                 label: 'GPT-4o mini (default)' },
-    { value: 'Meta-Llama-3.1-70B-Instruct', label: 'Meta Llama 3.1 70B' },
-    { value: 'Phi-4',                       label: 'Phi-4' },
-    { value: 'Mistral-large',               label: 'Mistral Large' }
-  ]
+  anthropic: [],
+  githubModels: []
 };
 
 function initSettings(uid) {
@@ -41,50 +29,12 @@ function initSettings(uid) {
   _settingsInitialised = true;
 
   var providerSelect = document.getElementById('ai-provider-select');
-  var keyInput = document.getElementById('ai-key-input');
   var modelInput = document.getElementById('ai-model-input');
-  var visibilityBtn = document.getElementById('btn-ai-key-visibility');
 
   providerSelect.addEventListener('change', function() {
     updateModelDropdown(providerSelect.value);
     hydrateProviderInputs();
     renderAiProviderStatus();
-  });
-
-  visibilityBtn.addEventListener('click', function() {
-    if (keyInput.type === 'password') {
-      keyInput.type = 'text';
-      visibilityBtn.textContent = 'Hide';
-    } else {
-      keyInput.type = 'password';
-      visibilityBtn.textContent = 'Show';
-    }
-  });
-
-  document.getElementById('btn-ai-save').addEventListener('click', async function() {
-    var provider = providerSelect.value;
-    var apiKey = keyInput.value.trim();
-    var defaultModel = modelInput ? modelInput.value : '';
-
-    if (!apiKey) {
-      showToast('Enter an API key before saving.', true);
-      keyInput.focus();
-      return;
-    }
-
-    setSettingsBusy(true, 'Saving key...');
-    try {
-      await saveAiProviderKey(provider, apiKey, defaultModel);
-      keyInput.value = '';
-      keyInput.type = 'password';
-      visibilityBtn.textContent = 'Show';
-      showToast('Provider key saved.');
-      await refreshAiProviderStatus();
-    } catch (err) {
-      showToast(err.message || 'Failed to save key.', true);
-    } finally {
-      setSettingsBusy(false);
-    }
   });
 
   document.getElementById('btn-ai-test').addEventListener('click', async function() {
@@ -103,28 +53,11 @@ function initSettings(uid) {
     }
   });
 
-  document.getElementById('btn-ai-remove').addEventListener('click', async function() {
-    var provider = providerSelect.value;
-    var ok = await showConfirm('Remove Provider Key', 'Remove saved key for ' + provider + '?');
-    if (!ok) return;
-
-    setSettingsBusy(true, 'Removing key...');
-    try {
-      await removeAiProviderKey(provider);
-      showToast('Provider key removed.');
-      await refreshAiProviderStatus();
-    } catch (err) {
-      showToast(err.message || 'Failed to remove key.', true);
-    } finally {
-      setSettingsBusy(false);
-    }
-  });
-
   updateModelDropdown(providerSelect.value);
   hydrateProviderInputs();
   refreshAiProviderStatus();
 
-  // Also refresh when Settings tab is opened to pick up any recent local changes.
+  // Also refresh when Settings tab is opened to pick up any recent status changes.
   var settingsTabBtn = document.querySelector('.tab-btn[data-tab="settings"]');
   if (settingsTabBtn) {
     settingsTabBtn.addEventListener('click', function() {
@@ -134,7 +67,7 @@ function initSettings(uid) {
 }
 
 function setSettingsBusy(isBusy, statusText) {
-  var ids = ['btn-ai-save', 'btn-ai-test', 'btn-ai-remove'];
+  var ids = ['btn-ai-test'];
   ids.forEach(function(id) {
     var btn = document.getElementById(id);
     if (btn) btn.disabled = !!isBusy;
@@ -176,7 +109,7 @@ function hydrateProviderInputs() {
   var status = _aiProviderStatus[provider] || {};
 
   if (status.defaultModel) {
-    // Select the saved model if it exists in the dropdown, otherwise add and select it.
+    // Select the configured model if it exists in the dropdown, otherwise add and select it.
     var opt = modelSelect.querySelector('option[value="' + status.defaultModel + '"]');
     if (!opt) {
       opt = document.createElement('option');
@@ -196,13 +129,12 @@ function renderAiProviderStatus() {
   var provider = providerSelect.value;
   var status = _aiProviderStatus[provider] || {};
   if (!status.configured) {
-    statusEl.textContent = 'Status: not configured for ' + provider + '.';
+    statusEl.textContent = 'Status: AI proxy not ready for ' + provider + '. Contact admin to configure backend key.';
     return;
   }
 
-  var keyHint = status.keyHint ? ' (' + status.keyHint + ')' : '';
   var modelHint = status.defaultModel ? '\nModel: ' + status.defaultModel : '';
-  statusEl.textContent = 'Status: configured for ' + provider + keyHint + '.' + modelHint;
+  statusEl.textContent = 'Status: managed backend access is active for ' + provider + '.' + modelHint;
 }
 
 function getSelectedAiProvider() {

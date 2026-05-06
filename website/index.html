@@ -72,7 +72,7 @@
     <nav class="tab-bar" role="tablist" aria-label="App sections">
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-patterns" data-tab="patterns">Search Patterns</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Study Log</button>
-      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Calculations</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Tools</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-settings" data-tab="settings">Settings</button>
     </nav>
 
@@ -169,11 +169,11 @@
       </div>
     </section>
 
-    <!-- CALCULATIONS TAB -->
+    <!-- TOOLS TAB -->
     <section id="panel-calc" class="tab-panel" role="tabpanel" style="display:none">
       <div class="calc-layout">
         <aside class="calc-sidebar">
-          <ul class="calc-list" id="calc-list" role="listbox" aria-label="Select a calculator">
+          <ul class="calc-list" id="calc-list" role="listbox" aria-label="Select a tool">
             <li class="calc-item active" data-calc="volume" role="option" tabindex="0">Estimated Volume</li>
             <li class="calc-item" data-calc="stenosis" role="option" tabindex="0">Percent Narrowing</li>
             <li class="calc-item" data-calc="lft" role="option" tabindex="0">LFT Analysis</li>
@@ -189,13 +189,11 @@
       <div class="settings-layout">
         <div class="settings-card">
           <h2>AI Settings</h2>
-          <p class="settings-subtitle">Configure your provider key. Keys are sent only to the secure backend proxy and never rendered back after save.</p>
+          <p class="settings-subtitle">AI is managed server-side through Firebase Functions. API keys are never entered or stored in your browser.</p>
 
           <label class="form-label">Provider
             <select id="ai-provider-select" class="form-input">
               <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="githubModels">GitHub Models / Copilot</option>
             </select>
           </label>
 
@@ -205,22 +203,13 @@
             </select>
           </label>
 
-          <label class="form-label">API Key
-            <div class="settings-inline-input">
-              <input id="ai-key-input" type="password" class="form-input" placeholder="Paste provider API key">
-              <button id="btn-ai-key-visibility" class="btn btn-ghost btn-sm" type="button">Show</button>
-            </div>
-          </label>
-
           <div class="settings-actions">
-            <button id="btn-ai-save" class="btn btn-accent" type="button">Save Key</button>
             <button id="btn-ai-test" class="btn btn-ghost" type="button">Test Provider</button>
-            <button id="btn-ai-remove" class="btn btn-danger" type="button">Remove Key</button>
           </div>
 
           <div id="ai-provider-status" class="settings-status"></div>
 
-          <p class="settings-note">Security note: this browser-direct mode stores AI keys in local browser storage for this device/profile only. Do not share keys in pattern content.</p>
+          <p class="settings-note">Security note: all AI requests route through the backend proxy and use a managed server secret.</p>
         </div>
         <div class="settings-card">
           <h2>Data Import</h2>

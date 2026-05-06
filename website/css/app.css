@@ -474,8 +474,8 @@ body {
 .table-empty { padding: 24px; text-align: center; color: var(--ink-muted); display: none; }
 
 /* ============================================================
-   CALCULATIONS TAB
-   ============================================================ */
+  TOOLS TAB
+  ============================================================ */
 .calc-layout { display: flex; min-height: calc(100vh - 115px); }
 .calc-sidebar {
   width: 220px; flex-shrink: 0;
@@ -677,18 +677,23 @@ body {
   grid-template-columns: 1fr auto;
   grid-template-areas:
     "title del"
+    "toolbar toolbar"
     "content content";
   gap: 6px;
   align-items: start;
   background: rgba(255,255,255,0.6);
 }
 .subsection-title-input { grid-area: title; }
+.subsection-rich-toolbar {
+  grid-area: toolbar;
+  padding: 6px 8px;
+}
 .subsection-rich-editor {
   grid-area: content;
   min-height: 84px;
   padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background: var(--card);
   line-height: 1.55;
 }

@@ -8,7 +8,8 @@ const firebaseConfig = {
   storageBucket: "searches-app.firebasestorage.app",
   messagingSenderId: "1045373410297",
   appId: "1:1045373410297:web:409826091982cc801c7b28",
-  measurementId: "G-Z421WPNZ8K"
+  measurementId: "G-Z421WPNZ8K",
+  aiProxyUrl: "https://us-central1-searches-app.cloudfunctions.net/aiProxy"
 };
 
 firebase.initializeApp(firebaseConfig);

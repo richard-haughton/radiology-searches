@@ -175,23 +175,43 @@ All data is private to the authenticated user — enforced by the Firestore secu
 
 ---
 
-## AI Features Setup
+## AI Features Setup (Firebase Proxy)
 
-The AI generate/rewrite features run directly from the browser.
+AI generate/rewrite now runs through a Firebase Cloud Function proxy. The OpenAI API key is stored as a backend secret and is never entered in the browser.
 
-### 1) In-App Configuration
+### 1) Configure Backend Secret
+
+1. Install Firebase CLI and authenticate.
+2. Set the OpenAI key secret for Functions:
+
+```bash
+firebase functions:secrets:set OPENAI_API_KEY --project searches-app
+```
+
+3. Deploy Functions:
+
+```bash
+firebase deploy --only functions --project searches-app
+```
+
+### 2) Optional GitHub Actions Deployment
+
+Use the included workflow at `.github/workflows/deploy-firebase-functions.yml`.
+
+1. Create a GitHub repository secret named `FIREBASE_SERVICE_ACCOUNT_SEARCHES_APP`.
+2. Value should be the full JSON of a Google service account with Firebase Functions deploy permissions.
+3. Push to `main`/`master` (or run workflow manually).
+
+### 3) In-App Usage
 
 1. Sign in to the app.
-2. Open the **Settings** tab.
-3. Choose provider (`OpenAI`, `Anthropic`, or `GitHub Models / Copilot`).
-4. Paste API key, choose model, and click **Save Key**.
-5. Click **Test Provider**.
-6. Use AI actions in the Pattern Editor:
-  - New pattern: generate from selected existing patterns.
-  - Edit step: rewrite or append with optional tone presets.
+2. Open **Settings** and use **Test Provider** to confirm backend AI availability.
+3. Use AI actions in the Pattern Editor:
+- New pattern: generate from selected existing patterns.
+- Edit step: rewrite or append with optional tone presets.
 
-### 2) Security Notes
+### 4) Security Notes
 
-- API keys are stored in local browser storage for the current device/profile.
-- Clearing site data or switching browsers/devices requires re-entering keys.
-- Do not include API keys or credentials in pattern content.
+- Browser clients do not store API keys.
+- AI requests are sent only to the backend proxy function.
+- Rotate key with `firebase functions:secrets:set OPENAI_API_KEY --project searches-app` and redeploy functions.
