@@ -336,6 +336,16 @@ function deleteStudyLogEntry(uid, logId) {
   return _studyLogRef(uid).doc(logId).delete();
 }
 
+function updateStudyLogEntry(uid, logId, data) {
+  var updateData = {
+    study: data.study,
+    seconds: data.seconds,
+    duration: data.duration,
+    rvu: (data.rvu !== null && data.rvu !== undefined && data.rvu !== '') ? Number(data.rvu) : null
+  };
+  return _studyLogRef(uid).doc(logId).update(updateData);
+}
+
 // ── Batch imports ─────────────────────────────────────────────
 function batchImportPatterns(uid, patterns, onProgress) {
   var ref = _patternsRef(uid);

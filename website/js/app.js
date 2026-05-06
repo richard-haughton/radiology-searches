@@ -125,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('modal-confirm').style.display = 'none';
   document.getElementById('modal-record').style.display = 'none';
   document.getElementById('modal-editor').style.display = 'none';
+  document.getElementById('modal-edit-log').style.display = 'none';
   document.getElementById('lightbox').style.display = 'none';
   document.getElementById('toast').style.display = 'none';
 

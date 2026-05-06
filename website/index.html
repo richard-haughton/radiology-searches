@@ -145,6 +145,7 @@
           <div class="log-actions">
             <button id="btn-export-log" class="btn btn-ghost btn-sm">Export CSV</button>
             <button id="btn-import-log" class="btn btn-ghost btn-sm">Import CSV</button>
+            <button id="btn-edit-log-entry" class="btn btn-ghost btn-sm" disabled>Edit Selected</button>
             <button id="btn-delete-log-entry" class="btn btn-danger btn-sm" disabled>Delete Selected</button>
             <input id="import-log-input" type="file" accept=".csv" style="display:none">
           </div>
@@ -299,6 +300,30 @@
       </div>
     </div>
   </div>
+
+  <!-- EDIT LOG ENTRY MODAL -->
+  <div id="modal-edit-log" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-edit-log-title">
+    <div class="modal-card">
+      <h3 id="modal-edit-log-title">Edit Study Log Entry</h3>
+      <label class="form-label">Study Name
+        <input id="edit-log-study" type="text" class="form-input" placeholder="e.g. CT Abdomen">
+      </label>
+      <label class="form-label">Duration
+        <input id="edit-log-duration" type="text" class="form-input" placeholder="e.g. 5m 30s">
+      </label>
+      <label class="form-label">Seconds
+        <input id="edit-log-seconds" type="number" min="0" class="form-input" placeholder="0">
+      </label>
+      <label class="form-label">RVU <span class="optional">(optional)</span>
+        <input id="edit-log-rvu" type="number" min="0" step="0.01" class="form-input" placeholder="e.g. 1.5">
+      </label>
+      <div class="modal-actions">
+        <button id="btn-edit-log-confirm" class="btn btn-accent">Save Changes</button>
+        <button id="btn-edit-log-cancel" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 
 
 </body>

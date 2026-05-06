@@ -48,6 +48,7 @@ function initStudyLog(userId) {
     document.getElementById('import-log-input').click();
   });
   document.getElementById('import-log-input').addEventListener('change', handleImportCsv);
+  document.getElementById('btn-edit-log-entry').addEventListener('click', handleEditEntry);
   document.getElementById('btn-delete-log-entry').addEventListener('click', handleDeleteEntry);
 }
 
@@ -122,6 +123,7 @@ function renderTable() {
       selectedLogId = entry.id;
       document.querySelectorAll('#log-tbody tr').forEach(r => r.classList.remove('selected'));
       tr.classList.add('selected');
+      document.getElementById('btn-edit-log-entry').disabled = false;
       document.getElementById('btn-delete-log-entry').disabled = false;
     });
 
@@ -179,6 +181,95 @@ async function handleDeleteEntry() {
   } catch (err) {
     console.error(err);
     showToast('Failed to delete entry.', true);
+  }
+}
+
+// ── Edit entry ────────────────────────────────────────────────
+function handleEditEntry() {
+  if (!selectedLogId) return;
+  const entry = allEntries.find(e => e.id === selectedLogId);
+  if (!entry) return;
+
+  // Populate edit modal with current values
+  document.getElementById('edit-log-study').value = entry.study || '';
+  document.getElementById('edit-log-duration').value = entry.duration || '';
+  document.getElementById('edit-log-seconds').value = entry.seconds || 0;
+  document.getElementById('edit-log-rvu').value = entry.rvu != null ? entry.rvu : '';
+
+  // Show modal
+  const modal = document.getElementById('modal-edit-log');
+  modal.style.display = 'flex';
+
+  // Handle save
+  const saveHandler = async () => {
+    await saveEditedEntry();
+    cleanupEditModal();
+  };
+
+  // Handle cancel
+  const cancelHandler = () => {
+    cleanupEditModal();
+  };
+
+  // Handle background click
+  const bgClickHandler = (e) => {
+    if (e.target === modal) {
+      cancelHandler();
+    }
+  };
+
+  // Cleanup function
+  function cleanupEditModal() {
+    modal.style.display = 'none';
+    document.getElementById('btn-edit-log-confirm').removeEventListener('click', saveHandler);
+    document.getElementById('btn-edit-log-cancel').removeEventListener('click', cancelHandler);
+    modal.removeEventListener('click', bgClickHandler);
+  }
+
+  // Attach listeners
+  document.getElementById('btn-edit-log-confirm').addEventListener('click', saveHandler);
+  document.getElementById('btn-edit-log-cancel').addEventListener('click', cancelHandler);
+  modal.addEventListener('click', bgClickHandler);
+
+  // Focus on first input
+  document.getElementById('edit-log-study').focus();
+}
+
+async function saveEditedEntry() {
+  if (!selectedLogId) return;
+
+  const study = document.getElementById('edit-log-study').value.trim();
+  const duration = document.getElementById('edit-log-duration').value.trim();
+  const secondsStr = document.getElementById('edit-log-seconds').value.trim();
+  const rvu = document.getElementById('edit-log-rvu').value.trim();
+
+  if (!study) {
+    showToast('Study name is required.', true);
+    document.getElementById('edit-log-study').focus();
+    return;
+  }
+
+  const seconds = secondsStr ? parseInt(secondsStr, 10) : 0;
+  if (isNaN(seconds) || seconds < 0) {
+    showToast('Seconds must be a non-negative number.', true);
+    document.getElementById('edit-log-seconds').focus();
+    return;
+  }
+
+  try {
+    await updateStudyLogEntry(_slUid, selectedLogId, {
+      study: study,
+      duration: duration,
+      seconds: seconds,
+      rvu: rvu ? parseFloat(rvu) : null
+    });
+
+    selectedLogId = null;
+    document.getElementById('btn-edit-log-entry').disabled = true;
+    showToast('Entry updated.');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to update entry: ' + (err.message || err), true);
   }
 }
 
