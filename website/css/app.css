@@ -521,6 +521,23 @@ body {
   border-radius: 4px;
 }
 
+/* Style for search filters */
+.notes-search-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.notes-search-filters label {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.notes-search-filters input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
 /* ============================================================
    STUDY LOG TAB
    ============================================================ */

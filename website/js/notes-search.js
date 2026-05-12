@@ -65,19 +65,12 @@ function getNotesSearchQuery() {
   return input ? String(input.value || '').trim() : '';
 }
 
-function handleNotesSearchInput() {
-  var q = getNotesSearchQuery();
-  if (!q) {
-    _notesSearchLastResults = [];
-    if (_notesSearchIndexReady) {
-      setNotesSearchStatus('Indexed ' + _notesSearchRecords.length + ' note blocks across your patterns.');
-    } else {
-      setNotesSearchStatus('Loading notes index…');
-    }
-    renderNotesSearchResults([]);
-    return;
-  }
-  runNotesSearch(q);
+function handleNotesSearchInput(event) {
+  const query = event.target.value.trim().toLowerCase();
+  const filters = getActiveFilters();
+  const filteredNotes = filterNotesBySection(_notesSearchRecords, filters);
+  const results = searchNotes(query, filteredNotes);
+  displaySearchResults(results);
 }
 
 function clearNotesSearch() {
@@ -501,4 +494,24 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Add filter logic to handle section-specific searches
+function getActiveFilters() {
+  return {
+    hyperlinks: document.getElementById('filter-hyperlinks').checked,
+    measurements: document.getElementById('filter-measurements').checked,
+    findings: document.getElementById('filter-findings').checked,
+    searchPatterns: document.getElementById('filter-search-patterns').checked
+  };
+}
+
+function filterNotesBySection(notes, filters) {
+  return notes.filter(note => {
+    if (filters.hyperlinks && note.section === 'hyperlinks') return true;
+    if (filters.measurements && note.section === 'measurements') return true;
+    if (filters.findings && note.section === 'findings') return true;
+    if (filters.searchPatterns && note.section === 'searchPattern') return true;
+    return false;
+  });
 }
