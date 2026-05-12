@@ -196,6 +196,27 @@ function handleEditEntry() {
   document.getElementById('edit-log-seconds').value = entry.seconds || 0;
   document.getElementById('edit-log-rvu').value = entry.rvu != null ? entry.rvu : '';
 
+  // Populate RVU study dropdown and preselect if matching
+  const studySelectOrig = document.getElementById('edit-log-rvu-study-select');
+  const freshSelect = studySelectOrig.cloneNode(false);
+  studySelectOrig.parentNode.replaceChild(freshSelect, studySelectOrig);
+
+  RVUsData.populateSelect(freshSelect).then(() => {
+    const idx = RVUsData.findIndex(entry.study || '');
+    if (idx !== -1) {
+      freshSelect.value = idx;
+      // Only auto-fill RVU if entry had none
+      if (entry.rvu == null || entry.rvu === '') {
+        const rvuEntry = RVUsData.getEntry(idx);
+        if (rvuEntry) document.getElementById('edit-log-rvu').value = rvuEntry.rvu;
+      }
+    }
+    freshSelect.addEventListener('change', () => {
+      const rvuEntry = RVUsData.getEntry(Number(freshSelect.value));
+      if (rvuEntry) document.getElementById('edit-log-rvu').value = rvuEntry.rvu;
+    });
+  });
+
   // Show modal
   const modal = document.getElementById('modal-edit-log');
   modal.style.display = 'flex';

@@ -712,6 +712,25 @@ function openRecordModal() {
   document.getElementById('modal-record-body').textContent =
     `Record "${pendingRecordPatternName}" — ${dur}?`;
   document.getElementById('record-rvu-input').value = '';
+
+  // Attach change handler by cloning node to clear any previous listeners
+  const studySelect = document.getElementById('record-rvu-study-select');
+  const freshSelect = studySelect.cloneNode(false);
+  studySelect.parentNode.replaceChild(freshSelect, studySelect);
+
+  RVUsData.populateSelect(freshSelect).then(() => {
+    const idx = RVUsData.findIndex(pendingRecordPatternName);
+    if (idx !== -1) {
+      freshSelect.value = idx;
+      const entry = RVUsData.getEntry(idx);
+      if (entry) document.getElementById('record-rvu-input').value = entry.rvu;
+    }
+    freshSelect.addEventListener('change', () => {
+      const entry = RVUsData.getEntry(Number(freshSelect.value));
+      if (entry) document.getElementById('record-rvu-input').value = entry.rvu;
+    });
+  });
+
   document.getElementById('modal-record').style.display = '';
   setTimeout(() => document.getElementById('record-rvu-input').focus(), 50);
 }

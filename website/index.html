@@ -20,6 +20,7 @@
   <script src="js/editor.js"></script>
   <script src="js/calculations.js"></script>
   <script src="js/study-log.js"></script>
+  <script src="js/rvus.js"></script>
   <script src="js/patterns.js"></script>
   <script src="js/app.js"></script>
 </head>
@@ -227,6 +228,9 @@
     <div class="modal-card">
       <h3 id="modal-record-title">Record Study</h3>
       <p id="modal-record-body"></p>
+      <label class="form-label">Study <span class="optional">(select to auto-fill RVU)</span>
+        <select id="record-rvu-study-select" class="form-input"></select>
+      </label>
       <label class="form-label">Assign RVU <span class="optional">(optional)</span>
         <input id="record-rvu-input" type="number" min="0" step="0.01" class="form-input" placeholder="e.g. 1.5">
       </label>
@@ -313,6 +317,9 @@
       </label>
       <label class="form-label">Seconds
         <input id="edit-log-seconds" type="number" min="0" class="form-input" placeholder="0">
+      </label>
+      <label class="form-label">Study <span class="optional">(select to auto-fill RVU)</span>
+        <select id="edit-log-rvu-study-select" class="form-input"></select>
       </label>
       <label class="form-label">RVU <span class="optional">(optional)</span>
         <input id="edit-log-rvu" type="number" min="0" step="0.01" class="form-input" placeholder="e.g. 1.5">

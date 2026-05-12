@@ -1,0 +1,6866 @@
+[
+  {
+    "description": "Sbrt management",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 11.87
+  },
+  {
+    "description": "Apply interstit radiat compl",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 8.78
+  },
+  {
+    "description": "Apply interstit radiat compl",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 8.78
+  },
+  {
+    "description": "Apply intrcav radiat compl",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 8.66
+  },
+  {
+    "description": "Apply intrcav radiat compl",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 8.66
+  },
+  {
+    "description": "Radiotherapy dose plan imrt",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 7.99
+  },
+  {
+    "description": "Radiotherapy dose plan imrt",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 7.99
+  },
+  {
+    "description": "Stereotactic radiation trmt",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 7.92
+  },
+  {
+    "description": "Xray endovasc thor ao repr",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 7.0
+  },
+  {
+    "description": "Xray endovasc thor ao repr",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 6.0
+  },
+  {
+    "description": "Apply intrcav radiat interm",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 5.76
+  },
+  {
+    "description": "Apply intrcav radiat interm",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 5.76
+  },
+  {
+    "description": "Io radiation tx management",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 5.75
+  },
+  {
+    "description": "Hdr rdncl ntrstl/icav brchtx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 5.4
+  },
+  {
+    "description": "Hdr rdncl ntrstl/icav brchtx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 5.4
+  },
+  {
+    "description": "Infuse radioactive materials",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 5.0
+  },
+  {
+    "description": "Infuse radioactive materials",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 5.0
+  },
+  {
+    "description": "3-d radiotherapy plan",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 4.29
+  },
+  {
+    "description": "3-d radiotherapy plan",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 4.29
+  },
+  {
+    "description": "Design mlc device for imrt",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 4.29
+  },
+  {
+    "description": "Design mlc device for imrt",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 4.29
+  },
+  {
+    "description": "Mri gdn parnchyma tiss abltj",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 4.24
+  },
+  {
+    "description": "Xray place prox ext thor ao",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 4.0
+  },
+  {
+    "description": "Ct guide for tissue ablation",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 3.99
+  },
+  {
+    "description": "Apply intrcav radiat simple",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 3.85
+  },
+  {
+    "description": "Apply intrcav radiat simple",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 3.85
+  },
+  {
+    "description": "Hdr rdncl ntrstl/icav brchtx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 3.8
+  },
+  {
+    "description": "Hdr rdncl ntrstl/icav brchtx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 3.8
+  },
+  {
+    "description": "Xray place dist ext thor ao",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 3.5
+  },
+  {
+    "description": "Radiation tx management x5",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 3.37
+  },
+  {
+    "description": "Mri brain w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 3.2
+  },
+  {
+    "description": "Mri brain w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 3.2
+  },
+  {
+    "description": "Ther radiology tx plng cplx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 3.14
+  },
+  {
+    "description": "Card mri w/stress img & dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 3.0
+  },
+  {
+    "description": "Mri fetal sngl/1st gestation",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 3.0
+  },
+  {
+    "description": "Card mri w/stress img & dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 3.0
+  },
+  {
+    "description": "Mri fetal sngl/1st gestation",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 3.0
+  },
+  {
+    "description": "Cardiac mri w/stress img",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.95
+  },
+  {
+    "description": "Cardiac mri w/stress img",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.95
+  },
+  {
+    "description": "Telethx isodose plan cplx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 2.9
+  },
+  {
+    "description": "Telethx isodose plan cplx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 2.9
+  },
+  {
+    "description": "Brachytx isodose complex",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 2.9
+  },
+  {
+    "description": "Brachytx isodose complex",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 2.9
+  },
+  {
+    "description": "Mri brain w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.9
+  },
+  {
+    "description": "Cardiac mri for morph w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.6
+  },
+  {
+    "description": "Cardiac mri for morph w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.6
+  },
+  {
+    "description": "Ct hrt c+ strux cgen hrt ds",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.55
+  },
+  {
+    "description": "Ct hrt c+ strux cgen hrt ds",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.55
+  },
+  {
+    "description": "Fmri brain by phys/psych",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.54
+  },
+  {
+    "description": "Ct colonography dx w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.5
+  },
+  {
+    "description": "Ct colonography dx w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.5
+  },
+  {
+    "description": "Pet image w/ct full body",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.5
+  },
+  {
+    "description": "Pet image w/ct skull-thigh",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.44
+  },
+  {
+    "description": "Ct angio abdominal arteries",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.4
+  },
+  {
+    "description": "Ct colonography dx",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.4
+  },
+  {
+    "description": "Ct angio hrt w/3d image",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.4
+  },
+  {
+    "description": "Nuclear rx intra-arterial",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 2.4
+  },
+  {
+    "description": "Ct angio abdominal arteries",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.4
+  },
+  {
+    "description": "Ct angio hrt w/3d image",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.4
+  },
+  {
+    "description": "Ct colonography dx",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.4
+  },
+  {
+    "description": "Cardiac mri for morph",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.35
+  },
+  {
+    "description": "Cardiac mri for morph",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.35
+  },
+  {
+    "description": "Mri breast c-+ w/cad bi",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.3
+  },
+  {
+    "description": "Mri breast c-+ w/cad bi",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.3
+  },
+  {
+    "description": "Mri chest spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri neck spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri lumbar spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri brain stem w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri brain stem w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri chest spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri lumbar spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.29
+  },
+  {
+    "description": "Mri neck spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.29
+  },
+  {
+    "description": "Ct colonography screening",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.28
+  },
+  {
+    "description": "Ct colonography screening",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.28
+  },
+  {
+    "description": "Mri chest w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.26
+  },
+  {
+    "description": "Mri chest w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.26
+  },
+  {
+    "description": "Myocrd img pet 2rtracer ct",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.26
+  },
+  {
+    "description": "Hematopoietic nuclear tx",
+    "category": "Other",
+    "mod": "",
+    "rvu": 2.25
+  },
+  {
+    "description": "Hematopoietic nuclear tx",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 2.25
+  },
+  {
+    "description": "Cta abd&plvs w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.2
+  },
+  {
+    "description": "Mri abd w/o cntr flwd cntr",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.2
+  },
+  {
+    "description": "Mri pelvis w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.2
+  },
+  {
+    "description": "Cta abd&plvs w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.2
+  },
+  {
+    "description": "Mri abd w/o cntr flwd cntr",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.2
+  },
+  {
+    "description": "Mri pelvis w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.2
+  },
+  {
+    "description": "Pet image w/ct lmtd",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.2
+  },
+  {
+    "description": "Artery x-rays spine",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.18
+  },
+  {
+    "description": "Artery x-rays spine",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.18
+  },
+  {
+    "description": "Mri uppr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri joint upr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri joint lwr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri orbt/fac/nck w/o &w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri lwr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri joint lwr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri joint upr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri lwr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri orbt/fac/nck w/o &w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.15
+  },
+  {
+    "description": "Mri uppr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.15
+  },
+  {
+    "description": "Rp loclzj tum spect w/ct 2",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 2.12
+  },
+  {
+    "description": "Rp loclzj tum spect w/ct 2",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.12
+  },
+  {
+    "description": "Fmri brain by tech",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.11
+  },
+  {
+    "description": "Fmri brain by tech",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.11
+  },
+  {
+    "description": "Mri breast c-+ w/cad uni",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.1
+  },
+  {
+    "description": "Mri breast c-+ w/cad uni",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.1
+  },
+  {
+    "description": "Myocrd img pet 2rtracer",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.07
+  },
+  {
+    "description": "Artery x-rays abdomen",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.05
+  },
+  {
+    "description": "Artery x-rays abdomen",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.05
+  },
+  {
+    "description": "Special radiation treatment",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 2.03
+  },
+  {
+    "description": "Special radiation treatment",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 2.03
+  },
+  {
+    "description": "Ther nma rdctj intus/obstrcj",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.02
+  },
+  {
+    "description": "Ther nma rdctj intus/obstrcj",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.02
+  },
+  {
+    "description": "Ct abd&plv wo cntr flwd cntr",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.01
+  },
+  {
+    "description": "Ct abd&plv wo cntr flwd cntr",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.01
+  },
+  {
+    "description": "X-ray aorta leg arteries",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 2.0
+  },
+  {
+    "description": "Us guide tissue ablation",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 2.0
+  },
+  {
+    "description": "Ther radiology tx plng intrm",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 2.0
+  },
+  {
+    "description": "Respirator motion mgmt simul",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 2.0
+  },
+  {
+    "description": "Respirator motion mgmt simul",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 2.0
+  },
+  {
+    "description": "Pet image full body",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 2.0
+  },
+  {
+    "description": "X-ray aorta leg arteries",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 2.0
+  },
+  {
+    "description": "Echo guide for artery repair",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.99
+  },
+  {
+    "description": "Echo guide for artery repair",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.99
+  },
+  {
+    "description": "Nuclear rx intracav admin",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.99
+  },
+  {
+    "description": "Nuclear rx intracav admin",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.99
+  },
+  {
+    "description": "Nuclear rx intra-articular",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.99
+  },
+  {
+    "description": "Nuclear rx intra-articular",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.99
+  },
+  {
+    "description": "Artery x-rays arms/legs",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.97
+  },
+  {
+    "description": "Artery x-rays arms/legs",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.97
+  },
+  {
+    "description": "Nuclear rx iv admin",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.96
+  },
+  {
+    "description": "Nuclear rx iv admin",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.96
+  },
+  {
+    "description": "Hdr rdncl ntrstl/icav brchtx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.95
+  },
+  {
+    "description": "Hdr rdncl ntrstl/icav brchtx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.95
+  },
+  {
+    "description": "Pet image skull-thigh",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.93
+  },
+  {
+    "description": "Ct angio lwr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.9
+  },
+  {
+    "description": "Ob us detailed sngl fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.9
+  },
+  {
+    "description": "Ob us detailed sngl fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.9
+  },
+  {
+    "description": "Dx intraop epicar car us chd",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.9
+  },
+  {
+    "description": "Ct angio lwr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.9
+  },
+  {
+    "description": "Myocrd img pet rst&strs ct",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.9
+  },
+  {
+    "description": "Mri fetal ea addl gestation",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.85
+  },
+  {
+    "description": "Mri fetal ea addl gestation",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.85
+  },
+  {
+    "description": "Hyperthermia ext gen deep",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.84
+  },
+  {
+    "description": "Hyperthermia ext gen deep",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.84
+  },
+  {
+    "description": "Hyperthermia ntrstl prb>5",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.84
+  },
+  {
+    "description": "Hyperthermia ntrstl prb>5",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.84
+  },
+  {
+    "description": "Brachytx isodose intermed",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.83
+  },
+  {
+    "description": "Brachytx isodose intermed",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.83
+  },
+  {
+    "description": "Mr ang lwr ext w or w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.82
+  },
+  {
+    "description": "Cta abdomen w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.82
+  },
+  {
+    "description": "Ct abd & pelvis w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.82
+  },
+  {
+    "description": "Ct angiography chest",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.82
+  },
+  {
+    "description": "Mr ang lwr ext w or w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.82
+  },
+  {
+    "description": "Rp loclzj tum spect 2 areas",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.82
+  },
+  {
+    "description": "Ct abd & pelvis w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.82
+  },
+  {
+    "description": "Ct angiography chest",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.82
+  },
+  {
+    "description": "Cta abdomen w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.82
+  },
+  {
+    "description": "Rp loclzj tum spect 2 areas",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.82
+  },
+  {
+    "description": "Mri angio chest w or w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.81
+  },
+  {
+    "description": "Ct angiograph pelv w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.81
+  },
+  {
+    "description": "Ct angio upr extrm w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.81
+  },
+  {
+    "description": "Mri angio chest w or w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.81
+  },
+  {
+    "description": "Radiation therapy management",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.81
+  },
+  {
+    "description": "Ct angio upr extrm w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.81
+  },
+  {
+    "description": "Ct angiograph pelv w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.81
+  },
+  {
+    "description": "Mr angiograph neck w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mr angio spine w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mr angio pelvis w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mra abd w or w/o cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mr angio spine w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mra abd w or w/o cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.8
+  },
+  {
+    "description": "Nuclear rx oral admin",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.8
+  },
+  {
+    "description": "Nuclear rx oral admin",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mr angio pelvis w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mr angiograph neck w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.8
+  },
+  {
+    "description": "Myocrd img pet mlt rst&strs",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.8
+  },
+  {
+    "description": "Mri neck spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri chest spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri brain stem w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri lumbar spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.78
+  },
+  {
+    "description": "Ob us detailed addl fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.78
+  },
+  {
+    "description": "Ob us detailed addl fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri brain stem w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri chest spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri lumbar spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.78
+  },
+  {
+    "description": "Mri neck spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.78
+  },
+  {
+    "description": "Myocrd img pet 1 std w/ct",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.76
+  },
+  {
+    "description": "Artery x-rays arm/leg",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct angiography head",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct angiography neck",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct hrt w/3d image",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.75
+  },
+  {
+    "description": "Artery x-rays arm/leg",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct angiography head",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct angiography neck",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct hrt w/3d image",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.75
+  },
+  {
+    "description": "Ct abd & pelvis w/o contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.74
+  },
+  {
+    "description": "Ct abd & pelvis w/o contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.74
+  },
+  {
+    "description": "Mri chest w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mr angio upr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mri abdomen w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mri pelvis w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mr angio upr extr w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mri abdomen w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mri chest w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.73
+  },
+  {
+    "description": "Mri pelvis w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.73
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.67
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.67
+  },
+  {
+    "description": "Myocrd img pet rst/strs w/ct",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.67
+  },
+  {
+    "description": "Artery x-rays lungs",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.66
+  },
+  {
+    "description": "Artery x-rays lungs",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.66
+  },
+  {
+    "description": "Follow-up angiography",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.65
+  },
+  {
+    "description": "Mri upper extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri joint of lwr extr w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri joint upr extrem w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri orbit/face/neck w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri lower extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Ct sft tsue nck w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Us trgt dyn mbubb 1st les",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Us trgt dyn mbubb 1st les",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Ht muscle image spect mult",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.62
+  },
+  {
+    "description": "Ct sft tsue nck w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Ht muscle image spect mult",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri joint of lwr extr w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri joint upr extrem w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri lower extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri orbit/face/neck w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Mri upper extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.62
+  },
+  {
+    "description": "Myocrd img pet single study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.61
+  },
+  {
+    "description": "Mri breast c- bilateral",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.6
+  },
+  {
+    "description": "Mri bone marrow blood supply",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.6
+  },
+  {
+    "description": "Parathyrd planar w/spect&ct",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.6
+  },
+  {
+    "description": "Nuclr rx interstit colloid",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.6
+  },
+  {
+    "description": "Mri bone marrow blood supply",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.6
+  },
+  {
+    "description": "Mri breast c- bilateral",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.6
+  },
+  {
+    "description": "Parathyrd planar w/spect&ct",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.6
+  },
+  {
+    "description": "Ther rad simulaj field cplx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.56
+  },
+  {
+    "description": "Ther rad simulaj field cplx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.56
+  },
+  {
+    "description": "Hyperthermia gen intrcv prb",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.56
+  },
+  {
+    "description": "Hyperthermia gen intrcv prb",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.56
+  },
+  {
+    "description": "Myocrd img pet 1std rst/strs",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.56
+  },
+  {
+    "description": "Echograp trans r pros study",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.55
+  },
+  {
+    "description": "Echograp trans r pros study",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.55
+  },
+  {
+    "description": "Pet image ltd area",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.54
+  },
+  {
+    "description": "Brain imaging (pet)",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.5
+  },
+  {
+    "description": "Mr angiography neck w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.5
+  },
+  {
+    "description": "Ct scan for needle biopsy",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 1.5
+  },
+  {
+    "description": "Ct scan for needle biopsy",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 1.5
+  },
+  {
+    "description": "Mri guidance ndl plmt rs&i",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 1.5
+  },
+  {
+    "description": "Mri guidance ndl plmt rs&i",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 1.5
+  },
+  {
+    "description": "Brain imaging (pet)",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.5
+  },
+  {
+    "description": "Brain imaging (pet)",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.5
+  },
+  {
+    "description": "Mr angiography neck w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.5
+  },
+  {
+    "description": "Vein x-ray adrenal glands",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.49
+  },
+  {
+    "description": "Vein x-ray kidneys",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.49
+  },
+  {
+    "description": "Rp loclzj tum spect w/ct 1",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.49
+  },
+  {
+    "description": "Rp loclzj tum spect w/ct 1",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.49
+  },
+  {
+    "description": "Vein x-ray adrenal glands",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.49
+  },
+  {
+    "description": "Vein x-ray kidneys",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.49
+  },
+  {
+    "description": "Mr angiograph head w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Magnetic image jaw joint",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri brain stem w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri lumbar spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri chest spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri neck spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Vein x-ray arms/legs",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.48
+  },
+  {
+    "description": "Magnetic image jaw joint",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mr angiograph head w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri brain stem w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri chest spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri lumbar spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Mri neck spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Vein x-ray arms/legs",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.48
+  },
+  {
+    "description": "Gated heart multiple",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.47
+  },
+  {
+    "description": "Heart first pass multiple",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.47
+  },
+  {
+    "description": "Gated heart multiple",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.47
+  },
+  {
+    "description": "Heart first pass multiple",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.47
+  },
+  {
+    "description": "Mri chest w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.46
+  },
+  {
+    "description": "Mri pelvis w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.46
+  },
+  {
+    "description": "Mri abdomen w/o contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.46
+  },
+  {
+    "description": "Mri abdomen w/o contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.46
+  },
+  {
+    "description": "Mri chest w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.46
+  },
+  {
+    "description": "Mri pelvis w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.46
+  },
+  {
+    "description": "Mri breast c- unilateral",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.45
+  },
+  {
+    "description": "Mri breast c- unilateral",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.45
+  },
+  {
+    "description": "Contrast exam abdominl aorta",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.44
+  },
+  {
+    "description": "Vein x-ray liver w/o hemodyn",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.44
+  },
+  {
+    "description": "Vein x-ray liver w/hemodynam",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.44
+  },
+  {
+    "description": "Contrast exam abdominl aorta",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.44
+  },
+  {
+    "description": "Vein x-ray liver w/hemodynam",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.44
+  },
+  {
+    "description": "Vein x-ray liver w/o hemodyn",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.44
+  },
+  {
+    "description": "K flow/funct image multiple",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.41
+  },
+  {
+    "description": "K flow/funct image multiple",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.41
+  },
+  {
+    "description": "Ct abd wo cntrst flwd cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.4
+  },
+  {
+    "description": "Ct abd wo cntrst flwd cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.4
+  },
+  {
+    "description": "Telethx isodose plan simple",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.4
+  },
+  {
+    "description": "Telethx isodose plan simple",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.4
+  },
+  {
+    "description": "Brachytx isodose plan simple",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.4
+  },
+  {
+    "description": "Brachytx isodose plan simple",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.4
+  },
+  {
+    "description": "Hdr rdncl skn surf brachytx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.4
+  },
+  {
+    "description": "Hdr rdncl skn surf brachytx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.4
+  },
+  {
+    "description": "Ct soft tissue neck w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.38
+  },
+  {
+    "description": "Ct soft tissue neck w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.38
+  },
+  {
+    "description": "Ht muscle image spect sing",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.38
+  },
+  {
+    "description": "Ht muscle image spect sing",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.38
+  },
+  {
+    "description": "Mri upper extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri orbit/face/neck w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri lower extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri joint upr extrem w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri jnt of lwr extre w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri jnt of lwr extre w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri joint upr extrem w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri lower extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri orbit/face/neck w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.35
+  },
+  {
+    "description": "Mri upper extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.35
+  },
+  {
+    "description": "Echo guide for transfusion",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.34
+  },
+  {
+    "description": "Echo guidance radiotherapy",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.34
+  },
+  {
+    "description": "Echo guidance radiotherapy",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.34
+  },
+  {
+    "description": "Ht musc image planar mult",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.34
+  },
+  {
+    "description": "Ht musc image planar mult",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.34
+  },
+  {
+    "description": "Myelogphy 2/> spine regions",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.33
+  },
+  {
+    "description": "Myelogphy 2/> spine regions",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.33
+  },
+  {
+    "description": "Artery x-rays adrenals",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.31
+  },
+  {
+    "description": "Artery x-rays lung",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.31
+  },
+  {
+    "description": "Artery x-rays adrenals",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.31
+  },
+  {
+    "description": "Artery x-rays lung",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.31
+  },
+  {
+    "description": "Hyperthermia ext gen supfc",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.31
+  },
+  {
+    "description": "Hyperthermia ext gen supfc",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.31
+  },
+  {
+    "description": "Hyperthermia ntrstl prb 5/<",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.31
+  },
+  {
+    "description": "Hyperthermia ntrstl prb 5/<",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.31
+  },
+  {
+    "description": "X-rays transcath therapy",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.31
+  },
+  {
+    "description": "Ther radiology tx plng smpl",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.3
+  },
+  {
+    "description": "Ct orbit/ear/fossa w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.28
+  },
+  {
+    "description": "Ct soft tissue neck w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.28
+  },
+  {
+    "description": "Ct orbit/ear/fossa w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.28
+  },
+  {
+    "description": "Ct soft tissue neck w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.28
+  },
+  {
+    "description": "Ct abdomen w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct chest spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct head/brain w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct lumbar spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct maxillofacial w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct neck spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct orbit/ear/fossa w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct abdomen w/contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct orbit/ear/fossa w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct chest spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct lumbar spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct neck spine w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct maxillofacial w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "Ct head/brain w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.27
+  },
+  {
+    "description": "X-ray xm colon 2cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.26
+  },
+  {
+    "description": "X-ray xm colon 2cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.26
+  },
+  {
+    "description": "Ct thorax dx c-/c+",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.25
+  },
+  {
+    "description": "Ct thorax dx c-/c+",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.25
+  },
+  {
+    "description": "Ct chest spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct lumbar spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct lwr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct neck spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct pelvis w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct uppr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct pelvis w/o & w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct uppr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct lwr extremity w/o&w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct chest spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct lumbar spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.22
+  },
+  {
+    "description": "Ct neck spine w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.22
+  },
+  {
+    "description": "Us nrv&acc strux 1xtr compre",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.21
+  },
+  {
+    "description": "Us nrv&acc strux 1xtr compre",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.21
+  },
+  {
+    "description": "Ct scan for localization",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 1.21
+  },
+  {
+    "description": "Ct scan for localization",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 1.21
+  },
+  {
+    "description": "K flow/funct image w/drug",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.21
+  },
+  {
+    "description": "K flow/funct image w/drug",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.21
+  },
+  {
+    "description": "Mr angiography head w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.2
+  },
+  {
+    "description": "Mr angiography neck w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.2
+  },
+  {
+    "description": "Mr angiography head w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.2
+  },
+  {
+    "description": "Dx ntrop epcr us chd img acq",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.2
+  },
+  {
+    "description": "Parathyrd planar w/wo subtrj",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.2
+  },
+  {
+    "description": "Lymph system imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.2
+  },
+  {
+    "description": "Lymph system imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.2
+  },
+  {
+    "description": "Mr angiography head w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.2
+  },
+  {
+    "description": "Mr angiography head w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.2
+  },
+  {
+    "description": "Mr angiography neck w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.2
+  },
+  {
+    "description": "Parathyrd planar w/wo subtrj",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.2
+  },
+  {
+    "description": "Abscess drainage under x-ray",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.19
+  },
+  {
+    "description": "Contrast x-ray of brain",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.19
+  },
+  {
+    "description": "Ct abdomen w/o contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.19
+  },
+  {
+    "description": "Heart image spect",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.19
+  },
+  {
+    "description": "Contrast x-ray of brain",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.19
+  },
+  {
+    "description": "Ct abdomen w/o contrast",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.19
+  },
+  {
+    "description": "Abscess drainage under x-ray",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.19
+  },
+  {
+    "description": "Contrast x-ray of brain",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.19
+  },
+  {
+    "description": "Heart image spect",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.19
+  },
+  {
+    "description": "Remove esophagus obstruction",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.19
+  },
+  {
+    "description": "Ob us nuchal meas 1 gest",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.18
+  },
+  {
+    "description": "Ob us nuchal meas 1 gest",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.18
+  },
+  {
+    "description": "X-ray xm sm int 2cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.17
+  },
+  {
+    "description": "Lymph vessel x-ray arms/legs",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.17
+  },
+  {
+    "description": "Lymph vessel x-ray trunk",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.17
+  },
+  {
+    "description": "X-ray xm sm int 2cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.17
+  },
+  {
+    "description": "Ct lower extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct pelvis w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct thorax dx c+",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct upper extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.16
+  },
+  {
+    "description": "Discography cerv/thor spine",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct pelvis w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct upper extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct thorax dx c+",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.16
+  },
+  {
+    "description": "Ct lower extremity w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.16
+  },
+  {
+    "description": "Discography cerv/thor spine",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.16
+  },
+  {
+    "description": "Radiation treatment aid(s)",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.15
+  },
+  {
+    "description": "Radiation treatment aid(s)",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.15
+  },
+  {
+    "description": "Artery x-rays adrenal gland",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays chest",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays lung",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays pelvis",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Contrast exam thoracic aorta",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray skull",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays chest",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays adrenal gland",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays pelvis",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Artery x-rays lung",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray adrenal gland",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray skull epidural",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray neck",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray liver",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray liver w/hemodynam",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Contrast exam thoracic aorta",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray kidney",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray chest",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray trunk",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Apply surf ldr radionuclide",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.14
+  },
+  {
+    "description": "Apply surf ldr radionuclide",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray adrenal gland",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray chest",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray kidney",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray liver",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray liver w/hemodynam",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray neck",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray skull",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray skull epidural",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray spleen/liver",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Vein x-ray trunk",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "X-ray exam of penis",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.14
+  },
+  {
+    "description": "Ct head/brain w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.13
+  },
+  {
+    "description": "Ct maxillofacial w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.13
+  },
+  {
+    "description": "Ct orbit/ear/fossa w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.13
+  },
+  {
+    "description": "Ct orbit/ear/fossa w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.13
+  },
+  {
+    "description": "Ct maxillofacial w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.13
+  },
+  {
+    "description": "Ct head/brain w/dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.13
+  },
+  {
+    "description": "Us exam spinal canal",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.13
+  },
+  {
+    "description": "Us exam spinal canal",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.13
+  },
+  {
+    "description": "Mr elastography",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.1
+  },
+  {
+    "description": "Mr elastography",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.1
+  },
+  {
+    "description": "Ct pelvis w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.09
+  },
+  {
+    "description": "Ct pelvis w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.09
+  },
+  {
+    "description": "Rp loclzj tum spect 1 area",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.09
+  },
+  {
+    "description": "Rp loclzj tum spect 1 area",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.09
+  },
+  {
+    "description": "Ct thorax dx c-",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.08
+  },
+  {
+    "description": "Ct thorax lung cancer scr c-",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.08
+  },
+  {
+    "description": "Gastric emptying imag study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.08
+  },
+  {
+    "description": "Ct thorax lung cancer scr c-",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.08
+  },
+  {
+    "description": "Ct thorax dx c-",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.08
+  },
+  {
+    "description": "Gastric emptying imag study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.08
+  },
+  {
+    "description": "Lung ventilat&perfus imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.07
+  },
+  {
+    "description": "Lung ventilat&perfus imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.07
+  },
+  {
+    "description": "Vein x-ray arm/leg",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.05
+  },
+  {
+    "description": "Fetal biophys profile w/nst",
+    "category": "Other",
+    "mod": "",
+    "rvu": 1.05
+  },
+  {
+    "description": "Fetal biophys profile w/nst",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 1.05
+  },
+  {
+    "description": "Ther rad simulaj field intrm",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.05
+  },
+  {
+    "description": "Ther rad simulaj field intrm",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.05
+  },
+  {
+    "description": "Hdr rdncl skn surf brachytx",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 1.05
+  },
+  {
+    "description": "Hdr rdncl skn surf brachytx",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 1.05
+  },
+  {
+    "description": "Vein x-ray arm/leg",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.05
+  },
+  {
+    "description": "X-ray xm colon 1cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.04
+  },
+  {
+    "description": "X-ray xm colon 1cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.04
+  },
+  {
+    "description": "Bone imaging 3 phase",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.02
+  },
+  {
+    "description": "Bone imaging 3 phase",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.02
+  },
+  {
+    "description": "Artery x-ray each vessel",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.01
+  },
+  {
+    "description": "Artery x-ray each vessel",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.01
+  },
+  {
+    "description": "Rp loclzj tum whbdy 2+d img",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.01
+  },
+  {
+    "description": "Rp loclzj tum whbdy 2+d img",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.01
+  },
+  {
+    "description": "Acute venous thrombus image",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct chest spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct lower extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct lumbar spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct neck spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct upper extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Dx mammo incl cad bi",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ht muscle image planar sing",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct upper extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct neck spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct chest spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct lower extremity w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ct lumbar spine w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Dx mammo incl cad bi",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Ht muscle image planar sing",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Acute venous thrombus image",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 1.0
+  },
+  {
+    "description": "Acute gi blood loss imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.99
+  },
+  {
+    "description": "Ob us < 14 wks single fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.99
+  },
+  {
+    "description": "Ob us < 14 wks single fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.99
+  },
+  {
+    "description": "Ob us >= 14 wks sngl fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.99
+  },
+  {
+    "description": "Ob us >= 14 wks sngl fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.99
+  },
+  {
+    "description": "Ob us nuchal meas add-on",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.99
+  },
+  {
+    "description": "Ob us nuchal meas add-on",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.99
+  },
+  {
+    "description": "Acute gi blood loss imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.99
+  },
+  {
+    "description": "Cat scan follow-up study",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.98
+  },
+  {
+    "description": "Gastric emptying imag study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.98
+  },
+  {
+    "description": "Gated heart planar single",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.98
+  },
+  {
+    "description": "Heart first pass single",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.98
+  },
+  {
+    "description": "Cat scan follow-up study",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.98
+  },
+  {
+    "description": "Ob us >= 14 wks addl fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.98
+  },
+  {
+    "description": "Ob us >= 14 wks addl fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.98
+  },
+  {
+    "description": "Gastric emptying imag study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.98
+  },
+  {
+    "description": "Gated heart planar single",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.98
+  },
+  {
+    "description": "Heart first pass single",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.98
+  },
+  {
+    "description": "K flow/funct image w/o drug",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.96
+  },
+  {
+    "description": "K flow/funct image w/o drug",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.96
+  },
+  {
+    "description": "Special teletx port plan",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.95
+  },
+  {
+    "description": "Special teletx port plan",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.95
+  },
+  {
+    "description": "Heart infarct image (3d)",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.92
+  },
+  {
+    "description": "Heart infarct image (3d)",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.92
+  },
+  {
+    "description": "Myelography neck spine",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.91
+  },
+  {
+    "description": "Myelography thoracic spine",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.91
+  },
+  {
+    "description": "Us guide intraop",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.91
+  },
+  {
+    "description": "Myelography neck spine",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.91
+  },
+  {
+    "description": "Myelography thoracic spine",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.91
+  },
+  {
+    "description": "Hepatobil syst image w/drug",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.9
+  },
+  {
+    "description": "X-ray xm upr gi trc 2cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.9
+  },
+  {
+    "description": "Us compl joint r-t w/img",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.9
+  },
+  {
+    "description": "Us compl joint r-t w/img",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.9
+  },
+  {
+    "description": "Hepatobil syst image w/drug",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.9
+  },
+  {
+    "description": "Ven thrombosis images bilat",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.9
+  },
+  {
+    "description": "Ven thrombosis images bilat",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.9
+  },
+  {
+    "description": "X-ray xm upr gi trc 2cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.9
+  },
+  {
+    "description": "Leveen/shunt patency exam",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.88
+  },
+  {
+    "description": "Leveen/shunt patency exam",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.88
+  },
+  {
+    "description": "X-ray bile duct dilation",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.88
+  },
+  {
+    "description": "Special radiation dosimetry",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.87
+  },
+  {
+    "description": "Special radiation dosimetry",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.87
+  },
+  {
+    "description": "Bone imaging whole body",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.86
+  },
+  {
+    "description": "Thyroid met imaging body",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.86
+  },
+  {
+    "description": "Bone imaging whole body",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.86
+  },
+  {
+    "description": "Thyroid met imaging body",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.86
+  },
+  {
+    "description": "Ct head/brain w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ct maxillofacial w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.85
+  },
+  {
+    "description": "Lung perf&ventilat diferentl",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ct maxillofacial w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ct head/brain w/o dye",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ob us follow-up per fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ob us follow-up per fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.85
+  },
+  {
+    "description": "Us trgt dyn mbubb ea addl",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.85
+  },
+  {
+    "description": "Us trgt dyn mbubb ea addl",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ct scan for therapy guide",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 0.85
+  },
+  {
+    "description": "Ct scan for therapy guide",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 0.85
+  },
+  {
+    "description": "Lung perf&ventilat diferentl",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.85
+  },
+  {
+    "description": "Speech evaluation complex",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.84
+  },
+  {
+    "description": "Speech evaluation complex",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.84
+  },
+  {
+    "description": "Bone imaging multiple areas",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Dilation urtr/urt rs&i",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Dilation urtr/urt rs&i",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "X-ray of lower spine disk",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "Myelography l-s spine",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "Xray control catheter change",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "Ob us < 14 wks addl fetus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "Ob us < 14 wks addl fetus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Bone imaging multiple areas",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.83
+  },
+  {
+    "description": "Myelography l-s spine",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Vascular biopsy",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "X-ray of lower spine disk",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Xray control catheter change",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.83
+  },
+  {
+    "description": "Thyroid met imaging/studies",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.82
+  },
+  {
+    "description": "Thyroid met imaging/studies",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.82
+  },
+  {
+    "description": "Dx mammo incl cad uni",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.81
+  },
+  {
+    "description": "Lymph vessel x-ray arm/leg",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.81
+  },
+  {
+    "description": "Lymph vessel x-ray trunk",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.81
+  },
+  {
+    "description": "X-ray xm sm int 1cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.81
+  },
+  {
+    "description": "Us exam abdom complete",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.81
+  },
+  {
+    "description": "Us exam abdom complete",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.81
+  },
+  {
+    "description": "Gi endoscopic ultrasound",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.81
+  },
+  {
+    "description": "Dx mammo incl cad uni",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.81
+  },
+  {
+    "description": "X-ray xm sm int 1cntrst std",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.81
+  },
+  {
+    "description": "Bone marrow imaging body",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.8
+  },
+  {
+    "description": "Heart infarct image (ef)",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.8
+  },
+  {
+    "description": "X-ray xm upr gi trc 1cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.8
+  },
+  {
+    "description": "Parathyroid planar imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.8
+  },
+  {
+    "description": "Bone marrow imaging body",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.8
+  },
+  {
+    "description": "Heart infarct image (ef)",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.8
+  },
+  {
+    "description": "Rp loclzj tum whbdy 1 d img",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.8
+  },
+  {
+    "description": "Parathyroid planar imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.8
+  },
+  {
+    "description": "Rp loclzj tum whbdy 1 d img",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.8
+  },
+  {
+    "description": "X-ray xm upr gi trc 1cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.8
+  },
+  {
+    "description": "3d render w/intrp postproces",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.79
+  },
+  {
+    "description": "Gastric emptying imag study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.79
+  },
+  {
+    "description": "3d render w/intrp postproces",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.79
+  },
+  {
+    "description": "Gastric emptying imag study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.79
+  },
+  {
+    "description": "Cardiac shunt imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.78
+  },
+  {
+    "description": "Cardiac shunt imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.78
+  },
+  {
+    "description": "Fetal biophys profil w/o nst",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.77
+  },
+  {
+    "description": "Fetal biophys profil w/o nst",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.77
+  },
+  {
+    "description": "Venous thrombosis imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.77
+  },
+  {
+    "description": "Venous thrombosis imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.77
+  },
+  {
+    "description": "Mr sfty med physics xm cstmz",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.76
+  },
+  {
+    "description": "Mr sfty med physics xm cstmz",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.76
+  },
+  {
+    "description": "Us exam k transpl w/doppler",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.76
+  },
+  {
+    "description": "Us exam k transpl w/doppler",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.76
+  },
+  {
+    "description": "Scr mammo bi incl cad",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.76
+  },
+  {
+    "description": "Scr mammo bi incl cad",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.76
+  },
+  {
+    "description": "X-ray guide intestinal tube",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.76
+  },
+  {
+    "description": "Bone marrow imaging mult",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.75
+  },
+  {
+    "description": "Lung perfusion differential",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.75
+  },
+  {
+    "description": "Mr safety implant elec prepj",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.75
+  },
+  {
+    "description": "N-invas est c ffr sw aly cta",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.75
+  },
+  {
+    "description": "N-invas est c ffr sw aly cta",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.75
+  },
+  {
+    "description": "Mr safety implant elec prepj",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.75
+  },
+  {
+    "description": "Transvaginal us obstetric",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.75
+  },
+  {
+    "description": "Transvaginal us obstetric",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.75
+  },
+  {
+    "description": "Radiation treatment aid(s)",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.75
+  },
+  {
+    "description": "Radiation treatment aid(s)",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.75
+  },
+  {
+    "description": "Bone marrow imaging mult",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.75
+  },
+  {
+    "description": "Lung perfusion differential",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.75
+  },
+  {
+    "description": "Adrenal cortex & medulla img",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.74
+  },
+  {
+    "description": "Esophageal motility",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.74
+  },
+  {
+    "description": "Hepatobiliary system imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.74
+  },
+  {
+    "description": "Lung perfusion imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.74
+  },
+  {
+    "description": "Us exam abdo back wall comp",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.74
+  },
+  {
+    "description": "Us exam abdo back wall comp",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.74
+  },
+  {
+    "description": "Us exam infant hips dynamic",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.74
+  },
+  {
+    "description": "Us exam infant hips dynamic",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.74
+  },
+  {
+    "description": "Adrenal cortex & medulla img",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.74
+  },
+  {
+    "description": "Hepatobiliary system imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.74
+  },
+  {
+    "description": "Esophageal motility",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.74
+  },
+  {
+    "description": "Lung perfusion imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.74
+  },
+  {
+    "description": "Ultrasound breast complete",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.73
+  },
+  {
+    "description": "Ultrasound breast complete",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.73
+  },
+  {
+    "description": "Rp loclzj tum 2+area 1+d img",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.73
+  },
+  {
+    "description": "Rp loclzj tum 2+area 1+d img",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.73
+  },
+  {
+    "description": "Echo exam uterus",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.72
+  },
+  {
+    "description": "Echo exam uterus",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.72
+  },
+  {
+    "description": "Testicular imaging w/flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.71
+  },
+  {
+    "description": "Testicular imaging w/flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.71
+  },
+  {
+    "description": "X-ray xm esophagus 2cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "Vein x-ray eye socket",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "X-ray sm int f-thru std",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "Oph us dx b-scan&quan a-scan",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "Oph us dx b-scan&quan a-scan",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "Middle cerebral artery echo",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "Middle cerebral artery echo",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "Dx intraop epcar us chd i&r",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "Radex osseous survey infant",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "Radex osseous survey infant",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "Ther rad simulaj field smpl",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.7
+  },
+  {
+    "description": "Ther rad simulaj field smpl",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "Vein x-ray eye socket",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "X-ray sm int f-thru std",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "X-ray xm esophagus 2cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.7
+  },
+  {
+    "description": "Gastric mucosa imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.69
+  },
+  {
+    "description": "Heart infarct image",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.69
+  },
+  {
+    "description": "Transvaginal us non-ob",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.69
+  },
+  {
+    "description": "Transvaginal us non-ob",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.69
+  },
+  {
+    "description": "Us exam pelvic complete",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.69
+  },
+  {
+    "description": "Us exam pelvic complete",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.69
+  },
+  {
+    "description": "Us transrectal",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.69
+  },
+  {
+    "description": "Us transrectal",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.69
+  },
+  {
+    "description": "Us lmtd jt/fcl evl nvasc xtr",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.69
+  },
+  {
+    "description": "Us lmtd jt/fcl evl nvasc xtr",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.69
+  },
+  {
+    "description": "Gastric mucosa imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.69
+  },
+  {
+    "description": "Heart infarct image",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.69
+  },
+  {
+    "description": "Cerebrospinal fluid scan",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.68
+  },
+  {
+    "description": "Gastroesophageal reflux std",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.68
+  },
+  {
+    "description": "Meckels divert exam",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.68
+  },
+  {
+    "description": "Ultrasound breast limited",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.68
+  },
+  {
+    "description": "Ultrasound breast limited",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.68
+  },
+  {
+    "description": "Gastroesophageal reflux std",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.68
+  },
+  {
+    "description": "Meckels divert exam",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.68
+  },
+  {
+    "description": "Cerebrospinal fluid scan",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.68
+  },
+  {
+    "description": "Echo guide for heart biopsy",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.67
+  },
+  {
+    "description": "Echo guide for biopsy",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.67
+  },
+  {
+    "description": "Echo guide for biopsy",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.67
+  },
+  {
+    "description": "Echo guide villus sampling",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.67
+  },
+  {
+    "description": "Echo guide ova aspiration",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.67
+  },
+  {
+    "description": "Echo guide ova aspiration",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.67
+  },
+  {
+    "description": "Thyroid met imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.67
+  },
+  {
+    "description": "Thyroid met imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.67
+  },
+  {
+    "description": "Ob us limited fetus(s)",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.65
+  },
+  {
+    "description": "Ob us limited fetus(s)",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.65
+  },
+  {
+    "description": "Brain image w/flow 4 + views",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.64
+  },
+  {
+    "description": "Oph us dx quan a-scan only",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.64
+  },
+  {
+    "description": "Oph us dx quan a-scan only",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.64
+  },
+  {
+    "description": "Us exam scrotum",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.64
+  },
+  {
+    "description": "Us exam scrotum",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.64
+  },
+  {
+    "description": "Brain image w/flow 4 + views",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.64
+  },
+  {
+    "description": "Rp loclzj tum 1 area 1 d img",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.64
+  },
+  {
+    "description": "Rp loclzj tum 1 area 1 d img",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.64
+  },
+  {
+    "description": "Aqmbf pet rest & rx stress",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.63
+  },
+  {
+    "description": "Echo exam of head",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.63
+  },
+  {
+    "description": "Echo exam of head",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.63
+  },
+  {
+    "description": "Bone imaging limited area",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.62
+  },
+  {
+    "description": "Us exam infant hips static",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.62
+  },
+  {
+    "description": "Us exam infant hips static",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.62
+  },
+  {
+    "description": "Radiation therapy dose plan",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.62
+  },
+  {
+    "description": "Radiation therapy dose plan",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.62
+  },
+  {
+    "description": "Bone imaging limited area",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.62
+  },
+  {
+    "description": "X-ray exam of perineum",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.62
+  },
+  {
+    "description": "Csf leakage imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.61
+  },
+  {
+    "description": "Csf ventriculography",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.61
+  },
+  {
+    "description": "Platelet survival study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.61
+  },
+  {
+    "description": "Red cell sequestration",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.61
+  },
+  {
+    "description": "Red cell survival study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.61
+  },
+  {
+    "description": "Red cell survival study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.61
+  },
+  {
+    "description": "Red cell sequestration",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.61
+  },
+  {
+    "description": "Platelet survival study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.61
+  },
+  {
+    "description": "Csf ventriculography",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.61
+  },
+  {
+    "description": "Csf leakage imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.61
+  },
+  {
+    "description": "X-ray fallopian tube",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.61
+  },
+  {
+    "description": "Breast tomosynthesis bi",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Mr safety deter phys/qhp",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Mr safety implt pos&/immoblj",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Mr safety implt pos&/immoblj",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "X-ray xm esophagus 1cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "Mr safety deter phys/qhp",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "Oph us dx ant sgm us uni/bi",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "Oph us dx ant sgm us uni/bi",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Dx intraop thoracic aorta us",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Fluoroguide for spine inject",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "Fluoroguide for spine inject",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Breast tomosynthesis bi",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "Thyroid met uptake",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.6
+  },
+  {
+    "description": "Thyroid met uptake",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "X-ray xm esophagus 1cntrst",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.6
+  },
+  {
+    "description": "Contrast x-ray of knee joint",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.59
+  },
+  {
+    "description": "Contrast x-ray of knee joint",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.59
+  },
+  {
+    "description": "X-ray xm phrnx&/crv esoph c+",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.59
+  },
+  {
+    "description": "Us exam chest",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.59
+  },
+  {
+    "description": "Us exam chest",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.59
+  },
+  {
+    "description": "Echo exam of abdomen",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.59
+  },
+  {
+    "description": "Echo exam of abdomen",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.59
+  },
+  {
+    "description": "Use parenchyma",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.59
+  },
+  {
+    "description": "Use parenchyma",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.59
+  },
+  {
+    "description": "Use 1st target lesion",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.59
+  },
+  {
+    "description": "Use 1st target lesion",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.59
+  },
+  {
+    "description": "X-ray xm phrnx&/crv esoph c+",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.59
+  },
+  {
+    "description": "Ct hrt w/o dye w/ca test",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.58
+  },
+  {
+    "description": "Ct hrt w/o dye w/ca test",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.58
+  },
+  {
+    "description": "X-ray exam of body section",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.58
+  },
+  {
+    "description": "Us exam abdo back wall lim",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.58
+  },
+  {
+    "description": "Us exam abdo back wall lim",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.58
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.58
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.58
+  },
+  {
+    "description": "X-ray exam of body section",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.58
+  },
+  {
+    "description": "Csf shunt evaluation",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.57
+  },
+  {
+    "description": "Lvr&spleen img w/vasc flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.57
+  },
+  {
+    "description": "Echo exam of eye",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.57
+  },
+  {
+    "description": "Echo exam of eye",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.57
+  },
+  {
+    "description": "Lvr&spleen img w/vasc flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.57
+  },
+  {
+    "description": "Csf shunt evaluation",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.57
+  },
+  {
+    "description": "Ureteral reflux study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.57
+  },
+  {
+    "description": "Ureteral reflux study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.57
+  },
+  {
+    "description": "Oph us dx b-scan",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.56
+  },
+  {
+    "description": "Oph us dx b-scan",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.56
+  },
+  {
+    "description": "Us exam of head and neck",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.56
+  },
+  {
+    "description": "Us exam of head and neck",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.56
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.56
+  },
+  {
+    "description": "Echo exam of fetal heart",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.56
+  },
+  {
+    "description": "X-ray bile/panc endoscopy",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.56
+  },
+  {
+    "description": "Bone marrow imaging ltd",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.55
+  },
+  {
+    "description": "Us abdl aorta screen aaa",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.55
+  },
+  {
+    "description": "Us abdl aorta screen aaa",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.55
+  },
+  {
+    "description": "Radex osseous survey compl",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.55
+  },
+  {
+    "description": "Radex osseous survey compl",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.55
+  },
+  {
+    "description": "Bone marrow imaging ltd",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.55
+  },
+  {
+    "description": "Contrast x-ray of ankle",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of elbow",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of hip",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of shoulder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of wrist",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of wrist",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of shoulder",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of hip",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of ankle",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Venous sampling by catheter",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Contrast x-ray of elbow",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray exam of jaw joint",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray exam of fistula",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Echo exam of eye",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Echo exam of eye",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Needle localization by xray",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 0.54
+  },
+  {
+    "description": "Needle localization by xray",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Venous sampling by catheter",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray exam of fistula",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray exam of jaw joint",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray exam of kidney lesion",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray guide for gi tube",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "X-ray guide gi dilation",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.54
+  },
+  {
+    "description": "Brain image 4+ views",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.53
+  },
+  {
+    "description": "Nuclear exam of tear flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.53
+  },
+  {
+    "description": "X-ray xm swlng funcj c+",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.53
+  },
+  {
+    "description": "Brain image 4+ views",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.53
+  },
+  {
+    "description": "Nuclear exam of tear flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.53
+  },
+  {
+    "description": "X-ray xm swlng funcj c+",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.53
+  },
+  {
+    "description": "Salivary glnd img serial img",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.52
+  },
+  {
+    "description": "Urography rtrgr +-kub",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.52
+  },
+  {
+    "description": "Urography rtrgr +-kub",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.52
+  },
+  {
+    "description": "Salivary glnd img serial img",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.52
+  },
+  {
+    "description": "Brain image w/flow < 4 views",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.51
+  },
+  {
+    "description": "Liver imaging with vasc flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.51
+  },
+  {
+    "description": "Urography antegrade rs&i",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.51
+  },
+  {
+    "description": "Urography antegrade rs&i",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.51
+  },
+  {
+    "description": "Liver imaging with vasc flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.51
+  },
+  {
+    "description": "Brain image w/flow < 4 views",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.51
+  },
+  {
+    "description": "Heart first pass add-on",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.5
+  },
+  {
+    "description": "Thyroid imaging w/blood flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.5
+  },
+  {
+    "description": "Umbilical artery echo",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.5
+  },
+  {
+    "description": "Umbilical artery echo",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.5
+  },
+  {
+    "description": "Us exam pelvic limited",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.5
+  },
+  {
+    "description": "Us exam pelvic limited",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.5
+  },
+  {
+    "description": "Thyroid imaging w/blood flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.5
+  },
+  {
+    "description": "Heart first pass add-on",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.5
+  },
+  {
+    "description": "Contrast exam thoracic aorta",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Kidney imaging with flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Lung ventilation imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Lvr&spleen img static only",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Remove cva device obstruct",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Urography iv +-kub tomog",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Urography nfs drip&/bls w/nf",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Urography nfs drip&/bolus",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Vascular flow imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.49
+  },
+  {
+    "description": "Remove cva device obstruct",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Contrast exam thoracic aorta",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Urography nfs drip&/bls w/nf",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Urography nfs drip&/bolus",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Urography iv +-kub tomog",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Lvr&spleen img static only",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Vascular flow imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Lung ventilation imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Kidney imaging with flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.49
+  },
+  {
+    "description": "Peritoneogram rs&i",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.48
+  },
+  {
+    "description": "Nonvascular shunt x-ray",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.47
+  },
+  {
+    "description": "Rp quan meas single area",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.47
+  },
+  {
+    "description": "Salivary gland function std",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.47
+  },
+  {
+    "description": "Nonvascular shunt x-ray",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.47
+  },
+  {
+    "description": "Use ea addl target lesion",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.47
+  },
+  {
+    "description": "Use ea addl target lesion",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.47
+  },
+  {
+    "description": "Salivary gland function std",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.47
+  },
+  {
+    "description": "Rp quan meas single area",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.47
+  },
+  {
+    "description": "X-ray bile duct endoscopy",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.47
+  },
+  {
+    "description": "X-ray for pancreas endoscopy",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.47
+  },
+  {
+    "description": "Kidney imaging morphol",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.45
+  },
+  {
+    "description": "Non-imaging heart function",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.45
+  },
+  {
+    "description": "Salivary gland imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.45
+  },
+  {
+    "description": "X-ray of mammary ducts",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.45
+  },
+  {
+    "description": "Radiation treatment aid(s)",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.45
+  },
+  {
+    "description": "Radiation treatment aid(s)",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.45
+  },
+  {
+    "description": "Whl bld volume determination",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.45
+  },
+  {
+    "description": "Salivary gland imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.45
+  },
+  {
+    "description": "Whl bld volume determination",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.45
+  },
+  {
+    "description": "Kidney imaging morphol",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.45
+  },
+  {
+    "description": "X-ray of mammary ducts",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.45
+  },
+  {
+    "description": "Brain image < 4 views",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.44
+  },
+  {
+    "description": "Liver imaging static only",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.44
+  },
+  {
+    "description": "Radex osseous survey lmtd",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.44
+  },
+  {
+    "description": "Radex osseous survey lmtd",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.44
+  },
+  {
+    "description": "Liver imaging static only",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.44
+  },
+  {
+    "description": "Brain image < 4 views",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.44
+  },
+  {
+    "description": "X-ray exam entire spi 6/> vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.41
+  },
+  {
+    "description": "Mnl appl strs jt radiography",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.41
+  },
+  {
+    "description": "X-ray exam entire spi 6/> vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.41
+  },
+  {
+    "description": "Spleen imaging",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.4
+  },
+  {
+    "description": "Echo exam of eye",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.4
+  },
+  {
+    "description": "Echo exam of eye",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.4
+  },
+  {
+    "description": "Spleen imaging",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.4
+  },
+  {
+    "description": "Remove cva lumen obstruct",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.39
+  },
+  {
+    "description": "Remove cva lumen obstruct",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.39
+  },
+  {
+    "description": "Cine/video x-rays",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "Gi protein loss exam",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "Kidney function study",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "X-ray exam of salivary duct",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "Cine/video x-rays",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "X-ray male genital tract",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "X-ray female genital tract",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "Echo guide for amniocentesis",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "Echo guide for amniocentesis",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "Fluoroguide for vein device",
+    "category": "Interventional Radiology",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "Fluoroguide for vein device",
+    "category": "Interventional Radiology",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "Kidney function study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.38
+  },
+  {
+    "description": "X-ray exam of salivary duct",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "X-ray female genital tract",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "X-ray male genital tract",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.38
+  },
+  {
+    "description": "Thyroid imaging w/blood flow",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.37
+  },
+  {
+    "description": "Thyroid imaging w/blood flow",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.37
+  },
+  {
+    "description": "X-ray of mammary duct",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.36
+  },
+  {
+    "description": "X-ray of mammary duct",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.36
+  },
+  {
+    "description": "X-ray exam entire spi 4/5 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.35
+  },
+  {
+    "description": "X-ray exam entire spi 4/5 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.35
+  },
+  {
+    "description": "X-ray exam of mastoids",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.34
+  },
+  {
+    "description": "X-ray exam of middle ear",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.34
+  },
+  {
+    "description": "X-ray exam of mastoids",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.34
+  },
+  {
+    "description": "X-ray exam of middle ear",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.34
+  },
+  {
+    "description": "X-ray urethra/bladder",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.33
+  },
+  {
+    "description": "Joint survey single view",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.33
+  },
+  {
+    "description": "Joint survey single view",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.33
+  },
+  {
+    "description": "X-ray urethra/bladder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.33
+  },
+  {
+    "description": "X-ray urethra/bladder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.33
+  },
+  {
+    "description": "Contrast x-ray bladder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.32
+  },
+  {
+    "description": "Contrast x-ray gallbladder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.32
+  },
+  {
+    "description": "Radex compl aqt abd series",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.32
+  },
+  {
+    "description": "Red cell mass multiple",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.32
+  },
+  {
+    "description": "Throat x-ray & fluoroscopy",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.32
+  },
+  {
+    "description": "Throat x-ray & fluoroscopy",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.32
+  },
+  {
+    "description": "Contrast x-ray gallbladder",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.32
+  },
+  {
+    "description": "X-ray exam ribs/chest4/> vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.32
+  },
+  {
+    "description": "Radex compl aqt abd series",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.32
+  },
+  {
+    "description": "Contrast x-ray bladder",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.32
+  },
+  {
+    "description": "Red cell mass multiple",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.32
+  },
+  {
+    "description": "X-ray exam ribs/chest4/> vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.32
+  },
+  {
+    "description": "X-ray exam chest 4+ views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam entire spi 2/3 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam hips bi 5/> views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam entire spi 2/3 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam hips bi 5/> views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam chest 4+ views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam surgical specimen",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.31
+  },
+  {
+    "description": "X-ray exam surgical specimen",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.31
+  },
+  {
+    "description": "Brain flow imaging only",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "Dxa bone density axl vrt fx",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "Fluoroscopy <1 hr phys/qhp",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "X-ray exam l-s spine bending",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "X-ray exam neck spine 6/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "X-ray exam neck spine 6/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "X-ray exam l-s spine bending",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "Fluoroscopy <1 hr phys/qhp",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "Us guide vascular access",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "Us guide vascular access",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "Dxa bone density axl vrt fx",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "Bone mineral dual photon",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "Brain flow imaging only",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.3
+  },
+  {
+    "description": "X-ray exam of tear duct",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.3
+  },
+  {
+    "description": "X-ray exam hips bi 3-4 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.29
+  },
+  {
+    "description": "X-ray exam hips bi 3-4 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.29
+  },
+  {
+    "description": "X-ray exam ribs bil 3 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.29
+  },
+  {
+    "description": "X-ray exam ribs bil 3 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.29
+  },
+  {
+    "description": "X-ray exam of eye sockets",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.28
+  },
+  {
+    "description": "X-ray exam of eye sockets",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.28
+  },
+  {
+    "description": "X-ray exam of skull",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.28
+  },
+  {
+    "description": "X-ray exam of skull",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.28
+  },
+  {
+    "description": "Cine/video x-rays add-on",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "Radex abdomen 3+ views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray bile ducts/pancreas",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam chest 3 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam hip uni 4/> views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam neck spine 4/5vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam hip uni 4/> views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam neck spine 4/5vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.27
+  },
+  {
+    "description": "Radex abdomen 3+ views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam chest 3 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam unilat ribs/chest",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam unilat ribs/chest",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.27
+  },
+  {
+    "description": "X-ray exam entire spi 1 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.26
+  },
+  {
+    "description": "X-ray exam l-2 spine 4/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.26
+  },
+  {
+    "description": "X-ray exam of facial bones",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.26
+  },
+  {
+    "description": "X-ray exam l-2 spine 4/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.26
+  },
+  {
+    "description": "X-ray exam of facial bones",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.26
+  },
+  {
+    "description": "X-ray exam entire spi 1 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.26
+  },
+  {
+    "description": "Bone length studies",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.26
+  },
+  {
+    "description": "Bone length studies",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.26
+  },
+  {
+    "description": "Card mri veloc flow mapping",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.25
+  },
+  {
+    "description": "Card mri veloc flow mapping",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam thorac spine4/>vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam of jaw 4/> views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam of pelvis",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam of jaw 4/> views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.25
+  },
+  {
+    "description": "Ct bone density axial",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.25
+  },
+  {
+    "description": "Ct bone density axial",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam of pelvis",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam thorac spine4/>vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.25
+  },
+  {
+    "description": "X-ray exam of jaw joints",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.24
+  },
+  {
+    "description": "X-ray exam of jaw joints",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.24
+  },
+  {
+    "description": "Radex abdomen 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.23
+  },
+  {
+    "description": "Red cell mass single",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.23
+  },
+  {
+    "description": "X-ray exam thorac spine 3vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.23
+  },
+  {
+    "description": "X-ray exam si joints 3/> vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.23
+  },
+  {
+    "description": "Radex abdomen 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.23
+  },
+  {
+    "description": "Red cell mass single",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.23
+  },
+  {
+    "description": "X-ray exam si joints 3/> vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.23
+  },
+  {
+    "description": "X-ray exam thorac spine 3vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.23
+  },
+  {
+    "description": "Full mouth x-ray of teeth",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "Plasma volume multiple",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray bend only l-s spine",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam chest 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam hip uni 2-3 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam hips bi 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam knee 4 or more",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam l-s spine 2/3 vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam neck spine 2-3 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "Full mouth x-ray of teeth",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam hip uni 2-3 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam knee 4 or more",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam hips bi 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray strenoclavic jt 3/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray bend only l-s spine",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam neck spine 2-3 vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam l-s spine 2/3 vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam of sinuses",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam ribs uni 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam chest 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "Plasma volume multiple",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "Bone mineral single photon",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.22
+  },
+  {
+    "description": "Bone mineral single photon",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam of sinuses",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam ribs uni 2 views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray strenoclavic jt 3/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.22
+  },
+  {
+    "description": "X-ray exam of eye sockets",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.21
+  },
+  {
+    "description": "X-ray exam of eye sockets",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.21
+  },
+  {
+    "description": "X-ray exam thoracolmb 2/> vw",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.21
+  },
+  {
+    "description": "X-ray exam thoracolmb 2/> vw",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.21
+  },
+  {
+    "description": "X-rays at surgery add-on",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.21
+  },
+  {
+    "description": "3d render w/intrp postproces",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.2
+  },
+  {
+    "description": "Dxa bone density appendiculr",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.2
+  },
+  {
+    "description": "Dxa bone density axial",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.2
+  },
+  {
+    "description": "Panoramic x-ray of jaws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.2
+  },
+  {
+    "description": "X-ray exam breastbone 2/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.2
+  },
+  {
+    "description": "X-ray exam breastbone 2/>vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "X-ray exam thorac spine 2vws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "3d render w/intrp postproces",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "Panoramic x-ray of jaws",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "Dxa bone density axial",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "Dxa bone density appendiculr",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "Tbs dxa cal w/i&r fx risk",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "Tbs i&r fx rsk qhp",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.2
+  },
+  {
+    "description": "X-ray exam thorac spine 2vws",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.2
+  },
+  {
+    "description": "Plasma volume single",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.19
+  },
+  {
+    "description": "Thyroid uptake measurement",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.19
+  },
+  {
+    "description": "X-ray exam of facial bones",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.19
+  },
+  {
+    "description": "X-ray exam pituitary saddle",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.19
+  },
+  {
+    "description": "X-ray exam of facial bones",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.19
+  },
+  {
+    "description": "Bone age studies",
+    "category": "Radiation Oncology",
+    "mod": "",
+    "rvu": 0.19
+  },
+  {
+    "description": "Bone age studies",
+    "category": "Radiation Oncology",
+    "mod": "26",
+    "rvu": 0.19
+  },
+  {
+    "description": "Thyroid uptake measurement",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.19
+  },
+  {
+    "description": "Plasma volume single",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.19
+  },
+  {
+    "description": "X-ray exam pituitary saddle",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.19
+  },
+  {
+    "description": "Radex abdomen 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam chest 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam hip uni 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of femur 2/>",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of jaw <4views",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of jaw joint",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of knee 3",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of mastoids",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of neck",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of shoulder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of shoulders",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of skull",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of knee 3",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of jaw <4views",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of mastoids",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of skull",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of femur 2/>",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of shoulder",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of jaw joint",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam hip uni 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray eye for foreign body",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of neck",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "Radex abdomen 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray nose to rectum",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam of shoulders",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray exam chest 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "Iv inj ra drug dx study",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray eye for foreign body",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "X-ray nose to rectum",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.18
+  },
+  {
+    "description": "Vrt fracture assmt via dxa",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of ankle",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of elbow",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of foot",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of hand",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of nasal bones",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of pelvis",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of salivary gland",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of shoulder blade",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of sinuses",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of wrist",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam sacrum tailbone",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam si joints",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of wrist",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of nasal bones",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of salivary gland",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of hand",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of ankle",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of foot",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam si joints",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam sacrum tailbone",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of elbow",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of sinuses",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of pelvis",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of shoulder blade",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray head for orthodontia",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray head for orthodontia",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.17
+  },
+  {
+    "description": "Vrt fracture assmt via dxa",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.17
+  },
+  {
+    "description": "X-ray exam of ankle",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of arm infant",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of collar bone",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of elbow",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of femur 1",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of foot",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of forearm",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of hand",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of heel",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of humerus",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of knee 1 or 2",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of knees",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of leg infant",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of lower leg",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of spine 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of teeth",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of wrist",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of teeth",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of knees",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of knee 1 or 2",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of wrist",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of collar bone",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of humerus",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of ankle",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of lower leg",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of arm infant",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of hand",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of leg infant",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of femur 1",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of elbow",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of forearm",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of foot",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of heel",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "X-ray exam of spine 1 view",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.16
+  },
+  {
+    "description": "Urinary bladder retention",
+    "category": "Nuclear Medicine",
+    "mod": "26",
+    "rvu": 0.15
+  },
+  {
+    "description": "X-ray exam of shoulder",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.15
+  },
+  {
+    "description": "X-ray exam of shoulder",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.15
+  },
+  {
+    "description": "Urinary bladder retention",
+    "category": "Nuclear Medicine",
+    "mod": "",
+    "rvu": 0.15
+  },
+  {
+    "description": "Echo exam of eye thickness",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.14
+  },
+  {
+    "description": "Echo exam of eye thickness",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.14
+  },
+  {
+    "description": "X-ray exam of finger(s)",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.13
+  },
+  {
+    "description": "X-ray exam of toe(s)",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.13
+  },
+  {
+    "description": "X-ray exam of finger(s)",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.13
+  },
+  {
+    "description": "X-ray exam of toe(s)",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.13
+  },
+  {
+    "description": "X-ray exam of teeth",
+    "category": "Diagnostic Radiology",
+    "mod": "26",
+    "rvu": 0.1
+  },
+  {
+    "description": "X-ray exam of teeth",
+    "category": "Diagnostic Radiology",
+    "mod": "",
+    "rvu": 0.1
+  },
+  {
+    "description": "Us bone density measure",
+    "category": "Other",
+    "mod": "",
+    "rvu": 0.05
+  },
+  {
+    "description": "Us bone density measure",
+    "category": "Other",
+    "mod": "26",
+    "rvu": 0.05
+  }
+]
