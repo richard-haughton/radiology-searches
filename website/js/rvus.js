@@ -16,10 +16,12 @@ const RVUsData = (() => {
         return r.json();
       })
       .then(data => {
-        _entries = data.filter(e =>
-          e.description && typeof e.description === 'string' &&
-          typeof e.rvu === 'number' && isFinite(e.rvu)
-        );
+        _entries = data
+          .filter(e =>
+            e.description && typeof e.description === 'string' &&
+            typeof e.rvu === 'number' && isFinite(e.rvu)
+          )
+          .sort((a, b) => a.description.localeCompare(b.description));
         console.log(`[RVUs] Loaded ${_entries.length} entries.`);
         return _entries;
       })
