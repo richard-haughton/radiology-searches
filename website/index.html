@@ -151,16 +151,6 @@
           <div id="notes-search-results" class="notes-search-results" aria-live="polite"></div>
         </div>
       </div>
-      <!-- Ensure filters are visible in the Search Notes tab -->
-      <div id="notes-search-tab" class="tab-content">
-        <div class="notes-search-filters">
-          <label><input type="checkbox" id="filter-hyperlinks" checked> Hyperlinks</label>
-          <label><input type="checkbox" id="filter-measurements" checked> Measurements</label>
-          <label><input type="checkbox" id="filter-findings" checked> Findings</label>
-          <label><input type="checkbox" id="filter-search-patterns" checked> Search Patterns</label>
-        </div>
-        <div id="notes-search-results" class="search-results"></div>
-      </div>
     </section>
 
     <!-- STUDY LOG TAB -->
@@ -360,6 +350,22 @@
     </div>
   </div>
 
+  <!-- Add checkboxes for filtering above the search bar -->
+  <div id="notes-search-filters" class="search-filters">
+    <label><input type="checkbox" id="filter-hyperlinks" checked> Hyperlinks</label>
+    <label><input type="checkbox" id="filter-measurements" checked> Measurements</label>
+    <label><input type="checkbox" id="filter-findings" checked> Findings</label>
+    <label><input type="checkbox" id="filter-search-patterns" checked> Search Patterns</label>
+  </div>
+
+  <!-- Add a popup container for search results -->
+  <div id="notes-search-popup" class="search-popup" hidden>
+    <div class="popup-header">
+      <h2>Search Results</h2>
+      <button id="popup-close-btn">&times;</button>
+    </div>
+    <div id="popup-results" class="popup-results"></div>
+  </div>
 
 
 </body>

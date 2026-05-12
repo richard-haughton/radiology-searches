@@ -36,6 +36,9 @@ function bindNotesSearchUi() {
 
   clearBtn.removeEventListener('click', clearNotesSearch);
   clearBtn.addEventListener('click', clearNotesSearch);
+
+  bindNotesSearchFilters();
+  bindPopupCloseButton();
 }
 
 function startNotesSearchSubscription() {
@@ -65,12 +68,19 @@ function getNotesSearchQuery() {
   return input ? String(input.value || '').trim() : '';
 }
 
-function handleNotesSearchInput(event) {
-  const query = event.target.value.trim().toLowerCase();
-  const filters = getActiveFilters();
-  const filteredNotes = filterNotesBySection(_notesSearchRecords, filters);
-  const results = searchNotes(query, filteredNotes);
-  displaySearchResults(results);
+function handleNotesSearchInput() {
+  var q = getNotesSearchQuery();
+  if (!q) {
+    _notesSearchLastResults = [];
+    if (_notesSearchIndexReady) {
+      setNotesSearchStatus('Indexed ' + _notesSearchRecords.length + ' note blocks across your patterns.');
+    } else {
+      setNotesSearchStatus('Loading notes index…');
+    }
+    renderNotesSearchResults([]);
+    return;
+  }
+  runNotesSearch(q);
 }
 
 function clearNotesSearch() {
@@ -86,16 +96,17 @@ function runNotesSearch(query) {
     return;
   }
 
-  var results = searchNotesRecords(query, _notesSearchRecords);
+  const filters = getActiveFilters();
+  const results = _notesSearchRecords.filter(record => {
+    if (filters.hyperlinks && record.type === 'hyperlink') return true;
+    if (filters.measurements && record.type === 'measurement') return true;
+    if (filters.findings && record.type === 'finding') return true;
+    if (filters.searchPatterns && record.type === 'searchPattern') return true;
+    return false;
+  }).filter(record => record.text.includes(query));
+
   _notesSearchLastResults = results;
-
-  if (!results.length) {
-    setNotesSearchStatus('No note matches found for "' + query + '".');
-  } else {
-    setNotesSearchStatus('Found ' + results.length + ' note matches for "' + query + '".');
-  }
-
-  renderNotesSearchResults(results, query);
+  renderNotesSearchResults(results);
 }
 
 function setNotesSearchStatus(text) {
@@ -496,7 +507,15 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Add filter logic to handle section-specific searches
+// Add event listeners for filter checkboxes
+function bindNotesSearchFilters() {
+  const filters = document.querySelectorAll('#notes-search-filters input[type="checkbox"]');
+  filters.forEach(filter => {
+    filter.addEventListener('change', handleNotesSearchInput);
+  });
+}
+
+// Update search logic to respect filters
 function getActiveFilters() {
   return {
     hyperlinks: document.getElementById('filter-hyperlinks').checked,
@@ -506,33 +525,18 @@ function getActiveFilters() {
   };
 }
 
-function filterNotesBySection(notes, filters) {
-  return notes.filter(note => {
-    if (filters.hyperlinks && note.section === 'hyperlinks') return true;
-    if (filters.measurements && note.section === 'measurements') return true;
-    if (filters.findings && note.section === 'findings') return true;
-    if (filters.searchPatterns && note.section === 'searchPattern') return true;
-    return false;
-  });
+// Display results in popup
+function renderNotesSearchResults(results) {
+  const popup = document.getElementById('notes-search-popup');
+  const resultsContainer = document.getElementById('popup-results');
+  resultsContainer.innerHTML = results.map(result => `<div>${result.text}</div>`).join('');
+  popup.hidden = results.length === 0;
 }
 
-// Update display logic to show notes in the Search Notes tab
-function displaySearchResults(results) {
-  const resultsContainer = document.getElementById('notes-search-results');
-  resultsContainer.innerHTML = '';
-
-  if (results.length === 0) {
-    resultsContainer.textContent = 'No results found.';
-    return;
-  }
-
-  results.forEach(result => {
-    const resultElement = document.createElement('div');
-    resultElement.className = 'search-result';
-    resultElement.innerHTML = `
-      <h3>${result.title}</h3>
-      <p>${result.content}</p>
-    `;
-    resultsContainer.appendChild(resultElement);
+// Close popup
+function bindPopupCloseButton() {
+  const closeBtn = document.getElementById('popup-close-btn');
+  closeBtn.addEventListener('click', () => {
+    document.getElementById('notes-search-popup').hidden = true;
   });
 }
