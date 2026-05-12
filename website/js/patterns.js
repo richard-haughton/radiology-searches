@@ -1053,14 +1053,3 @@ function sanitiseLinkUrl(url) {
   if (/^tel:/i.test(raw)) return raw;
   return 'https://' + raw;
 }
-
-// Update navigation to open notes in the Search Notes tab
-function navigateToSearchNotes(noteId) {
-  const searchNotesTab = document.querySelector('[data-tab="search-notes"]');
-  if (searchNotesTab) {
-    searchNotesTab.click(); // Switch to the Search Notes tab
-  }
-
-  // Assuming a function exists to highlight or display the note in the Search Notes tab
-  highlightNoteInSearchNotesTab(noteId);
-}

@@ -521,6 +521,31 @@ body {
   border-radius: 4px;
 }
 
+/* Style for search results in the Search Notes tab */
+.search-results {
+  margin-top: 1rem;
+}
+
+.search-result {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.search-result h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+
+.search-result p {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
 /* Style for search filters */
 .notes-search-filters {
   display: flex;

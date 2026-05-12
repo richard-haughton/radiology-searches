@@ -151,6 +151,16 @@
           <div id="notes-search-results" class="notes-search-results" aria-live="polite"></div>
         </div>
       </div>
+      <!-- Ensure filters are visible in the Search Notes tab -->
+      <div id="notes-search-tab" class="tab-content">
+        <div class="notes-search-filters">
+          <label><input type="checkbox" id="filter-hyperlinks" checked> Hyperlinks</label>
+          <label><input type="checkbox" id="filter-measurements" checked> Measurements</label>
+          <label><input type="checkbox" id="filter-findings" checked> Findings</label>
+          <label><input type="checkbox" id="filter-search-patterns" checked> Search Patterns</label>
+        </div>
+        <div id="notes-search-results" class="search-results"></div>
+      </div>
     </section>
 
     <!-- STUDY LOG TAB -->

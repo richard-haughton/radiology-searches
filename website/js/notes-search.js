@@ -515,3 +515,24 @@ function filterNotesBySection(notes, filters) {
     return false;
   });
 }
+
+// Update display logic to show notes in the Search Notes tab
+function displaySearchResults(results) {
+  const resultsContainer = document.getElementById('notes-search-results');
+  resultsContainer.innerHTML = '';
+
+  if (results.length === 0) {
+    resultsContainer.textContent = 'No results found.';
+    return;
+  }
+
+  results.forEach(result => {
+    const resultElement = document.createElement('div');
+    resultElement.className = 'search-result';
+    resultElement.innerHTML = `
+      <h3>${result.title}</h3>
+      <p>${result.content}</p>
+    `;
+    resultsContainer.appendChild(resultElement);
+  });
+}
