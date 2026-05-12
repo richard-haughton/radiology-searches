@@ -9,7 +9,7 @@ const firebaseConfig = {
   messagingSenderId: "1045373410297",
   appId: "1:1045373410297:web:409826091982cc801c7b28",
   measurementId: "G-Z421WPNZ8K",
-  aiProxyUrl: "https://us-central1-searches-app.cloudfunctions.net/aiProxy"
+  aiProxyUrl: "https://aiproxy-7hzrdjd2lq-uc.a.run.app"
 };
 
 firebase.initializeApp(firebaseConfig);

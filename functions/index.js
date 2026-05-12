@@ -160,6 +160,7 @@ exports.aiProxy = onRequest(
     region: 'us-central1',
     timeoutSeconds: 30,
     memory: '256MiB',
+    invoker: 'public',
     secrets: [OPENAI_API_KEY]
   },
   async (req, res) => {
