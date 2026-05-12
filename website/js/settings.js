@@ -6,6 +6,8 @@ var _aiProviderStatus = {};
 
 var PROVIDER_MODELS = {
   openai: [
+    { value: 'gpt-5.5',       label: 'ChatGPT 5.5' },
+    { value: 'gpt-5.5-mini',  label: 'ChatGPT 5.5 mini' },
     { value: 'gpt-4.5',       label: 'GPT-4.5' },
     { value: 'gpt-4o',        label: 'GPT-4o' },
     { value: 'gpt-4o-mini',   label: 'GPT-4o mini (default)' },
