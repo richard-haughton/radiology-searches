@@ -429,6 +429,99 @@ body {
 }
 
 /* ============================================================
+   SEARCH NOTES TAB
+   ============================================================ */
+.notes-search-layout {
+  padding: 20px;
+  max-width: 1100px;
+}
+.notes-search-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.notes-search-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.notes-search-input-wrap {
+  flex: 1;
+}
+.notes-search-help {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+.notes-search-status {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f4faf6;
+  color: var(--ink-soft);
+  padding: 9px 11px;
+  font-size: 0.85rem;
+}
+.notes-search-results {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+.notes-search-empty {
+  color: var(--ink-muted);
+  font-style: italic;
+  padding: 8px 2px;
+}
+.notes-result-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.7);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.notes-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.notes-result-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+.notes-result-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0f5e47;
+  background: #dff2ea;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.notes-result-meta {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+.notes-result-snippet {
+  color: var(--ink-soft);
+  line-height: 1.55;
+  font-size: 0.9rem;
+}
+.notes-result-snippet mark {
+  background: #fce7a9;
+  color: #5a3a00;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
    STUDY LOG TAB
    ============================================================ */
 .log-layout { padding: 20px; display: flex; flex-direction: column; gap: 14px; max-width: 1100px; }
@@ -1100,6 +1193,7 @@ html.dark .calc-result.is-danger    { background: #2a1515; border-color: #4a2020
 html.dark .calc-result.is-warning   { background: #2a2010; border-color: #4a3820; }
 html.dark .calc-formula             { background: #192b1e; }
 html.dark .settings-status          { background: #192b1e; }
+html.dark .notes-search-status      { background: #192b1e; }
 html.dark .editor-ai-create-panel   { background: #192b1e; }
 html.dark .step-ai-card             { background: #192b1e; }
 html.dark .step-section             { background: rgba(21,31,22,0.75); }
@@ -1115,6 +1209,9 @@ html.dark .step-link-status-error   { background: #3a1f1c; border-color: #6f3731
 html.dark .step-link,
 html.dark .step-content a,
 html.dark .rich-editor a            { color: #7db4ff; }
+html.dark .notes-result-card        { background: rgba(25,43,30,0.72); }
+html.dark .notes-result-badge       { background: #274034; color: #8fd6b3; }
+html.dark .notes-result-snippet mark { background: #5e4b1e; color: #ffe49f; }
 html.dark .subsection-row           { background: rgba(25,43,30,0.75); }
 html.dark .subsection-rich-editor   { background: #192b1e; }
 
@@ -1159,6 +1256,12 @@ html.dark #btn-theme-toggle .icon-sun  { display: inline; }
   .step-list-panel { width: 200px; }
   .step-section-toggle { padding: 9px 10px; }
   .step-section-panel { padding: 9px 10px; }
+  .notes-search-layout { padding: 14px; }
+  .notes-search-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .notes-search-toolbar .btn { width: 100%; }
   .settings-layout { padding: 14px; }
   .settings-inline-input {
     flex-direction: column;

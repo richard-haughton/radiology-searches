@@ -22,6 +22,7 @@
   <script src="js/study-log.js"></script>
   <script src="js/rvus.js"></script>
   <script src="js/patterns.js"></script>
+  <script src="js/notes-search.js"></script>
   <script src="js/app.js"></script>
 </head>
 <body>
@@ -72,6 +73,7 @@
 
     <nav class="tab-bar" role="tablist" aria-label="App sections">
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-patterns" data-tab="patterns">Search Patterns</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-notes-search" data-tab="notes-search">Search Notes</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Study Log</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Tools</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-settings" data-tab="settings">Settings</button>
@@ -130,6 +132,23 @@
 
             <div id="step-content" class="step-content" style="display:none"></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEARCH NOTES TAB -->
+    <section id="panel-notes-search" class="tab-panel" role="tabpanel" style="display:none">
+      <div class="notes-search-layout">
+        <div class="notes-search-card">
+          <div class="notes-search-toolbar">
+            <label class="form-label notes-search-input-wrap" for="notes-search-input">Search all notes
+              <input id="notes-search-input" type="search" class="form-input" placeholder="e.g. herniated disc" autocomplete="off" spellcheck="false">
+            </label>
+            <button id="btn-notes-search-clear" class="btn btn-ghost">Clear</button>
+          </div>
+          <p class="notes-search-help">Searches all step sections across your saved patterns, including Findings, Measurements, Hyperlinks, and Search Pattern notes.</p>
+          <div id="notes-search-status" class="notes-search-status">Loading notes index…</div>
+          <div id="notes-search-results" class="notes-search-results" aria-live="polite"></div>
         </div>
       </div>
     </section>

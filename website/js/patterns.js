@@ -200,6 +200,24 @@ function loadPattern(id, preferredStepIndex) {
   if (viewer) viewer.focus({ preventScroll: true });
 }
 
+function openPatternAtStepFromSearch(patternId, stepIndex) {
+  if (!patternId) return;
+
+  const filterInput = document.getElementById('pattern-filter');
+  if (filterInput) filterInput.value = '';
+
+  activeModality = 'All';
+  document.querySelectorAll('.mod-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mod === 'All');
+  });
+
+  applyFilters();
+  loadPattern(patternId, typeof stepIndex === 'number' ? stepIndex : 0);
+
+  const select = document.getElementById('pattern-select');
+  if (select) select.value = patternId;
+}
+
 function getSelectedPattern() {
   return allPatterns.find(p => p.id === selectedPatternId) || null;
 }

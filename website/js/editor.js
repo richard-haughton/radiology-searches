@@ -520,10 +520,11 @@ function renderStepList() {
     const linkedBadge = isSnapshot
       ? ' <span class="step-linked-badge snapshot">[Snapshot]</span>'
       : (hasLiveLink ? ' <span class="step-linked-badge">[Linked]</span>' : '');
+    const displayTitle = getDisplayTitleWithoutLeadingNumbering(step.stepTitle || '') || 'Untitled step';
     li.innerHTML = `
       <span class="step-drag-handle" title="Drag to reorder" aria-hidden="true">&#x2630;</span>
       <span class="step-item-num">${i + 1}.</span>
-      <span class="step-item-title">${escapeHtml(step.stepTitle || 'Untitled step')}${linkedBadge}</span>
+      <span class="step-item-title">${escapeHtml(displayTitle)}${linkedBadge}</span>
       <button class="step-item-del" aria-label="Delete step" data-idx="${i}">&#x2715;</button>
     `;
 
@@ -1261,7 +1262,7 @@ function getSourceEntriesForPattern(patternId) {
 function getDisplayTitleWithoutLeadingNumbering(title) {
   var raw = String(title || '').trim();
   if (!raw) return '';
-  return raw.replace(/^\d+\s*[.)\-:]\s*/, '').trim();
+  return raw.replace(/^(?:step\s+\d+|\d+)\s*[.)\-:]?\s*/i, '').trim();
 }
 
 function populateStepLinkStepSelect() {
@@ -1280,7 +1281,7 @@ function populateStepLinkStepSelect() {
     var option = document.createElement('option');
     option.value = String(entry.stepId || '');
     var cleanedTitle = getDisplayTitleWithoutLeadingNumbering(entry.stepTitle || '');
-    option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (cleanedTitle || entry.stepTitle || 'Untitled Step');
+    option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (cleanedTitle || 'Untitled Step');
     stepSelect.appendChild(option);
   });
 
