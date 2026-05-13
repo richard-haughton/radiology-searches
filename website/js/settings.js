@@ -154,16 +154,11 @@ function renderAiProviderStatus() {
   }
 
   var selectedModel = modelSelect ? String(modelSelect.value || '').trim() : '';
-  var lines = ['Status: managed backend access is active for ' + provider + '.'];
-
+  var text = 'Status: managed backend access is active for ' + provider + '.';
   if (selectedModel) {
-    lines.push('Selected model: ' + selectedModel);
+    text += ' Using: ' + selectedModel;
   }
-  if (status.defaultModel) {
-    lines.push('Backend default model: ' + status.defaultModel);
-  }
-
-  statusEl.textContent = lines.join('\n');
+  statusEl.textContent = text;
 }
 
 function getSelectedAiProvider() {
