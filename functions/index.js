@@ -117,26 +117,33 @@ function extractAssistantText(payload) {
 }
 
 async function completeWithOpenAi(apiKey, model, prompt) {
+  const selectedModel = model || DEFAULT_MODEL;
+  const requestBody = {
+    model: selectedModel,
+    messages: [
+      {
+        role: 'system',
+        content: 'Return strict JSON only. Do not include markdown fences.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ]
+  };
+
+  // Some models (for example GPT-5 variants) only accept the default temperature.
+  if (!String(selectedModel).toLowerCase().startsWith('gpt-5')) {
+    requestBody.temperature = 0.2;
+  }
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + apiKey
     },
-    body: JSON.stringify({
-      model: model || DEFAULT_MODEL,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'system',
-          content: 'Return strict JSON only. Do not include markdown fences.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
+    body: JSON.stringify(requestBody)
   });
 
   const payload = await response.json().catch(() => ({}));
