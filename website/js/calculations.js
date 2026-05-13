@@ -24,6 +24,9 @@ function renderCalc(key) {
     case 'stenosis': main.innerHTML = stenosisHtml(); bindStenosis(); break;
     case 'lft':      main.innerHTML = lftHtml();      bindLft();      break;
     case 'dlp':      main.innerHTML = dlpHtml();      bindDlp();      break;
+    case 'quick-links':
+      main.innerHTML = quickLinksHtml();
+      break;
   }
 }
 
@@ -454,4 +457,20 @@ function calcDlp() {
 
   result.className = riskBand.cls;
   result.hidden = false;
+}
+
+function quickLinksHtml() {
+  return `
+  <div class="calc-card">
+    <h2>Quick Links</h2>
+    <p class="calc-description">Fast access to common external radiology resources.</p>
+    <ul class="quick-links-list">
+      <li class="quick-links-item">
+        <a class="quick-link" href="https://www.mrisafety.com/TMDL_list.php?orderby=alist_description" target="_blank" rel="noopener noreferrer">MRI Safety</a>
+      </li>
+      <li class="quick-links-item">
+        <a class="quick-link" href="https://gravitas.acr.org/acportal?_gl=1*1h69pe5*_gcl_au*MTE4NzYxMzAwLjE3Nzg0NDc1NTY.*_ga*MjE0MzgxMjI2NS4xNzUzNTQ1MDIx*_ga_K9XZBF7MXP*czE3Nzg2ODM2NDMkbzI4JGcwJHQxNzc4NjgzNjQzJGo2MCRsMCRoMA.." target="_blank" rel="noopener noreferrer">ACR Appropriateness Criteria</a>
+      </li>
+    </ul>
+  </div>`;
 }

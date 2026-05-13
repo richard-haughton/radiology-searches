@@ -655,6 +655,28 @@ body {
 .calc-result.is-warning .calc-result-value { color: #b7640a; }
 .calc-formula { margin-top: 14px; padding: 10px 14px; background: #f4faf6; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); }
 
+.quick-links-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quick-links-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f8fcf9;
+}
+.quick-link {
+  display: block;
+  padding: 12px 14px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+.quick-link:hover {
+  text-decoration: underline;
+}
+
 /* ============================================================
    SETTINGS TAB
    ============================================================ */
@@ -1233,6 +1255,8 @@ html.dark .calc-result              { background: #1a2e22; border-color: #2a4035
 html.dark .calc-result.is-danger    { background: #2a1515; border-color: #4a2020; }
 html.dark .calc-result.is-warning   { background: #2a2010; border-color: #4a3820; }
 html.dark .calc-formula             { background: #192b1e; }
+html.dark .quick-links-item         { background: #192b1e; border-color: #2a4035; }
+html.dark .quick-link               { color: #87d6b0; }
 html.dark .settings-status          { background: #192b1e; }
 html.dark .notes-search-status      { background: #192b1e; }
 html.dark .search-preview-card      { background: var(--card); }
