@@ -6,8 +6,8 @@ var _aiProviderStatus = {};
 
 var PROVIDER_MODELS = {
   openai: [
-    { value: 'gpt-5.5',       label: 'ChatGPT 5.5' },
-    { value: 'gpt-5.5-mini',  label: 'ChatGPT 5.5 mini' },
+    { value: 'gpt-5',         label: 'ChatGPT 5' },
+    { value: 'gpt-5-mini',    label: 'ChatGPT 5 mini' },
     { value: 'gpt-4.5',       label: 'GPT-4.5' },
     { value: 'gpt-4o',        label: 'GPT-4o' },
     { value: 'gpt-4o-mini',   label: 'GPT-4o mini (default)' },
@@ -96,10 +96,15 @@ async function refreshAiProviderStatus() {
 function updateModelDropdown(provider) {
   var modelSelect = document.getElementById('ai-model-input');
   if (!modelSelect) return;
+  var previousValue = String(modelSelect.value || '').trim();
   var models = PROVIDER_MODELS[provider] || [];
   modelSelect.innerHTML = models.map(function(m) {
     return '<option value="' + m.value + '">' + m.label + '</option>';
   }).join('');
+
+  if (previousValue && modelSelect.querySelector('option[value="' + previousValue + '"]')) {
+    modelSelect.value = previousValue;
+  }
 }
 
 function hydrateProviderInputs() {
@@ -109,9 +114,15 @@ function hydrateProviderInputs() {
 
   var provider = providerSelect.value;
   var status = _aiProviderStatus[provider] || {};
+  var currentModel = String(modelSelect.value || '').trim();
+
+  // Keep the current manual selection when it exists in the dropdown.
+  if (currentModel && modelSelect.querySelector('option[value="' + currentModel + '"]')) {
+    return;
+  }
 
   if (status.defaultModel) {
-    // Select the configured model if it exists in the dropdown, otherwise add and select it.
+    // Fall back to configured default only when no valid user selection is present.
     var opt = modelSelect.querySelector('option[value="' + status.defaultModel + '"]');
     if (!opt) {
       opt = document.createElement('option');
