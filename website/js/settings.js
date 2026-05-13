@@ -39,6 +39,12 @@ function initSettings(uid) {
     renderAiProviderStatus();
   });
 
+  if (modelInput) {
+    modelInput.addEventListener('change', function() {
+      renderAiProviderStatus();
+    });
+  }
+
   document.getElementById('btn-ai-test').addEventListener('click', async function() {
     var provider = providerSelect.value;
     var model = modelInput ? modelInput.value : '';
@@ -137,6 +143,7 @@ function hydrateProviderInputs() {
 function renderAiProviderStatus() {
   var statusEl = document.getElementById('ai-provider-status');
   var providerSelect = document.getElementById('ai-provider-select');
+  var modelSelect = document.getElementById('ai-model-input');
   if (!statusEl || !providerSelect) return;
 
   var provider = providerSelect.value;
@@ -146,8 +153,17 @@ function renderAiProviderStatus() {
     return;
   }
 
-  var modelHint = status.defaultModel ? '\nModel: ' + status.defaultModel : '';
-  statusEl.textContent = 'Status: managed backend access is active for ' + provider + '.' + modelHint;
+  var selectedModel = modelSelect ? String(modelSelect.value || '').trim() : '';
+  var lines = ['Status: managed backend access is active for ' + provider + '.'];
+
+  if (selectedModel) {
+    lines.push('Selected model: ' + selectedModel);
+  }
+  if (status.defaultModel) {
+    lines.push('Backend default model: ' + status.defaultModel);
+  }
+
+  statusEl.textContent = lines.join('\n');
 }
 
 function getSelectedAiProvider() {
