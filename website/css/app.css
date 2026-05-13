@@ -522,6 +522,40 @@ body {
 }
 
 /* ============================================================
+   SEARCH RESULT PREVIEW MODAL
+   ============================================================ */
+.modal-search-preview { align-items: center; }
+.search-preview-card {
+  max-width: 760px; width: 100%;
+  max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  padding: 0;
+}
+.search-preview-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.search-preview-titles { flex: 1; min-width: 0; }
+.search-preview-pattern-name {
+  font-size: 1.1rem; margin: 0 0 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.search-preview-step-meta {
+  font-size: 0.85rem; color: var(--ink-muted); margin: 0;
+}
+.search-preview-body {
+  flex: 1; overflow-y: auto; padding: 16px 22px;
+  min-height: 0;
+}
+.search-preview-footer {
+  display: flex; gap: 10px; padding: 14px 22px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0; justify-content: flex-end;
+}
+
+/* ============================================================
    STUDY LOG TAB
    ============================================================ */
 .log-layout { padding: 20px; display: flex; flex-direction: column; gap: 14px; max-width: 1100px; }
@@ -1194,6 +1228,9 @@ html.dark .calc-result.is-warning   { background: #2a2010; border-color: #4a3820
 html.dark .calc-formula             { background: #192b1e; }
 html.dark .settings-status          { background: #192b1e; }
 html.dark .notes-search-status      { background: #192b1e; }
+html.dark .search-preview-card      { background: var(--card); }
+html.dark .search-preview-header    { border-bottom-color: #1e2e22; }
+html.dark .search-preview-footer    { border-top-color: #1e2e22; }
 html.dark .editor-ai-create-panel   { background: #192b1e; }
 html.dark .step-ai-card             { background: #192b1e; }
 html.dark .step-section             { background: rgba(21,31,22,0.75); }

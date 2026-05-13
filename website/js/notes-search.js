@@ -36,6 +36,8 @@ function bindNotesSearchUi() {
 
   clearBtn.removeEventListener('click', clearNotesSearch);
   clearBtn.addEventListener('click', clearNotesSearch);
+
+  bindSearchPreviewModal();
 }
 
 function startNotesSearchSubscription() {
@@ -440,9 +442,9 @@ function renderNotesSearchResults(results, query) {
     var openBtn = document.createElement('button');
     openBtn.type = 'button';
     openBtn.className = 'btn btn-accent btn-sm';
-    openBtn.textContent = 'Open In Pattern';
+    openBtn.textContent = 'Preview';
     openBtn.addEventListener('click', function() {
-      openSearchResultInPatterns(result);
+      openSearchResultPreview(result);
     });
 
     row.appendChild(header);
@@ -454,17 +456,74 @@ function renderNotesSearchResults(results, query) {
   });
 }
 
-function openSearchResultInPatterns(result) {
+function openSearchResultPreview(result) {
   if (!result || !result.patternId) return;
 
-  if (typeof openPatternAtStepFromSearch === 'function') {
-    openPatternAtStepFromSearch(result.patternId, result.stepIndex);
-  } else if (typeof loadPattern === 'function') {
-    loadPattern(result.patternId, result.stepIndex);
+  var modal = document.getElementById('modal-search-preview');
+  var titleEl = document.getElementById('modal-search-preview-title');
+  var metaEl = modal && modal.querySelector('.search-preview-step-meta');
+  var bodyEl = document.getElementById('search-preview-body');
+  if (!modal || !titleEl || !bodyEl) return;
+
+  // Populate header
+  titleEl.textContent = result.patternName || 'Pattern';
+  if (metaEl) {
+    var subsection = result.subsectionTitle ? (' — ' + result.subsectionTitle) : '';
+    metaEl.textContent = 'Step ' + (result.stepIndex + 1) + ': ' + result.stepTitle + subsection;
   }
 
-  var targetTab = document.querySelector('.tab-btn[data-tab="patterns"]');
-  if (targetTab) targetTab.click();
+  // Render step content
+  bodyEl.innerHTML = '';
+  var pattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(p) {
+    return String((p && p.id) || '') === String(result.patternId);
+  });
+  var step = pattern && (pattern.steps || [])[result.stepIndex];
+  if (step && typeof renderStepSections === 'function') {
+    renderStepSections(bodyEl, step);
+  } else {
+    var fallback = document.createElement('p');
+    fallback.style.color = 'var(--ink-soft)';
+    fallback.textContent = result.text || 'No content available.';
+    bodyEl.appendChild(fallback);
+  }
+
+  // Wire the "Open in Patterns Tab" button
+  var openTabBtn = document.getElementById('btn-search-preview-open-tab');
+  if (openTabBtn) {
+    openTabBtn.onclick = function() {
+      closeSearchResultPreview();
+      if (typeof openPatternAtStepFromSearch === 'function') {
+        openPatternAtStepFromSearch(result.patternId, result.stepIndex);
+      } else if (typeof loadPattern === 'function') {
+        loadPattern(result.patternId, result.stepIndex);
+      }
+      var targetTab = document.querySelector('.tab-btn[data-tab="patterns"]');
+      if (targetTab) targetTab.click();
+    };
+  }
+
+  modal.style.display = '';
+}
+
+function closeSearchResultPreview() {
+  var modal = document.getElementById('modal-search-preview');
+  if (modal) modal.style.display = 'none';
+}
+
+function bindSearchPreviewModal() {
+  var closeBtn = document.getElementById('btn-search-preview-close');
+  var closeFooterBtn = document.getElementById('btn-search-preview-close-footer');
+  var modal = document.getElementById('modal-search-preview');
+  if (closeBtn) closeBtn.addEventListener('click', closeSearchResultPreview);
+  if (closeFooterBtn) closeFooterBtn.addEventListener('click', closeSearchResultPreview);
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeSearchResultPreview();
+    });
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeSearchResultPreview();
+  });
 }
 
 function highlightSnippetForQuery(text, query) {
