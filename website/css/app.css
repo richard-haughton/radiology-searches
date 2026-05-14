@@ -639,7 +639,7 @@ body {
 
 .calc-form { display: flex; flex-direction: column; gap: 14px; }
 .calc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
-.calc-actions { margin: 10px 0 14px; }
+.calc-actions { margin: 10px 0 14px; display: flex; flex-wrap: wrap; gap: 10px; }
 .calc-actions .btn { min-width: 120px; }
 .calc-result {
   margin-top: 18px;
@@ -654,6 +654,32 @@ body {
 .calc-result.is-warning { background: #fff8ed; border-color: #f9d8a4; }
 .calc-result.is-warning .calc-result-value { color: #b7640a; }
 .calc-formula { margin-top: 14px; padding: 10px 14px; background: #f4faf6; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); }
+.calc-scan-list {
+  list-style: none;
+  margin-top: 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.calc-scan-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.7);
+}
+.calc-scan-copy strong { display: block; font-size: 0.88rem; }
+.calc-scan-meta { margin-top: 4px; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.45; }
+.calc-scan-badge {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
 
 .quick-links-list {
   list-style: none;
@@ -1255,6 +1281,8 @@ html.dark .calc-result              { background: #1a2e22; border-color: #2a4035
 html.dark .calc-result.is-danger    { background: #2a1515; border-color: #4a2020; }
 html.dark .calc-result.is-warning   { background: #2a2010; border-color: #4a3820; }
 html.dark .calc-formula             { background: #192b1e; }
+html.dark .calc-scan-entry           { background: #16261d; border-color: #2a4035; }
+html.dark .calc-scan-badge           { color: #8dd8b2; }
 html.dark .quick-links-item         { background: #192b1e; border-color: #2a4035; }
 html.dark .quick-link               { color: #87d6b0; }
 html.dark .settings-status          { background: #192b1e; }

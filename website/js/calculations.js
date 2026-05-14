@@ -320,7 +320,7 @@ function calcLft() {
   result.hidden = false;
 }
 
-// ── 4. DLP Multi-Scan Dose Estimator ───────────────────────
+// ── 4. DLP Single-Scan Dose Builder ────────────────────────
 // AAPM k-factors (mSv per mGy·cm) — from AAPM Report 96
 const DLP_K = {
   head:     { adult: 0.0023, pediatric_5y: 0.0067, pediatric_1y: 0.011 },
@@ -331,55 +331,119 @@ const DLP_K = {
   caa:      { adult: 0.014,  pediatric_5y: 0.026,  pediatric_1y: 0.039 },  // chest+abdomen+pelvis
 };
 
-function deterministicRiskBand(absorbedDoseMgy) {
-  if (absorbedDoseMgy < 500) {
-    return {
-      cls: 'calc-result',
-      text: 'Very low likelihood of deterministic tissue effects. Skin erythema, alopecia, and sterility are not expected at this level.'
-    };
+let dlpScans = [];
+
+function getDlpScanInputs() {
+  const dlpPerScan = parseFloat(document.getElementById('dlp-val').value);
+  const scanLengthCm = parseFloat(document.getElementById('dlp-length').value);
+  const region = document.getElementById('dlp-region').value;
+  const age = document.getElementById('dlp-age').value;
+
+  if (
+    isNaN(dlpPerScan) || dlpPerScan < 0 ||
+    isNaN(scanLengthCm) || scanLengthCm <= 0
+  ) {
+    return null;
   }
-  if (absorbedDoseMgy < 2000) {
-    return {
-      cls: 'calc-result',
-      text: 'Low likelihood of deterministic tissue effects. Most patients remain below typical skin-injury and sterility thresholds.'
-    };
+
+  const k = DLP_K[region]?.[age];
+  if (!k) {
+    return null;
   }
-  if (absorbedDoseMgy < 3000) {
-    return {
-      cls: 'calc-result is-warning',
-      text: 'Moderate likelihood zone. Transient skin erythema can occur in some patients; temporary epilation is less common but possible.'
-    };
-  }
-  if (absorbedDoseMgy < 7000) {
-    return {
-      cls: 'calc-result is-danger',
-      text: 'Higher deterministic-risk zone. Transient erythema and temporary alopecia become more likely. Temporary sterility can occur if gonadal dose is substantial.'
-    };
-  }
+
   return {
-    cls: 'calc-result is-danger',
-    text: 'Very high deterministic-risk zone. Significant skin injury (erythema/desquamation), prolonged alopecia, and gonadal injury risk require urgent dose review.'
+    dlpPerScan,
+    scanLengthCm,
+    region,
+    age,
+    k,
+    absorbedDoseMgy: dlpPerScan / scanLengthCm,
+    effectiveDoseMsv: dlpPerScan * k
   };
+}
+
+function beirRiskSummary(totalAbsorbedDoseMgy, totalEffectiveDoseMsv, scanCount) {
+  const scanLabel = scanCount === 1 ? 'scan' : 'scans';
+
+  return {
+    text: `BEIR VII Phase 2 describes ionizing-radiation risk primarily as a small, cumulative increase in lifetime cancer risk rather than immediate side effects. For ${scanCount} ${scanLabel}, the main concern is the added stochastic risk from the cumulative dose (${totalAbsorbedDoseMgy.toFixed(1)} mGy absorbed dose, ${totalEffectiveDoseMsv.toFixed(2)} mSv effective dose). Acute effects such as skin injury are not expected from typical diagnostic CT exposures, but risk rises as more scans are added.`
+  };
+}
+
+function renderDlpScans() {
+  const result = document.getElementById('dlp-result');
+  const scanList = document.getElementById('dlp-scan-list');
+
+  if (!dlpScans.length) {
+    scanList.innerHTML = '';
+    result.hidden = true;
+    return;
+  }
+
+  const totals = dlpScans.reduce((accumulator, scan) => {
+    accumulator.totalDlp += scan.dlpPerScan;
+    accumulator.totalAbsorbedDoseMgy += scan.absorbedDoseMgy;
+    accumulator.totalEffectiveDoseMsv += scan.effectiveDoseMsv;
+    return accumulator;
+  }, {
+    totalDlp: 0,
+    totalAbsorbedDoseMgy: 0,
+    totalEffectiveDoseMsv: 0
+  });
+
+  const latestScan = dlpScans[dlpScans.length - 1];
+  const scanCount = dlpScans.length;
+  const backgroundYears = totals.totalEffectiveDoseMsv / 2.4;
+  const beirSummary = beirRiskSummary(totals.totalAbsorbedDoseMgy, totals.totalEffectiveDoseMsv, scanCount);
+
+  document.getElementById('dlp-value').textContent = totals.totalAbsorbedDoseMgy.toFixed(1);
+  document.getElementById('dlp-detail').textContent =
+    `Running total from ${scanCount} ${scanCount === 1 ? 'scan' : 'scans'}: ${totals.totalDlp.toFixed(1)} mGy·cm total DLP, ${totals.totalEffectiveDoseMsv.toFixed(2)} mSv effective dose, about ${backgroundYears.toFixed(1)} years of natural background radiation. Most recent scan: ${latestScan.dlpPerScan.toFixed(1)} mGy·cm over ${latestScan.scanLengthCm.toFixed(1)} cm in ${latestScan.region.replace(/_/g, ' ')} (${latestScan.age.replace(/_/g, ' ')}).`;
+  document.getElementById('dlp-beir').textContent = beirSummary.text;
+
+  scanList.innerHTML = dlpScans.map((scan, index) => {
+    const scanNumber = index + 1;
+    return `
+      <li class="calc-scan-entry">
+        <div class="calc-scan-copy">
+          <strong>Scan ${scanNumber}</strong>
+          <div class="calc-scan-meta">${scan.dlpPerScan.toFixed(1)} mGy·cm over ${scan.scanLengthCm.toFixed(1)} cm · ${scan.region.replace(/_/g, ' ')} · ${scan.age.replace(/_/g, ' ')}</div>
+        </div>
+        <div class="calc-scan-badge">${scan.absorbedDoseMgy.toFixed(1)} mGy</div>
+      </li>`;
+  }).join('');
+
+  result.hidden = false;
+}
+
+function addDlpScan() {
+  const scan = getDlpScanInputs();
+  if (!scan) {
+    return;
+  }
+
+  dlpScans.push(scan);
+  renderDlpScans();
+}
+
+function resetDlpScans() {
+  dlpScans = [];
+  renderDlpScans();
 }
 
 function dlpHtml() {
   return `
   <div class="calc-card">
-    <h2>DLP Multi-Scan Dose Estimator</h2>
-    <p class="calc-description">Estimates cumulative CT dose across multiple scans. Primary output is cumulative absorbed dose (mGy) using DLP/scan length, with deterministic-effect likelihood guidance.</p>
+    <h2>DLP Single-Scan Dose Builder</h2>
+    <p class="calc-description">Calculates one scan at a time, then adds each scan to a running total so you can build up cumulative dose step by step.</p>
     <div class="calc-form">
       <label class="form-label">DLP per scan (mGy·cm)
         <input id="dlp-val" type="number" class="form-input" min="0" step="1" placeholder="e.g. 450">
       </label>
       <div class="calc-row">
-        <label class="form-label">Number of scans
-          <input id="dlp-scans" type="number" class="form-input" min="1" step="1" value="1">
-        </label>
-        <label class="form-label">Scan length per scan (cm)
+        <label class="form-label">Scan length (cm)
           <input id="dlp-length" type="number" class="form-input" min="1" step="0.1" value="40">
         </label>
-      </div>
-      <div class="calc-row">
         <label class="form-label">Body Region
           <select id="dlp-region" class="form-input">
             <option value="head">Head / Brain</option>
@@ -400,63 +464,28 @@ function dlpHtml() {
       </div>
     </div>
     <div class="calc-actions">
-      <button id="dlp-calc" type="button" class="btn btn-accent">Calculate</button>
+      <button id="dlp-add-scan" type="button" class="btn btn-accent">Add scan</button>
+      <button id="dlp-reset" type="button" class="btn btn-ghost">Reset total</button>
     </div>
     <div id="dlp-result" class="calc-result" hidden>
       <div class="calc-result-value" id="dlp-value"></div>
-      <div class="calc-result-label">mGy cumulative absorbed dose (approx)</div>
+      <div class="calc-result-label">mGy running absorbed dose total (approx)</div>
       <div class="calc-result-detail" id="dlp-detail"></div>
-      <div class="calc-result-detail" id="dlp-deterministic"></div>
+      <div class="calc-result-detail" id="dlp-beir"></div>
+      <ul id="dlp-scan-list" class="calc-scan-list"></ul>
     </div>
-    <div class="calc-formula">Dose<sub>mGy</sub> ≈ (DLP per scan × scans) ÷ scan length</div>
+    <div class="calc-formula">Dose<sub>mGy</sub> ≈ DLP per scan ÷ scan length. Click Add scan to keep a running total.</div>
   </div>`;
 }
 
 function bindDlp() {
-  ['dlp-val', 'dlp-scans', 'dlp-length', 'dlp-region', 'dlp-age'].forEach(id => {
-    document.getElementById(id).addEventListener('input', calcDlp);
+  ['dlp-val', 'dlp-length', 'dlp-region', 'dlp-age'].forEach(id => {
+    document.getElementById(id).addEventListener('input', renderDlpScans);
   });
-  document.getElementById('dlp-calc').addEventListener('click', calcDlp);
-  bindEnterToCalculate(['dlp-val', 'dlp-scans', 'dlp-length', 'dlp-region', 'dlp-age'], calcDlp);
-}
-
-function calcDlp() {
-  const dlpPerScan = parseFloat(document.getElementById('dlp-val').value);
-  const scans = parseInt(document.getElementById('dlp-scans').value, 10);
-  const scanLengthCm = parseFloat(document.getElementById('dlp-length').value);
-  const region = document.getElementById('dlp-region').value;
-  const age = document.getElementById('dlp-age').value;
-  const result = document.getElementById('dlp-result');
-
-  if (
-    isNaN(dlpPerScan) || dlpPerScan < 0 ||
-    isNaN(scans) || scans < 1 ||
-    isNaN(scanLengthCm) || scanLengthCm <= 0
-  ) {
-    result.hidden = true;
-    return;
-  }
-
-  const k = DLP_K[region]?.[age];
-  if (!k) { result.hidden = true; return; }
-
-  const totalDlp = dlpPerScan * scans;
-  const totalMsv = k * totalDlp;
-  const absorbedDoseMgy = totalDlp / scanLengthCm;
-
-  document.getElementById('dlp-value').textContent = absorbedDoseMgy.toFixed(1);
-
-  const riskBand = deterministicRiskBand(absorbedDoseMgy);
-  const bgYears = totalMsv / 2.4;
-
-  document.getElementById('dlp-detail').textContent =
-    `Total DLP = ${totalDlp.toFixed(1)} mGy·cm (${dlpPerScan.toFixed(1)} × ${scans}). Effective dose context: ${totalMsv.toFixed(2)} mSv (k=${k}), about ${bgYears.toFixed(1)} years of natural background radiation.`;
-
-  document.getElementById('dlp-deterministic').textContent =
-    `${riskBand.text} Guidance only: deterministic thresholds vary by tissue, exposed field, and fractionation. Use formal dosimetry/physics review for clinical decisions.`;
-
-  result.className = riskBand.cls;
-  result.hidden = false;
+  document.getElementById('dlp-add-scan').addEventListener('click', addDlpScan);
+  document.getElementById('dlp-reset').addEventListener('click', resetDlpScans);
+  bindEnterToCalculate(['dlp-val', 'dlp-length', 'dlp-region', 'dlp-age'], addDlpScan);
+  renderDlpScans();
 }
 
 function quickLinksHtml() {
