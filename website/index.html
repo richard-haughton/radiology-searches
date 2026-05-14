@@ -22,6 +22,7 @@
   <script src="js/study-log.js"></script>
   <script src="js/rvus.js"></script>
   <script src="js/patterns.js"></script>
+  <script src="js/share-patterns.js"></script>
   <script src="js/notes-search.js"></script>
   <script src="js/app.js"></script>
 </head>
@@ -76,6 +77,7 @@
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-notes-search" data-tab="notes-search">Search Notes</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Study Log</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Tools</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-share" data-tab="share">Share Patterns</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-settings" data-tab="settings">Settings</button>
     </nav>
 
@@ -238,6 +240,60 @@
           <p class="settings-subtitle">Import search patterns from an HDF5 file exported by the desktop app.</p>
           <button id="btn-import-h5" class="btn btn-ghost">Import .h5 File</button>
           <input id="import-h5-input" type="file" accept=".h5,.hdf5" style="display:none">
+        </div>
+      </div>
+    </section>
+
+    <!-- SHARE PATTERNS TAB -->
+    <section id="panel-share" class="tab-panel" role="tabpanel" style="display:none">
+      <div class="share-layout">
+        <div class="share-card">
+          <h2>Share Your Patterns</h2>
+          <p class="share-subtitle">Share your search patterns with other users so they can learn from and use your patterns.</p>
+          
+          <div class="share-section">
+            <h3>Patterns to Share</h3>
+            <div class="share-controls">
+              <label class="form-label">Select pattern
+                <select id="share-pattern-select" class="form-input">
+                  <option value="">-- Select a pattern --</option>
+                </select>
+              </label>
+              <button id="btn-share-pattern" class="btn btn-accent" disabled>Share Pattern</button>
+            </div>
+            <p class="share-help">Choose one of your patterns to make it available to other users.</p>
+          </div>
+
+          <div class="share-divider"></div>
+
+          <div class="share-section">
+            <h3>Your Shared Patterns</h3>
+            <p class="share-help">These patterns are currently shared with the community.</p>
+            <div id="share-list-container" class="share-list-container">
+              <p class="share-empty">No shared patterns yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="share-card">
+          <h2>Discover Shared Patterns</h2>
+          <p class="share-subtitle">Browse patterns shared by other users in your specialty.</p>
+          
+          <div class="share-discover-controls">
+            <input id="share-filter-input" type="search" class="filter-input" placeholder="Search shared patterns…" autocomplete="off" spellcheck="false">
+            <div class="modality-bar">
+              <button class="discover-mod-btn active" data-mod="All">All</button>
+              <button class="discover-mod-btn" data-mod="CT">CT</button>
+              <button class="discover-mod-btn" data-mod="MRI">MRI</button>
+              <button class="discover-mod-btn" data-mod="US">US</button>
+              <button class="discover-mod-btn" data-mod="Plain Radiograph">XR</button>
+              <button class="discover-mod-btn" data-mod="Nuclear Medicine">NM</button>
+            </div>
+          </div>
+          
+          <div id="discover-list-container" class="discover-list-container">
+            <p class="discover-loading">Loading shared patterns…</p>
+          </div>
         </div>
       </div>
     </section>

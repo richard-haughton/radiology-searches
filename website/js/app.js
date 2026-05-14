@@ -111,6 +111,7 @@ function showApp(user) {
     initSettings(user.uid);
     initEditor();
     initPatterns(user.uid);
+    initSharePatterns(user.uid);
     initNotesSearch(user.uid);
     initStudyLog(user.uid);
     initCalculations();
