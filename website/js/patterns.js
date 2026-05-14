@@ -15,22 +15,16 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
-var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
+var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
-  measurements: 'Measurements',
-  hyperlinks: 'Hyperlinks',
-  images: 'Workflow / Decision Tree',
   searchPattern: 'Search Pattern'
 };
-var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology', 'images'];
+var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
   searchPattern: true,
-  dontMissPathology: false,
-  measurements: false,
-  hyperlinks: false,
-  images: false
+  dontMissPathology: false
 };
 
 // ── Init ─────────────────────────────────────────────────────
@@ -398,10 +392,14 @@ function renderStepSections(container, step) {
     panelInner.className = 'step-section-content';
     const content = sections[key] || [];
     if (content.length) {
-      if (key === 'hyperlinks') {
-        renderHyperlinkSection(panelInner, content);
-      } else if (SECTION_WITH_SUBSECTIONS_KEYS.indexOf(key) !== -1) {
-        renderNestedSubsections(panelInner, content);
+      if (SECTION_WITH_SUBSECTIONS_KEYS.indexOf(key) !== -1) {
+        // For Findings section, merge measurements, hyperlinks, and images as additional subsections
+        const additionalSections = key === 'dontMissPathology' ? {
+          measurements: sections.measurements || [],
+          hyperlinks: sections.hyperlinks || [],
+          images: sections.images || []
+        } : null;
+        renderNestedSubsections(panelInner, content, additionalSections);
       } else {
         renderRichContent(panelInner, content);
       }
@@ -463,44 +461,7 @@ function rememberStepForPattern(patternId, stepIndex) {
   _preferredStepIndex = typeof stepIndex === 'number' ? stepIndex : null;
 }
 
-function renderHyperlinkSection(container, content) {
-  const chunks = normaliseRichContent(content);
-  var links = [];
-  chunks.forEach(function(chunk) {
-    if (chunk.type === 'link' && (chunk.url || chunk.text)) {
-      links.push({ url: chunk.url || chunk.text, label: chunk.text || chunk.url });
-    } else if (chunk.type === 'text' && chunk.text) {
-      // auto-linkify plain text that looks like a URL
-      var urlMatch = chunk.text.match(/https?:\/\/\S+|www\.\S+/i);
-      if (urlMatch) {
-        links.push({ url: urlMatch[0], label: chunk.text });
-      }
-    }
-  });
-  if (!links.length) {
-    var empty = document.createElement('p');
-    empty.className = 'step-section-empty';
-    empty.textContent = 'No links yet.';
-    container.appendChild(empty);
-    return;
-  }
-  links.forEach(function(link) {
-    var href = sanitiseLinkUrl(link.url || '');
-    if (!href) return;
-    var row = document.createElement('div');
-    row.className = 'step-hyperlink-row';
-    var anchor = document.createElement('a');
-    anchor.href = href;
-    anchor.textContent = link.label || href;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-    anchor.className = 'step-link';
-    row.appendChild(anchor);
-    container.appendChild(row);
-  });
-}
-
-function normaliseSubsectionEntries(content) {
+function normaliseSubsectionEntries(content, additionalSections) {
   const chunks = normaliseRichContent(content);
   const entries = [];
 
@@ -534,6 +495,28 @@ function normaliseSubsectionEntries(content) {
     }
   });
 
+  // Merge additional sections (measurements, hyperlinks, images) into findings subsections
+  if (additionalSections && typeof additionalSections === 'object') {
+    if (additionalSections.measurements && Array.isArray(additionalSections.measurements) && additionalSections.measurements.length) {
+      entries.push({
+        title: 'Measurements',
+        content: normaliseRichContent(additionalSections.measurements)
+      });
+    }
+    if (additionalSections.hyperlinks && Array.isArray(additionalSections.hyperlinks) && additionalSections.hyperlinks.length) {
+      entries.push({
+        title: 'Hyperlinks',
+        content: normaliseRichContent(additionalSections.hyperlinks)
+      });
+    }
+    if (additionalSections.images && Array.isArray(additionalSections.images) && additionalSections.images.length) {
+      entries.push({
+        title: 'Workflow / Decision Tree',
+        content: normaliseRichContent(additionalSections.images)
+      });
+    }
+  }
+
   return sortSubsectionEntries(entries);
 }
 
@@ -553,8 +536,8 @@ function sortSubsectionEntries(entries) {
   });
 }
 
-function renderNestedSubsections(container, content) {
-  const entries = normaliseSubsectionEntries(content).filter(entry => {
+function renderNestedSubsections(container, content, additionalSections) {
+  const entries = normaliseSubsectionEntries(content, additionalSections).filter(entry => {
     return (entry.title || '').trim() || (entry.content || []).length;
   });
   if (!entries.length) {
@@ -607,6 +590,68 @@ function renderNestedSubsections(container, content) {
     wrap.appendChild(panel);
     container.appendChild(wrap);
   });
+}
+
+function renderRichContent(container, richContent) {
+  const chunks = normaliseRichContent(richContent);
+  if (!chunks.length) return;
+
+  let currentParagraph = null;
+
+  chunks.forEach(chunk => {
+    if (chunk.type === 'image') {
+      if (!chunk.data) return;
+      if (currentParagraph) { container.appendChild(currentParagraph); currentParagraph = null; }
+      const img = document.createElement('img');
+      img.src = `data:image/${chunk.format || 'png'};base64,${chunk.data}`;
+      img.alt = 'Step image';
+      img.addEventListener('click', () => openLightbox(img.src));
+      container.appendChild(img);
+    } else if (chunk.type === 'link') {
+      const href = sanitiseLinkUrl(chunk.url || '');
+      const label = chunk.text || chunk.url || '';
+      if (!href || !label) return;
+      if (!currentParagraph) {
+        currentParagraph = document.createElement('p');
+      }
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.textContent = label;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.className = 'step-link';
+      currentParagraph.appendChild(anchor);
+      currentParagraph.appendChild(document.createTextNode(' '));
+    } else {
+      // text chunk
+      if (!currentParagraph) {
+        currentParagraph = document.createElement('p');
+      }
+      const text = chunk.text || '';
+      if (!text && !chunk.bold && !chunk.color) {
+        if (currentParagraph.childNodes.length) {
+          container.appendChild(currentParagraph);
+          currentParagraph = null;
+        }
+        return;
+      }
+      if (chunk.bold || chunk.color) {
+        const span = document.createElement('span');
+        span.textContent = text;
+        if (chunk.bold) span.style.fontWeight = '700';
+        if (chunk.color === 'red')   span.classList.add('rich-red');
+        if (chunk.color === 'green') span.classList.add('rich-green');
+        if (chunk.color === 'blue')  span.classList.add('rich-blue');
+        currentParagraph.appendChild(span);
+      } else {
+        currentParagraph.appendChild(document.createTextNode(text));
+      }
+    }
+  });
+
+  if (currentParagraph && currentParagraph.childNodes.length) {
+    container.appendChild(currentParagraph);
+  }
 }
 
 function renderRichContent(container, richContent) {
