@@ -8,10 +8,7 @@ var _notesSearchLastResults = [];
 
 var NOTES_SEARCH_SECTION_LABELS = {
   searchPattern: 'Search Pattern',
-  dontMissPathology: 'Findings',
-  measurements: 'Measurements',
-  hyperlinks: 'Hyperlinks',
-  images: 'Workflow / Decision Tree'
+  dontMissPathology: 'Findings'
 };
 
 var NOTES_SEARCH_STOP_WORDS = {
@@ -184,10 +181,7 @@ function buildSearchSections(sections, fallbackRich) {
 
   var out = {
     searchPattern: [],
-    dontMissPathology: [],
-    measurements: [],
-    hyperlinks: [],
-    images: []
+    dontMissPathology: []
   };
 
   var keys = Object.keys(out);
@@ -197,6 +191,42 @@ function buildSearchSections(sections, fallbackRich) {
 
   if (!out.searchPattern.length && Array.isArray(fallbackRich) && fallbackRich.length) {
     out.searchPattern = fallbackRich.slice();
+  }
+
+  // Migrate old section format to subsections within dontMissPathology
+  if (sections) {
+    var legacySections = [];
+    var measurementContent = normaliseRichContent((sections.measurements) || []);
+    var hyperlinkContent = normaliseRichContent((sections.hyperlinks) || []);
+    var imageContent = normaliseRichContent((sections.images) || []);
+
+    if (measurementContent && measurementContent.length) {
+      legacySections.push({
+        type: 'subsection',
+        title: 'Measurements',
+        content: measurementContent
+      });
+    }
+    if (hyperlinkContent && hyperlinkContent.length) {
+      legacySections.push({
+        type: 'subsection',
+        title: 'Hyperlinks',
+        content: hyperlinkContent
+      });
+    }
+    if (imageContent && imageContent.length) {
+      legacySections.push({
+        type: 'subsection',
+        title: 'Workflow / Decision Tree',
+        content: imageContent
+      });
+    }
+
+    if (legacySections.length && out.dontMissPathology && out.dontMissPathology.length) {
+      out.dontMissPathology = out.dontMissPathology.concat(legacySections);
+    } else if (legacySections.length) {
+      out.dontMissPathology = legacySections;
+    }
   }
 
   return out;

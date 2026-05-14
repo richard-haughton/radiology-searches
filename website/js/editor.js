@@ -15,15 +15,12 @@ var _activeRichEditor = null;
 var _draggingStepIndex = null;
 var activeStepSectionKey = 'dontMissPathology';
 var _stepAiTargetSection = 'dontMissPathology';
-var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
+var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var EDITOR_STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
-  measurements: 'Measurements',
-  hyperlinks: 'Hyperlinks',
-  images: 'Workflow / Decision Tree',
   searchPattern: 'Search Pattern'
 };
-var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology', 'images'];
+var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology'];
 
 function makeStepId() {
   if (window.crypto && window.crypto.randomUUID) {
@@ -318,9 +315,6 @@ function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
 
   var out = {
     dontMissPathology: [],
-    measurements: [],
-    hyperlinks: [],
-    images: [],
     searchPattern: []
   };
 
@@ -331,6 +325,42 @@ function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
   var fallback = normaliseRichContent(fallbackRichContent || []);
   if (!out.searchPattern.length && fallback.length) {
     out.searchPattern = fallback;
+  }
+
+  // Migrate old section format to subsections within dontMissPathology
+  if (sections) {
+    var legacySections = [];
+    var measurementContent = normaliseRichContent((sections.measurements) || []);
+    var hyperlinkContent = normaliseRichContent((sections.hyperlinks) || []);
+    var imageContent = normaliseRichContent((sections.images) || []);
+
+    if (measurementContent && measurementContent.length) {
+      legacySections.push({
+        type: 'subsection',
+        title: 'Measurements',
+        content: measurementContent
+      });
+    }
+    if (hyperlinkContent && hyperlinkContent.length) {
+      legacySections.push({
+        type: 'subsection',
+        title: 'Hyperlinks',
+        content: hyperlinkContent
+      });
+    }
+    if (imageContent && imageContent.length) {
+      legacySections.push({
+        type: 'subsection',
+        title: 'Workflow / Decision Tree',
+        content: imageContent
+      });
+    }
+
+    if (legacySections.length && out.dontMissPathology && out.dontMissPathology.length) {
+      out.dontMissPathology = out.dontMissPathology.concat(legacySections);
+    } else if (legacySections.length) {
+      out.dontMissPathology = legacySections;
+    }
   }
 
   return out;
@@ -677,12 +707,7 @@ function renderStepEditPanel() {
           >${EDITOR_STEP_SECTION_LABELS[key] || key}</button>
         `).join('')}
       </div>
-      ${activeStepSectionKey === 'hyperlinks' ? `
-      <div class="link-manager">
-        <div id="link-rows" class="link-rows"></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-link-row">+ Add Link</button>
-      </div>
-      ` : isSubsectionSectionKey(activeStepSectionKey) ? `
+      ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
         <div id="subsection-rows" class="subsection-rows"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Subsection</button>
@@ -704,11 +729,10 @@ function renderStepEditPanel() {
       `}
     </div>
 
-    ${activeStepSectionKey === 'hyperlinks' ? '' : `
     <div class="step-ai-card">
       <label class="form-label">AI Target Section
         <select id="step-ai-section" class="form-input">
-          ${EDITOR_STEP_SECTION_ORDER.map(key => key !== 'hyperlinks' ? `<option value="${key}">${EDITOR_STEP_SECTION_LABELS[key] || key}</option>` : '').join('')}
+          ${EDITOR_STEP_SECTION_ORDER.map(key => `<option value="${key}">${EDITOR_STEP_SECTION_LABELS[key] || key}</option>`).join('')}
         </select>
       </label>
 
@@ -730,7 +754,6 @@ function renderStepEditPanel() {
         <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-undo-step" ${_stepAiUndoSnapshot ? '' : 'disabled'}>Undo AI Change</button>
       </div>
     </div>
-    `}
 
     <div class="step-link-card">
       <label class="form-label">Link This Step To Another Pattern Step
@@ -783,10 +806,7 @@ function renderStepEditPanel() {
   populateStepLinkStepSelect();
   updateStepLinkStatus();
 
-  if (activeStepSectionKey === 'hyperlinks') {
-    renderLinkRows(step);
-    document.getElementById('btn-add-link-row').addEventListener('click', addLinkRow);
-  } else if (isSubsectionSectionKey(activeStepSectionKey)) {
+  if (isSubsectionSectionKey(activeStepSectionKey)) {
     renderSubsectionRows(step);
     document.getElementById('btn-add-subsection-row').addEventListener('click', addSubsectionRow);
   } else {
@@ -1074,19 +1094,7 @@ function saveActiveStepToState() {
     activeStep.linkMeta = null;
   }
 
-  if (activeStepSectionKey === 'hyperlinks') {
-    const rows = document.querySelectorAll('.link-row');
-    const links = [];
-    rows.forEach(row => {
-      const text = ((row.querySelector('.link-text-input') || {}).value || '').trim();
-      const rawUrl = ((row.querySelector('.link-url-input') || {}).value || '').trim();
-      const url = sanitiseEditorLinkUrl(rawUrl);
-      if (url) {
-        links.push({ type: 'link', text: text || url, url });
-      }
-    });
-    setCurrentEditorSectionContent(activeStep, links);
-  } else if (isSubsectionSectionKey(activeStepSectionKey)) {
+  if (isSubsectionSectionKey(activeStepSectionKey)) {
     const rows = document.querySelectorAll('.subsection-row');
     const subsections = [];
     rows.forEach(row => {
