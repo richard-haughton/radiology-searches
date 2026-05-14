@@ -825,17 +825,6 @@ function renderStepEditPanel() {
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
     document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
     document.getElementById('tool-move-down').addEventListener('click', () => moveStep(1));
-    const aiSectionSelect = document.getElementById('step-ai-section');
-    if (aiSectionSelect) {
-      aiSectionSelect.value = _stepAiTargetSection;
-      aiSectionSelect.addEventListener('change', function() {
-        _stepAiTargetSection = this.value;
-      });
-    }
-
-    document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
-    document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
-    document.getElementById('btn-ai-undo-step').addEventListener('click', undoLastAiStepChange);
 
     // Keyboard shortcut for bold
     editor.addEventListener('keydown', e => {
@@ -851,6 +840,19 @@ function renderStepEditPanel() {
     // Focus editor
     editor.focus();
   }
+
+  // AI section select and buttons are always rendered — wire them up here regardless of section tab
+  const aiSectionSelect = document.getElementById('step-ai-section');
+  if (aiSectionSelect) {
+    aiSectionSelect.value = _stepAiTargetSection;
+    aiSectionSelect.addEventListener('change', function() {
+      _stepAiTargetSection = this.value;
+    });
+  }
+
+  document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
+  document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
+  document.getElementById('btn-ai-undo-step').addEventListener('click', undoLastAiStepChange);
 }
 
 function setStepAiButtonsBusy(isBusy, mode) {
@@ -937,12 +939,25 @@ async function handleAiStepModify(mode) {
     // Apply AI result to the target section, not the currently displayed section
     const updatedStep = editorSteps[activeStepIndex];
     updatedStep.stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
-    
+
     if (!updatedStep.sections) {
       updatedStep.sections = normaliseStepSectionsForEditor(null, updatedStep.richContent || []);
     }
-    updatedStep.sections[aiTargetSection] = plainTextToRichContent(nextText);
-    
+
+    if (mode === 'append' && isSubsectionSectionKey(aiTargetSection)) {
+      // For Findings (subsection-based sections), append AI result as a new subsection
+      const existingSubs = normaliseRichContent(updatedStep.sections[aiTargetSection] || []);
+      const subsectionTitle = (taskPrompt ? taskPrompt.slice(0, 60).trim() : '') || 'AI Addition';
+      const newSub = {
+        type: 'subsection',
+        title: subsectionTitle,
+        content: plainTextToRichContent(nextText)
+      };
+      updatedStep.sections[aiTargetSection] = existingSubs.concat([newSub]);
+    } else {
+      updatedStep.sections[aiTargetSection] = plainTextToRichContent(nextText);
+    }
+
     // Also keep searchPattern in sync with richContent for compatibility
     if (aiTargetSection === 'searchPattern') {
       updatedStep.richContent = plainTextToRichContent(nextText).slice();

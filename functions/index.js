@@ -27,10 +27,13 @@ function json(res, status, payload) {
 
 function isAllowedOrigin(origin) {
   if (!origin) return false;
-  if (origin === 'http://localhost:3000' || origin === 'http://127.0.0.1:3000') return true;
 
   try {
     const parsed = new URL(origin);
+    if (
+      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+      parsed.protocol === 'http:'
+    ) return true;
     return parsed.protocol === 'https:' && parsed.hostname.endsWith('.github.io');
   } catch (err) {
     return false;
