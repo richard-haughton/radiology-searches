@@ -247,17 +247,6 @@ function openEditor(uid, patternId, preferredStepIndex) {
   }
 
   renderCreateAiPanel();
-  // Renumber step titles if they start with a number
-  editorSteps.forEach((step, idx) => {
-    if (typeof step.stepTitle === 'string') {
-      // Match titles starting with a number and dot (e.g., "1. Foo")
-      const match = step.stepTitle.match(/^\d+\.\s*(.*)$/);
-      if (match) {
-        // Preserve the rest of the title after the number
-        step.stepTitle = `${idx + 1}. ${match[1]}`;
-      }
-    }
-  });
   renderStepList();
   renderStepEditPanel();
   overlay.style.display = '';
@@ -1481,6 +1470,7 @@ function moveStepToIndex(fromIdx, toIdx) {
   const activeStep = activeStepIndex !== null ? editorSteps[activeStepIndex] : null;
   const moved = editorSteps.splice(fromIdx, 1)[0];
   editorSteps.splice(toIdx, 0, moved);
+  renumberStepTitlesAfterReorder();
 
   if (activeStep) {
     activeStepIndex = editorSteps.indexOf(activeStep);
@@ -1490,6 +1480,18 @@ function moveStepToIndex(fromIdx, toIdx) {
 
   renderStepList();
   renderStepEditPanel();
+}
+
+function renumberStepTitlesAfterReorder() {
+  editorSteps.forEach(function(step, idx) {
+    if (!step || typeof step.stepTitle !== 'string') return;
+
+    var rawTitle = step.stepTitle.trim();
+    var cleanedTitle = getDisplayTitleWithoutLeadingNumbering(rawTitle);
+    if (rawTitle === cleanedTitle) return;
+
+    step.stepTitle = cleanedTitle ? ((idx + 1) + '. ' + cleanedTitle) : ('Step ' + (idx + 1));
+  });
 }
 
 // ── Save pattern to Firestore ────────────────────────────────
