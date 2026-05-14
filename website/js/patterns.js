@@ -191,7 +191,10 @@ function loadPattern(id, preferredStepIndex) {
 
   renderCurrentStep(pattern);
   const viewer = document.getElementById('step-viewer');
-  if (viewer) viewer.focus({ preventScroll: true });
+  const filterInput = document.getElementById('pattern-filter');
+  if (viewer && document.activeElement !== filterInput) {
+    viewer.focus({ preventScroll: true });
+  }
 }
 
 function openPatternAtStepFromSearch(patternId, stepIndex) {

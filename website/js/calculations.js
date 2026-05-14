@@ -335,13 +335,11 @@ let dlpScans = [];
 
 function getDlpScanInputs() {
   const dlpPerScan = parseFloat(document.getElementById('dlp-val').value);
-  const scanLengthCm = parseFloat(document.getElementById('dlp-length').value);
   const region = document.getElementById('dlp-region').value;
   const age = document.getElementById('dlp-age').value;
 
   if (
-    isNaN(dlpPerScan) || dlpPerScan < 0 ||
-    isNaN(scanLengthCm) || scanLengthCm <= 0
+    isNaN(dlpPerScan) || dlpPerScan < 0
   ) {
     return null;
   }
@@ -353,20 +351,18 @@ function getDlpScanInputs() {
 
   return {
     dlpPerScan,
-    scanLengthCm,
     region,
     age,
     k,
-    absorbedDoseMgy: dlpPerScan / scanLengthCm,
     effectiveDoseMsv: dlpPerScan * k
   };
 }
 
-function beirRiskSummary(totalAbsorbedDoseMgy, totalEffectiveDoseMsv, scanCount) {
+function beirRiskSummary(totalEffectiveDoseMsv, scanCount) {
   const scanLabel = scanCount === 1 ? 'scan' : 'scans';
 
   return {
-    text: `BEIR VII Phase 2 describes ionizing-radiation risk primarily as a small, cumulative increase in lifetime cancer risk rather than immediate side effects. For ${scanCount} ${scanLabel}, the main concern is the added stochastic risk from the cumulative dose (${totalAbsorbedDoseMgy.toFixed(1)} mGy absorbed dose, ${totalEffectiveDoseMsv.toFixed(2)} mSv effective dose). Acute effects such as skin injury are not expected from typical diagnostic CT exposures, but risk rises as more scans are added.`
+    text: `BEIR VII Phase 2 describes ionizing-radiation risk primarily as a small, cumulative increase in lifetime cancer risk rather than immediate side effects. For ${scanCount} ${scanLabel}, the main concern is the added stochastic risk from the cumulative effective dose (${totalEffectiveDoseMsv.toFixed(2)} mSv). Acute effects such as skin injury are not expected from typical diagnostic CT exposures, but risk rises as more scans are added.`
   };
 }
 
@@ -382,23 +378,21 @@ function renderDlpScans() {
 
   const totals = dlpScans.reduce((accumulator, scan) => {
     accumulator.totalDlp += scan.dlpPerScan;
-    accumulator.totalAbsorbedDoseMgy += scan.absorbedDoseMgy;
     accumulator.totalEffectiveDoseMsv += scan.effectiveDoseMsv;
     return accumulator;
   }, {
     totalDlp: 0,
-    totalAbsorbedDoseMgy: 0,
     totalEffectiveDoseMsv: 0
   });
 
   const latestScan = dlpScans[dlpScans.length - 1];
   const scanCount = dlpScans.length;
   const backgroundYears = totals.totalEffectiveDoseMsv / 2.4;
-  const beirSummary = beirRiskSummary(totals.totalAbsorbedDoseMgy, totals.totalEffectiveDoseMsv, scanCount);
+  const beirSummary = beirRiskSummary(totals.totalEffectiveDoseMsv, scanCount);
 
-  document.getElementById('dlp-value').textContent = totals.totalAbsorbedDoseMgy.toFixed(1);
+  document.getElementById('dlp-value').textContent = totals.totalEffectiveDoseMsv.toFixed(2);
   document.getElementById('dlp-detail').textContent =
-    `Running total from ${scanCount} ${scanCount === 1 ? 'scan' : 'scans'}: ${totals.totalDlp.toFixed(1)} mGy·cm total DLP, ${totals.totalEffectiveDoseMsv.toFixed(2)} mSv effective dose, about ${backgroundYears.toFixed(1)} years of natural background radiation. Most recent scan: ${latestScan.dlpPerScan.toFixed(1)} mGy·cm over ${latestScan.scanLengthCm.toFixed(1)} cm in ${latestScan.region.replace(/_/g, ' ')} (${latestScan.age.replace(/_/g, ' ')}).`;
+    `Running total from ${scanCount} ${scanCount === 1 ? 'scan' : 'scans'}: ${totals.totalDlp.toFixed(1)} mGy·cm total DLP, ${totals.totalEffectiveDoseMsv.toFixed(2)} mSv effective dose, about ${backgroundYears.toFixed(1)} years of natural background radiation. Most recent scan: ${latestScan.dlpPerScan.toFixed(1)} mGy·cm in ${latestScan.region.replace(/_/g, ' ')} (${latestScan.age.replace(/_/g, ' ')}).`;
   document.getElementById('dlp-beir').textContent = beirSummary.text;
 
   scanList.innerHTML = dlpScans.map((scan, index) => {
@@ -407,9 +401,9 @@ function renderDlpScans() {
       <li class="calc-scan-entry">
         <div class="calc-scan-copy">
           <strong>Scan ${scanNumber}</strong>
-          <div class="calc-scan-meta">${scan.dlpPerScan.toFixed(1)} mGy·cm over ${scan.scanLengthCm.toFixed(1)} cm · ${scan.region.replace(/_/g, ' ')} · ${scan.age.replace(/_/g, ' ')}</div>
+          <div class="calc-scan-meta">${scan.dlpPerScan.toFixed(1)} mGy·cm · ${scan.region.replace(/_/g, ' ')} · ${scan.age.replace(/_/g, ' ')}</div>
         </div>
-        <div class="calc-scan-badge">${scan.absorbedDoseMgy.toFixed(1)} mGy</div>
+        <div class="calc-scan-badge">${scan.effectiveDoseMsv.toFixed(2)} mSv</div>
       </li>`;
   }).join('');
 
@@ -435,16 +429,13 @@ function dlpHtml() {
   return `
   <div class="calc-card">
     <h2>DLP Single-Scan Dose Builder</h2>
-    <p class="calc-description">Calculates one scan at a time, then adds each scan to a running total so you can build up cumulative dose step by step.</p>
+    <p class="calc-description">Calculates one scan at a time using DLP plus scan type and age group, then adds each scan to a running total so you can build up cumulative dose step by step.</p>
     <div class="calc-form">
       <label class="form-label">DLP per scan (mGy·cm)
         <input id="dlp-val" type="number" class="form-input" min="0" step="1" placeholder="e.g. 450">
       </label>
       <div class="calc-row">
-        <label class="form-label">Scan length (cm)
-          <input id="dlp-length" type="number" class="form-input" min="1" step="0.1" value="40">
-        </label>
-        <label class="form-label">Body Region
+        <label class="form-label">Scan type
           <select id="dlp-region" class="form-input">
             <option value="head">Head / Brain</option>
             <option value="chest" selected>Chest</option>
@@ -469,22 +460,22 @@ function dlpHtml() {
     </div>
     <div id="dlp-result" class="calc-result" hidden>
       <div class="calc-result-value" id="dlp-value"></div>
-      <div class="calc-result-label">mGy running absorbed dose total (approx)</div>
+      <div class="calc-result-label">mSv running effective dose total (approx)</div>
       <div class="calc-result-detail" id="dlp-detail"></div>
       <div class="calc-result-detail" id="dlp-beir"></div>
       <ul id="dlp-scan-list" class="calc-scan-list"></ul>
     </div>
-    <div class="calc-formula">Dose<sub>mGy</sub> ≈ DLP per scan ÷ scan length. Click Add scan to keep a running total.</div>
+    <div class="calc-formula">Dose<sub>mSv</sub> ≈ DLP × k-factor. Click Add scan to keep a running total.</div>
   </div>`;
 }
 
 function bindDlp() {
-  ['dlp-val', 'dlp-length', 'dlp-region', 'dlp-age'].forEach(id => {
+  ['dlp-val', 'dlp-region', 'dlp-age'].forEach(id => {
     document.getElementById(id).addEventListener('input', renderDlpScans);
   });
   document.getElementById('dlp-add-scan').addEventListener('click', addDlpScan);
   document.getElementById('dlp-reset').addEventListener('click', resetDlpScans);
-  bindEnterToCalculate(['dlp-val', 'dlp-length', 'dlp-region', 'dlp-age'], addDlpScan);
+  bindEnterToCalculate(['dlp-val', 'dlp-region', 'dlp-age'], addDlpScan);
   renderDlpScans();
 }
 
