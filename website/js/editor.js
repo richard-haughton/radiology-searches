@@ -247,6 +247,17 @@ function openEditor(uid, patternId, preferredStepIndex) {
   }
 
   renderCreateAiPanel();
+  // Renumber step titles if they start with a number
+  editorSteps.forEach((step, idx) => {
+    if (typeof step.stepTitle === 'string') {
+      // Match titles starting with a number and dot (e.g., "1. Foo")
+      const match = step.stepTitle.match(/^\d+\.\s*(.*)$/);
+      if (match) {
+        // Preserve the rest of the title after the number
+        step.stepTitle = `${idx + 1}. ${match[1]}`;
+      }
+    }
+  });
   renderStepList();
   renderStepEditPanel();
   overlay.style.display = '';
