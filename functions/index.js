@@ -7,7 +7,7 @@ admin.initializeApp();
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY');
 
-const DEFAULT_MODEL = 'gpt-5.5';
+const DEFAULT_MODEL = 'gpt-4o-mini';
 const MAX_PROMPT_LENGTH = 24000;
 const MAX_REQUEST_BYTES = 80 * 1024;
 
@@ -146,7 +146,8 @@ async function completeWithOpenAi(apiKey, model, prompt) {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + apiKey
     },
-    body: JSON.stringify(requestBody)
+    body: JSON.stringify(requestBody),
+    signal: AbortSignal.timeout(25000)
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -168,7 +169,7 @@ async function completeWithOpenAi(apiKey, model, prompt) {
 exports.aiProxy = onRequest(
   {
     region: 'us-central1',
-    timeoutSeconds: 30,
+    timeoutSeconds: 60,
     memory: '256MiB',
     invoker: 'public',
     secrets: [OPENAI_API_KEY]
