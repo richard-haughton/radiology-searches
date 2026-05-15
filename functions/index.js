@@ -7,9 +7,19 @@ admin.initializeApp();
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY');
 
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-5.5';
 const MAX_PROMPT_LENGTH = 24000;
 const MAX_REQUEST_BYTES = 80 * 1024;
+const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+const MODEL_LIST_TIMEOUT_MS = 12000;
+const RESPONSES_CREATE_TIMEOUT_MS = 20000;
+const RESPONSES_POLL_TIMEOUT_MS = 10000;
+const RESPONSES_MAX_WAIT_MS = 50000;
+
+let openAiModelCache = {
+  expiresAt: 0,
+  modelIds: []
+};
 
 // Per-IP pre-auth guard (wide window, loose limit — catches unauthenticated floods)
 const IP_RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -119,46 +129,161 @@ function extractAssistantText(payload) {
   return '';
 }
 
+function isAbortError(err) {
+  if (!err) return false;
+  return err.name === 'AbortError' || String(err.message || '').toLowerCase().includes('aborted');
+}
+
+function getOpenAiErrorMessage(payload, fallback) {
+  return (payload && payload.error && payload.error.message) || fallback;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function extractResponseText(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  if (typeof payload.output_text === 'string' && payload.output_text.trim()) return payload.output_text.trim();
+
+  const output = Array.isArray(payload.output) ? payload.output : [];
+  for (const item of output) {
+    if (!item || item.type !== 'message') continue;
+    const content = Array.isArray(item.content) ? item.content : [];
+    for (const part of content) {
+      if (part && part.type === 'output_text' && typeof part.text === 'string' && part.text.trim()) {
+        return part.text.trim();
+      }
+    }
+  }
+
+  return '';
+}
+
+async function openAiJsonRequest(apiKey, method, path, body, timeoutMs) {
+  const url = 'https://api.openai.com' + path;
+  const headers = {
+    Authorization: 'Bearer ' + apiKey
+  };
+  if (body !== undefined && body !== null) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw Object.assign(new Error('OpenAI request timed out.'), {
+        code: 'upstream-timeout',
+        status: 504
+      });
+    }
+    throw Object.assign(new Error('Failed to connect to OpenAI.'), {
+      code: 'upstream-network',
+      status: 502
+    });
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const baseMsg = 'OpenAI request failed (' + response.status + ').';
+    const message = getOpenAiErrorMessage(payload, baseMsg);
+    let code = 'provider-error';
+    if (response.status === 429) code = 'rate-limited';
+    if (response.status === 401 || response.status === 403) code = 'provider-auth';
+    if (response.status === 404) code = 'model-not-visible';
+    if (response.status >= 500) code = 'upstream-error';
+
+    throw Object.assign(new Error(message), {
+      code,
+      status: response.status
+    });
+  }
+
+  return payload;
+}
+
+async function listOpenAiModels(apiKey, forceRefresh) {
+  const now = Date.now();
+  if (!forceRefresh && openAiModelCache.expiresAt > now && openAiModelCache.modelIds.length) {
+    return openAiModelCache.modelIds.slice();
+  }
+
+  const payload = await openAiJsonRequest(apiKey, 'GET', '/v1/models', null, MODEL_LIST_TIMEOUT_MS);
+  const modelIds = ((payload && payload.data) || [])
+    .map((item) => String((item && item.id) || '').trim())
+    .filter(Boolean)
+    .sort();
+
+  openAiModelCache = {
+    expiresAt: now + MODEL_CACHE_TTL_MS,
+    modelIds
+  };
+  return modelIds.slice();
+}
+
 async function completeWithOpenAi(apiKey, model, prompt) {
   const selectedModel = model || DEFAULT_MODEL;
   const requestBody = {
     model: selectedModel,
-    messages: [
-      {
-        role: 'system',
-        content: 'Return strict JSON only. Do not include markdown fences.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ]
+    instructions: 'Return strict JSON only. Do not include markdown fences.',
+    input: prompt,
+    store: true
   };
 
-  // Some models (for example GPT-5 variants) only accept the default temperature.
-  if (!String(selectedModel).toLowerCase().startsWith('gpt-5')) {
+  const modelName = String(selectedModel).toLowerCase();
+  if (!modelName.startsWith('gpt-5')) {
     requestBody.temperature = 0.2;
+  } else {
+    requestBody.background = true;
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + apiKey
-    },
-    body: JSON.stringify(requestBody),
-    signal: AbortSignal.timeout(25000)
-  });
+  const initial = await openAiJsonRequest(
+    apiKey,
+    'POST',
+    '/v1/responses',
+    requestBody,
+    RESPONSES_CREATE_TIMEOUT_MS
+  );
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const providerMsg =
-      (payload && payload.error && payload.error.message) ||
-      'OpenAI request failed (' + response.status + ').';
-    throw new Error(providerMsg);
+  let finalPayload = initial;
+  const isPending = (status) => status === 'queued' || status === 'in_progress';
+
+  if (isPending(String(initial.status || '')) && initial.id) {
+    const deadline = Date.now() + RESPONSES_MAX_WAIT_MS;
+    while (Date.now() < deadline) {
+      await wait(1500);
+      const polled = await openAiJsonRequest(
+        apiKey,
+        'GET',
+        '/v1/responses/' + encodeURIComponent(initial.id),
+        null,
+        RESPONSES_POLL_TIMEOUT_MS
+      );
+      finalPayload = polled;
+      if (!isPending(String(polled.status || ''))) break;
+    }
   }
 
-  const text = extractAssistantText(payload).trim();
+  const status = String(finalPayload.status || '').toLowerCase();
+  if (status && status !== 'completed') {
+    const failureMsg = getOpenAiErrorMessage(
+      finalPayload,
+      'OpenAI response ended with status "' + status + '".'
+    );
+    throw Object.assign(new Error(failureMsg), {
+      code: status === 'incomplete' ? 'upstream-timeout' : 'provider-error',
+      status: status === 'incomplete' ? 504 : 502
+    });
+  }
+
+  const text = extractResponseText(finalPayload);
   if (!text) {
     throw new Error('OpenAI response did not contain text output.');
   }
@@ -270,6 +395,26 @@ exports.aiProxy = onRequest(
         return;
       }
 
+      if (action === 'modelAccess') {
+        const requestedModel = String(payload.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+        const modelIds = await listOpenAiModels(apiKey, Boolean(payload.forceRefresh));
+        const visible = modelIds.includes(requestedModel);
+        const gpt55Visible = modelIds.includes('gpt-5.5');
+
+        json(res, 200, {
+          ok: true,
+          data: {
+            provider: 'openai',
+            requestedModel,
+            requestedModelVisible: visible,
+            gpt55Visible,
+            defaultModel: DEFAULT_MODEL,
+            modelIds
+          }
+        });
+        return;
+      }
+
       if (action === 'test') {
         await completeWithOpenAi(
           apiKey,
@@ -315,13 +460,15 @@ exports.aiProxy = onRequest(
       logger.error('aiProxy failed', {
         uid: uid || 'unknown',
         action: action,
+        code: err && err.code ? err.code : 'proxy-failed',
+        status: err && err.status ? err.status : 500,
         message: err && err.message ? err.message : String(err)
       });
 
-      json(res, 500, {
+      json(res, (err && err.status) || 500, {
         ok: false,
         error: {
-          code: 'proxy-failed',
+          code: (err && err.code) || 'proxy-failed',
           message: err && err.message ? err.message : 'AI proxy failed.'
         }
       });

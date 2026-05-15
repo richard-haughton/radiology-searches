@@ -5,7 +5,7 @@ var ALLOWED_AI_PROVIDERS = {
   openai: true
 };
 var DEFAULT_AI_MODELS = {
-  openai: 'gpt-4o-mini'
+  openai: 'gpt-5.5'
 };
 var AI_PROXY_FUNCTION_URL = null;
 
@@ -66,14 +66,20 @@ async function callAiProxy(action, payload) {
 
   if (token) headers.Authorization = 'Bearer ' + token;
 
-  var res = await fetch(url, {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify({
-      action: action,
-      payload: payload || {}
-    })
-  });
+  var res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        action: action,
+        payload: payload || {}
+      })
+    });
+  } catch (err) {
+    var base = (err && err.message) ? err.message : 'Failed to reach AI proxy.';
+    throw new Error(base + ' Verify network/CORS and proxy URL: ' + url);
+  }
 
   var data = await res.json().catch(function() { return {}; });
   if (!res.ok) {

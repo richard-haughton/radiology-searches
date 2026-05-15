@@ -3,14 +3,16 @@
 var _settingsUid = null;
 var _settingsInitialised = false;
 var _aiProviderStatus = {};
+var _aiModelAccess = {};
 
 var PROVIDER_MODELS = {
   openai: [
+    { value: 'gpt-5.5',       label: 'ChatGPT 5.5 (default)' },
     { value: 'gpt-5',         label: 'ChatGPT 5' },
     { value: 'gpt-5-mini',    label: 'ChatGPT 5 mini' },
     { value: 'gpt-4.5',       label: 'GPT-4.5' },
     { value: 'gpt-4o',        label: 'GPT-4o' },
-    { value: 'gpt-4o-mini',   label: 'GPT-4o mini (default)' },
+    { value: 'gpt-4o-mini',   label: 'GPT-4o mini' },
     { value: 'gpt-4-turbo',   label: 'GPT-4 Turbo' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
   ],
@@ -36,11 +38,13 @@ function initSettings(uid) {
   providerSelect.addEventListener('change', function() {
     updateModelDropdown(providerSelect.value);
     hydrateProviderInputs();
+    refreshSelectedModelAccess().finally(renderAiProviderStatus);
     renderAiProviderStatus();
   });
 
   if (modelInput) {
     modelInput.addEventListener('change', function() {
+      refreshSelectedModelAccess().finally(renderAiProviderStatus);
       renderAiProviderStatus();
     });
   }
@@ -96,7 +100,30 @@ async function refreshAiProviderStatus() {
   }
 
   hydrateProviderInputs();
+  await refreshSelectedModelAccess();
   renderAiProviderStatus();
+}
+
+async function refreshSelectedModelAccess() {
+  var provider = getSelectedAiProvider();
+  var model = getSelectedAiModel();
+
+  if (!_aiProviderStatus[provider] || !_aiProviderStatus[provider].configured) {
+    _aiModelAccess[provider] = null;
+    return;
+  }
+
+  try {
+    var result = await callAiProxy('modelAccess', {
+      provider: provider,
+      model: model
+    });
+    _aiModelAccess[provider] = (result && result.data) || null;
+  } catch (err) {
+    _aiModelAccess[provider] = {
+      error: (err && err.message) ? err.message : 'Unable to verify model access.'
+    };
+  }
 }
 
 function updateModelDropdown(provider) {
@@ -158,6 +185,16 @@ function renderAiProviderStatus() {
   if (selectedModel) {
     text += ' Using: ' + selectedModel;
   }
+
+  var modelAccess = _aiModelAccess[provider];
+  if (modelAccess && modelAccess.error) {
+    text += ' Model access check: ' + modelAccess.error;
+  } else if (modelAccess && selectedModel) {
+    text += modelAccess.requestedModelVisible
+      ? ' Model access: available.'
+      : ' Model access: not visible to current API project/key.';
+  }
+
   statusEl.textContent = text;
 }
 
