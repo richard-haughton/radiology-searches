@@ -275,7 +275,7 @@ async function generatePatternFromAi(options) {
   var model = getModelForProvider(safeProvider, input.model);
   var prompt = buildPatternPrompt(input);
 
-  var raw = await requestReportText('generateReport', safeProvider, model, prompt);
+  var raw = await requestProviderText(safeProvider, model, prompt);
   var parsed = safeJsonParse(raw);
   if (!parsed) {
     throw new Error('AI did not return valid JSON for pattern generation.');
@@ -290,7 +290,7 @@ async function modifyStepWithAi(options) {
   var model = getModelForProvider(safeProvider, input.model);
   var prompt = buildStepPrompt(input);
 
-  var raw = await requestReportText('refineReport', safeProvider, model, prompt);
+  var raw = await requestProviderText(safeProvider, model, prompt);
   var parsed = safeJsonParse(raw);
   if (!parsed) {
     throw new Error('AI did not return valid JSON for step update.');
