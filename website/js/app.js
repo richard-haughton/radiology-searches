@@ -67,24 +67,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── Tab switching ─────────────────────────────────────────────
 function initTabs() {
-  var tabBtns = document.querySelectorAll('.tab-btn');
+  var tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
   var panels  = document.querySelectorAll('.tab-panel');
+
+  function activateTab(btn) {
+    if (!btn) return;
+    tabBtns.forEach(function(b) {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    panels.forEach(function(p) {
+      p.classList.remove('active');
+      p.style.display = 'none';
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    var target = document.getElementById('panel-' + btn.dataset.tab);
+    if (target) { target.classList.add('active'); target.style.display = ''; }
+  }
 
   tabBtns.forEach(function(btn) {
     btn.addEventListener('click', function() {
-      tabBtns.forEach(function(b) {
-        b.classList.remove('active');
-        b.setAttribute('aria-selected', 'false');
-      });
-      panels.forEach(function(p) {
-        p.classList.remove('active');
-        p.style.display = 'none';
-      });
-      btn.classList.add('active');
-      btn.setAttribute('aria-selected', 'true');
-      var target = document.getElementById('panel-' + btn.dataset.tab);
-      if (target) { target.classList.add('active'); target.style.display = ''; }
+      activateTab(btn);
     });
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Tab') return;
+
+    var target = e.target;
+    var tag = target && target.tagName;
+    var isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
+      (target && target.isContentEditable);
+    if (isEditing) return;
+
+    if (!tabBtns.length) return;
+
+    e.preventDefault();
+
+    var activeIdx = tabBtns.findIndex(function(btn) {
+      return btn.classList.contains('active');
+    });
+    if (activeIdx < 0) activeIdx = 0;
+
+    var dir = e.shiftKey ? -1 : 1;
+    var nextIdx = (activeIdx + dir + tabBtns.length) % tabBtns.length;
+    var nextBtn = tabBtns[nextIdx];
+
+    activateTab(nextBtn);
+    nextBtn.focus({ preventScroll: true });
   });
 }
 
@@ -115,6 +146,7 @@ function showApp(user) {
     initNotesSearch(user.uid);
     initStudyLog(user.uid);
     initCalculations();
+    initReportGenerator(user.uid);
   }
 }
 

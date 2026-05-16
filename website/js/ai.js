@@ -221,6 +221,20 @@ async function requestProviderText(provider, model, prompt) {
   return text;
 }
 
+async function requestReportText(action, provider, model, prompt) {
+  var safeProvider = assertProvider(provider);
+  var payload = await callAiProxy(action, {
+    provider: safeProvider,
+    model: String(model || '').trim(),
+    prompt: String(prompt || '')
+  });
+  var text = String((payload && payload.data && payload.data.text) || '').trim();
+  if (!text) {
+    throw new Error('AI proxy response did not contain report text output.');
+  }
+  return text;
+}
+
 function getAiProviderStatus() {
   return callAiProxy('status', {})
     .then(function(payload) {
@@ -261,7 +275,7 @@ async function generatePatternFromAi(options) {
   var model = getModelForProvider(safeProvider, input.model);
   var prompt = buildPatternPrompt(input);
 
-  var raw = await requestProviderText(safeProvider, model, prompt);
+  var raw = await requestReportText('generateReport', safeProvider, model, prompt);
   var parsed = safeJsonParse(raw);
   if (!parsed) {
     throw new Error('AI did not return valid JSON for pattern generation.');
@@ -276,11 +290,153 @@ async function modifyStepWithAi(options) {
   var model = getModelForProvider(safeProvider, input.model);
   var prompt = buildStepPrompt(input);
 
-  var raw = await requestProviderText(safeProvider, model, prompt);
+  var raw = await requestReportText('refineReport', safeProvider, model, prompt);
   var parsed = safeJsonParse(raw);
   if (!parsed) {
     throw new Error('AI did not return valid JSON for step update.');
   }
 
   return coerceStepResponse(parsed, input.stepTitle);
+}
+
+function normaliseReportSections(inputSections) {
+  var sections = Array.isArray(inputSections) ? inputSections : [];
+  var cleaned = sections
+    .map(function(item) { return String(item || '').trim(); })
+    .filter(Boolean);
+  return cleaned.length ? cleaned : ['Findings', 'Impression'];
+}
+
+function coerceReportResponse(parsed, fallbackSections) {
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('AI returned invalid report JSON.');
+  }
+
+  var finalized = parsed.finalized !== false;
+  var questions = Array.isArray(parsed.questions)
+    ? parsed.questions.map(function(q) { return String(q || '').trim(); }).filter(Boolean)
+    : [];
+  var sections = parsed.sections && typeof parsed.sections === 'object' ? parsed.sections : {};
+  var ordered = normaliseReportSections(fallbackSections);
+  var outputSections = {};
+
+  Object.keys(sections).forEach(function(key) {
+    var sectionTitle = String(key || '').trim();
+    if (!sectionTitle) return;
+    outputSections[sectionTitle] = String(sections[key] || '').trim();
+  });
+
+  ordered.forEach(function(sectionTitle) {
+    if (!Object.prototype.hasOwnProperty.call(outputSections, sectionTitle)) {
+      outputSections[sectionTitle] = '';
+    }
+  });
+
+  if (!Object.keys(outputSections).length) {
+    throw new Error('AI did not return report sections.');
+  }
+
+  return {
+    finalized: finalized,
+    questions: questions,
+    sections: outputSections
+  };
+}
+
+function buildReportGenerationPrompt(input) {
+  var findings = String(input.findings || '').trim();
+  var sections = normaliseReportSections(input.sectionOrder);
+  var templateText = String(input.templateText || '').trim();
+  var globalRulesText = String(input.globalRulesText || '').trim();
+
+  var lines = [
+    'You are an expert radiologist generating a complete, structured radiology report.',
+    'Return ONLY valid JSON with this exact schema:',
+    '{"finalized":boolean,"questions":["string"],"sections":{"SectionName":"string"}}',
+    '',
+    'INSTRUCTIONS:',
+    '- Write each section in full — never truncate or summarize prematurely.',
+    '- Use precise, professional radiology language.',
+    '- Do not include markdown code fences in your JSON response.',
+    '- Set finalized=true and questions=[] in every response.',
+    '',
+    'FINDINGS (provided by the radiologist):',
+    findings || '(none provided)'
+  ];
+
+  if (templateText) {
+    lines.push(
+      '',
+      'REPORT TEMPLATE — PRIMARY OUTPUT STRUCTURE:',
+      'The template below defines all required section names and any existing boilerplate.',
+      'Use the template section headings as the keys in your "sections" JSON object.',
+      'Preserve all boilerplate text already in the template; expand blanks and',
+      'placeholder lines with content derived from the findings above.',
+      templateText
+    );
+  } else {
+    lines.push(
+      '',
+      'OUTPUT SECTIONS (populate each in order): ' + sections.join(', ')
+    );
+  }
+
+  if (globalRulesText) {
+    lines.push('', 'GLOBAL RULES (always apply):', globalRulesText);
+  }
+
+  return lines.join('\n');
+}
+
+function buildReportRefinementPrompt(input) {
+  var draftSections = input.draftSections && typeof input.draftSections === 'object' ? input.draftSections : {};
+  var refineRequest = String(input.refineRequest || '').trim();
+  var sections = normaliseReportSections(input.sectionOrder);
+
+  return [
+    'You are refining a radiology report draft.',
+    'Return ONLY valid JSON with this schema:',
+    '{"finalized":boolean,"questions":["string"],"sections":{"SectionName":"string"}}',
+    'Rules:',
+    '- Preserve clinical correctness.',
+    '- Apply the user refinement request.',
+    '- Keep section names aligned to requested sections.',
+    '- Do not include markdown code fences.',
+    '',
+    'Requested output sections: ' + sections.join(', ') + '.',
+    '',
+    'Current draft sections JSON:',
+    JSON.stringify(draftSections),
+    '',
+    'User refinement request:',
+    refineRequest || '(none provided)'
+  ].join('\n');
+}
+
+async function generateRadiologyReportWithAi(options) {
+  var input = options || {};
+  var safeProvider = assertProvider(input.provider || 'openai');
+  var model = getModelForProvider(safeProvider, input.model);
+  var prompt = buildReportGenerationPrompt(input);
+
+  var raw = await requestProviderText(safeProvider, model, prompt);
+  var parsed = safeJsonParse(raw);
+  if (!parsed) {
+    throw new Error('AI did not return valid JSON for report generation.');
+  }
+  return coerceReportResponse(parsed, input.sectionOrder);
+}
+
+async function refineRadiologyReportWithAi(options) {
+  var input = options || {};
+  var safeProvider = assertProvider(input.provider || 'openai');
+  var model = getModelForProvider(safeProvider, input.model);
+  var prompt = buildReportRefinementPrompt(input);
+
+  var raw = await requestProviderText(safeProvider, model, prompt);
+  var parsed = safeJsonParse(raw);
+  if (!parsed) {
+    throw new Error('AI did not return valid JSON for report refinement.');
+  }
+  return coerceReportResponse(parsed, input.sectionOrder);
 }

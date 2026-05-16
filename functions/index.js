@@ -228,7 +228,7 @@ async function listOpenAiModels(apiKey, forceRefresh) {
   return modelIds.slice();
 }
 
-async function completeWithOpenAi(apiKey, model, prompt) {
+async function completeWithOpenAi(apiKey, model, prompt, opts) {
   const selectedModel = model || DEFAULT_MODEL;
   const requestBody = {
     model: selectedModel,
@@ -236,6 +236,10 @@ async function completeWithOpenAi(apiKey, model, prompt) {
     input: prompt,
     store: true
   };
+
+  if (opts && opts.maxOutputTokens) {
+    requestBody.max_output_tokens = Number(opts.maxOutputTokens);
+  }
 
   const modelName = String(selectedModel).toLowerCase();
   if (!modelName.startsWith('gpt-5')) {
@@ -441,6 +445,30 @@ exports.aiProxy = onRequest(
 
         const text = await completeWithOpenAi(apiKey, model, prompt);
         logger.info('aiProxy completeText', { uid, model, provider });
+        json(res, 200, {
+          ok: true,
+          data: {
+            provider: 'openai',
+            model: model,
+            text: text
+          }
+        });
+        return;
+      }
+
+      if (action === 'generateReport' || action === 'refineReport') {
+        const reportPromptLimit = 60000;
+        const rawPrompt = String((payload && payload.prompt) || '').slice(0, reportPromptLimit);
+        if (!rawPrompt) {
+          json(res, 400, {
+            ok: false,
+            error: { code: 'invalid-prompt', message: 'Prompt is required.' }
+          });
+          return;
+        }
+
+        const text = await completeWithOpenAi(apiKey, model, rawPrompt, { maxOutputTokens: 16000 });
+        logger.info('aiProxy reportAction', { uid, model, provider, action });
         json(res, 200, {
           ok: true,
           data: {

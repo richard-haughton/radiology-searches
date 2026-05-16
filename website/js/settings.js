@@ -4,6 +4,10 @@ var _settingsUid = null;
 var _settingsInitialised = false;
 var _aiProviderStatus = {};
 var _aiModelAccess = {};
+var _reportGeneratorSettings = {
+  defaultSections: ['Findings', 'Impression'],
+  globalRulesText: ''
+};
 
 var PROVIDER_MODELS = {
   openai: [
@@ -65,17 +69,98 @@ function initSettings(uid) {
     }
   });
 
+  var saveReportSettingsBtn = document.getElementById('btn-save-report-settings');
+  if (saveReportSettingsBtn) {
+    saveReportSettingsBtn.addEventListener('click', handleSaveReportSettings);
+  }
+
   updateModelDropdown(providerSelect.value);
   hydrateProviderInputs();
   refreshAiProviderStatus();
+  loadReportGeneratorSettings();
 
   // Also refresh when Settings tab is opened to pick up any recent status changes.
   var settingsTabBtn = document.querySelector('.tab-btn[data-tab="settings"]');
   if (settingsTabBtn) {
     settingsTabBtn.addEventListener('click', function() {
       refreshAiProviderStatus();
+      loadReportGeneratorSettings();
     });
   }
+}
+
+function parseSectionsCsv(input) {
+  var raw = String(input || '');
+  var list = raw.split(',').map(function(item) { return item.trim(); }).filter(Boolean);
+  return list.length ? list : ['Findings', 'Impression'];
+}
+
+function renderReportGeneratorSettings(settings) {
+  var sectionsEl = document.getElementById('report-default-sections');
+  var rulesEl = document.getElementById('report-global-rules');
+  if (!sectionsEl || !rulesEl) return;
+
+  var safe = settings || _reportGeneratorSettings;
+  sectionsEl.value = (safe.defaultSections || ['Findings', 'Impression']).join(', ');
+  rulesEl.value = safe.globalRulesText || '';
+}
+
+function setReportSettingsStatus(text, isError) {
+  var el = document.getElementById('report-settings-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = isError ? 'var(--danger)' : '';
+}
+
+async function loadReportGeneratorSettings() {
+  if (!_settingsUid || typeof getUserReportSettings !== 'function') return;
+  try {
+    var settings = await getUserReportSettings(_settingsUid);
+    _reportGeneratorSettings = {
+      defaultSections: Array.isArray(settings.defaultSections) && settings.defaultSections.length
+        ? settings.defaultSections
+        : ['Findings', 'Impression'],
+      globalRulesText: String(settings.globalRulesText || '')
+    };
+    renderReportGeneratorSettings(_reportGeneratorSettings);
+    setReportSettingsStatus('');
+  } catch (err) {
+    setReportSettingsStatus((err && err.message) || 'Failed to load report settings.', true);
+  }
+}
+
+async function handleSaveReportSettings() {
+  if (!_settingsUid || typeof saveUserReportSettings !== 'function') return;
+  var sectionsEl = document.getElementById('report-default-sections');
+  var rulesEl = document.getElementById('report-global-rules');
+  if (!sectionsEl || !rulesEl) return;
+
+  var payload = {
+    defaultSections: parseSectionsCsv(sectionsEl.value),
+    globalRulesText: String(rulesEl.value || '')
+  };
+
+  try {
+    await saveUserReportSettings(_settingsUid, payload);
+    _reportGeneratorSettings = payload;
+    setReportSettingsStatus('Saved.');
+    showToast('Report settings saved.');
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('report-settings-changed', { detail: { settings: getReportGeneratorSettings() } }));
+    }
+  } catch (err) {
+    setReportSettingsStatus((err && err.message) || 'Failed to save report settings.', true);
+    showToast((err && err.message) || 'Failed to save report settings.', true);
+  }
+}
+
+function getReportGeneratorSettings() {
+  return {
+    defaultSections: Array.isArray(_reportGeneratorSettings.defaultSections)
+      ? _reportGeneratorSettings.defaultSections.slice()
+      : ['Findings', 'Impression'],
+    globalRulesText: String(_reportGeneratorSettings.globalRulesText || '')
+  };
 }
 
 function setSettingsBusy(isBusy, statusText) {

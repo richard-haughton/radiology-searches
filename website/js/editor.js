@@ -21,6 +21,40 @@ var EDITOR_STEP_SECTION_LABELS = {
   searchPattern: 'Search Pattern'
 };
 var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology'];
+var FINDINGS_BOX_TYPES = {
+  decisionTree: { label: 'Decision Tree', defaultTitle: 'Decision Tree' },
+  exampleImaging: { label: 'Example Imaging', defaultTitle: 'Example Imaging' },
+  hyperlinks: { label: 'Hyperlinks', defaultTitle: 'Hyperlinks' },
+  custom: { label: 'Custom', defaultTitle: '' }
+};
+
+function getFindingsBoxTypeInfo(boxType) {
+  var key = String(boxType || '').trim();
+  if (!Object.prototype.hasOwnProperty.call(FINDINGS_BOX_TYPES, key)) key = 'custom';
+  return { key: key, label: FINDINGS_BOX_TYPES[key].label, defaultTitle: FINDINGS_BOX_TYPES[key].defaultTitle };
+}
+
+function inferFindingsBoxTypeFromSubsection(chunk) {
+  var explicit = String(chunk && chunk.boxType || '').trim();
+  if (Object.prototype.hasOwnProperty.call(FINDINGS_BOX_TYPES, explicit)) return explicit;
+
+  var title = String((chunk && (chunk.title || chunk.name)) || '').trim().toLowerCase();
+  if (!title && Array.isArray(chunk && chunk.content)) {
+    var content = chunk.content || [];
+    if (content.some(function(item) { return item && item.type === 'link'; })) return 'hyperlinks';
+    if (content.some(function(item) { return item && item.type === 'image'; })) return 'exampleImaging';
+  }
+  if (title.includes('hyperlink')) return 'hyperlinks';
+  if (title.includes('decision tree') || title.includes('workflow')) return 'decisionTree';
+  if (title.includes('example imaging') || title.includes('image examples')) return 'exampleImaging';
+  return 'custom';
+}
+
+function inferFindingsBoxTitle(boxType, existingTitle) {
+  var current = String(existingTitle || '').trim();
+  if (current) return current;
+  return getFindingsBoxTypeInfo(boxType).defaultTitle;
+}
 
 function makeStepId() {
   if (window.crypto && window.crypto.randomUUID) {
@@ -635,8 +669,9 @@ function addStep() {
   // Save current step first
   saveActiveStepToState();
 
+  const newIdx = editorSteps.length;
   editorSteps.push({
-    stepTitle: `Step ${editorSteps.length + 1}`,
+    stepTitle: `${newIdx + 1}. `,
     stepId: makeStepId(),
     richContent: [{ type: 'text', text: '', bold: false, color: null }],
     linkedStepId: '',
@@ -710,7 +745,12 @@ function renderStepEditPanel() {
       ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
         <div id="subsection-rows" class="subsection-rows"></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Subsection</button>
+        <div class="subsection-add-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="decisionTree">+ Decision Tree</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="exampleImaging">+ Example Imaging</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="hyperlinks">+ Hyperlinks</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="custom">+ Custom Box</button>
+        </div>
       </div>
       ` : `
       <div>
@@ -808,7 +848,9 @@ function renderStepEditPanel() {
 
   if (isSubsectionSectionKey(activeStepSectionKey)) {
     renderSubsectionRows(step);
-    document.getElementById('btn-add-subsection-row').addEventListener('click', addSubsectionRow);
+    document.querySelectorAll('[data-add-subsection-type]').forEach(btn => {
+      btn.addEventListener('click', () => addSubsectionRow(btn.dataset.addSubsectionType));
+    });
   } else {
     // Populate rich editor from richContent
     const editor = document.getElementById('rich-editor');
@@ -1114,12 +1156,14 @@ function saveActiveStepToState() {
     const subsections = [];
     rows.forEach(row => {
       const title = ((row.querySelector('.subsection-title-input') || {}).value || '').trim();
+      const boxType = String((row.querySelector('.subsection-type-select') || {}).value || '').trim();
       const rowEditor = row.querySelector('.subsection-rich-editor');
       const content = rowEditor ? extractRichContent(rowEditor) : [];
       if (!title && !hasAnyRichContent(content)) return;
       subsections.push({
         type: 'subsection',
-        title: title || `Subsection ${subsections.length + 1}`,
+        boxType: Object.prototype.hasOwnProperty.call(FINDINGS_BOX_TYPES, boxType) ? boxType : 'custom',
+        title: inferFindingsBoxTitle(boxType, title),
         content: content
       });
     });
@@ -1176,8 +1220,10 @@ function getSubsectionRowsFromContent(content) {
 
   chunks.forEach(chunk => {
     if (chunk.type === 'subsection') {
+      const boxType = inferFindingsBoxTypeFromSubsection(chunk);
       rows.push({
-        title: (chunk.title || '').trim(),
+        boxType,
+        title: inferFindingsBoxTitle(boxType, (chunk.title || '').trim()),
         content: normaliseRichContent(chunk.content || [])
       });
       return;
@@ -1222,27 +1268,36 @@ function renderSubsectionRows(step) {
   container.innerHTML = '';
 
   const rows = getSubsectionRowsFromContent(getCurrentEditorSectionContent(step));
-  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [])));
+  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [], item.boxType || 'custom')));
 
   if (!rows.length) {
-    container.appendChild(createSubsectionRow('', []));
+    container.appendChild(createSubsectionRow('', [], 'custom'));
   }
 }
 
-function createSubsectionRow(title, content) {
+function createSubsectionRow(title, content, boxType) {
+  const boxTypeInfo = getFindingsBoxTypeInfo(boxType);
   const row = document.createElement('div');
   row.className = 'subsection-row';
   row.innerHTML = `
     <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Subsection title">
+    <select class="form-input subsection-type-select" aria-label="Subsection box type">
+      ${Object.keys(FINDINGS_BOX_TYPES).map(typeKey => {
+        const info = FINDINGS_BOX_TYPES[typeKey];
+        return `<option value="${escapeHtml(typeKey)}" ${typeKey === boxTypeInfo.key ? 'selected' : ''}>${escapeHtml(info.label)}</option>`;
+      }).join('')}
+    </select>
+    <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
     <div class="rich-toolbar subsection-rich-toolbar" role="toolbar" aria-label="Subsection text formatting">
       <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
       <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
       <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
       <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
+      <button type="button" class="rich-tool" data-rich-action="link" title="Insert hyperlink">Link</button>
+      <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">Image</button>
       <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
     </div>
     <div class="rich-editor subsection-rich-editor" contenteditable="true" spellcheck="true"></div>
-    <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
   `;
 
   const toolbar = row.querySelector('.subsection-rich-toolbar');
@@ -1253,14 +1308,21 @@ function createSubsectionRow(title, content) {
   rowEditor.addEventListener('keydown', handleRichEditorKeydown);
   rowEditor.addEventListener('paste', handleEditorPaste);
 
+  row.querySelector('.subsection-type-select').addEventListener('change', e => {
+    const titleInput = row.querySelector('.subsection-title-input');
+    const nextInfo = getFindingsBoxTypeInfo(e.target.value);
+    if (titleInput && !String(titleInput.value || '').trim()) {
+      titleInput.value = nextInfo.defaultTitle;
+    }
+  });
   row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
   return row;
 }
 
-function addSubsectionRow() {
+function addSubsectionRow(boxType) {
   const container = document.getElementById('subsection-rows');
   if (!container) return;
-  const row = createSubsectionRow('', []);
+  const row = createSubsectionRow('', [], boxType || 'custom');
   container.appendChild(row);
   row.querySelector('.subsection-title-input').focus();
 }
@@ -1756,6 +1818,10 @@ function bindRichEditorToolbar(toolbar, editor) {
         execFormat('bold', editor);
       } else if (action === 'clear') {
         execRemoveFormat(editor);
+      } else if (action === 'link') {
+        addHyperlinkToSelection(editor);
+      } else if (action === 'image') {
+        handlePasteImageFromClipboard(editor);
       } else if (color) {
         execColor(color, editor);
       }
@@ -1810,8 +1876,8 @@ function execRemoveFormat(targetEditor) {
   });
 }
 
-function addHyperlinkToSelection() {
-  const editor = document.getElementById('rich-editor');
+function addHyperlinkToSelection(targetEditor) {
+  const editor = getActiveRichEditor(targetEditor) || document.getElementById('rich-editor');
   if (!editor) return;
 
   const selection = window.getSelection();
@@ -1835,8 +1901,8 @@ function addHyperlinkToSelection() {
   editor.focus();
 }
 
-function removeHyperlinkFromSelection() {
-  const editor = document.getElementById('rich-editor');
+function removeHyperlinkFromSelection(targetEditor) {
+  const editor = getActiveRichEditor(targetEditor) || document.getElementById('rich-editor');
   if (!editor) return;
   document.execCommand('unlink', false, null);
   editor.focus();
@@ -1861,14 +1927,14 @@ function sanitiseEditorLinkUrl(url) {
 }
 
 // ── Image paste ──────────────────────────────────────────────
-async function handlePasteImageFromClipboard() {
+async function handlePasteImageFromClipboard(targetEditor) {
   try {
     const items = await navigator.clipboard.read();
     for (const item of items) {
       for (const mimeType of item.types) {
         if (mimeType.startsWith('image/')) {
           const blob = await item.getType(mimeType);
-          insertImageBlob(blob);
+          insertImageBlob(blob, targetEditor);
           return;
         }
       }

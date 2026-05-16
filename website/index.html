@@ -24,6 +24,7 @@
   <script src="js/patterns.js"></script>
   <script src="js/share-patterns.js"></script>
   <script src="js/notes-search.js"></script>
+  <script src="js/report-generator.js"></script>
   <script src="js/app.js"></script>
 </head>
 <body>
@@ -74,6 +75,7 @@
 
     <nav class="tab-bar" role="tablist" aria-label="App sections">
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-patterns" data-tab="patterns">Search Patterns</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-report" data-tab="report">Report generator</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-notes-search" data-tab="notes-search">Search Notes</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Study Log</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Tools</button>
@@ -125,9 +127,8 @@
 
             <div id="step-header" style="display:none">
               <div class="step-nav-bar">
-                <button id="btn-prev-step" class="btn btn-ghost btn-nav" aria-label="Previous step">&#8592;</button>
                 <span class="step-counter" id="step-counter"></span>
-                <button id="btn-next-step" class="btn btn-ghost btn-nav" aria-label="Next step">&#8594;</button>
+                <button id="btn-steps-expand-all" class="btn btn-ghost btn-sm" type="button">Expand All</button>
               </div>
               <h2 id="step-title" class="step-title"></h2>
             </div>
@@ -208,6 +209,56 @@
       </div>
     </section>
 
+    <!-- REPORT GENERATOR TAB -->
+    <section id="panel-report" class="tab-panel" role="tabpanel" style="display:none">
+      <div class="report-layout">
+        <aside class="report-sidebar">
+          <div class="report-sidebar-card">
+            <h3>Context</h3>
+            <p id="report-pattern-context" class="report-muted">No search pattern selected.</p>
+
+            <label class="form-label" for="report-template-select">Template</label>
+            <select id="report-template-select" class="form-input">
+              <option value="">No template</option>
+            </select>
+
+            <button id="btn-report-template-import" class="btn btn-ghost btn-sm" type="button">Import template</button>
+            <input id="report-template-import-input" type="file" accept=".rtf,.txt" style="display:none">
+
+            <hr class="settings-divider">
+
+            <button id="btn-save-pattern-report-config" class="btn btn-ghost btn-sm" type="button">Save pattern config</button>
+          </div>
+        </aside>
+
+        <div class="report-main">
+          <div class="report-card">
+            <h2>Report Generator</h2>
+            <p class="settings-subtitle">Enter findings, choose context, and generate a structured draft report.</p>
+
+            <label class="form-label" for="report-findings-input">Findings input</label>
+            <textarea id="report-findings-input" class="form-input" rows="7" placeholder="Enter findings here..."></textarea>
+
+            <label class="form-label" for="report-section-order">Output sections (comma separated)</label>
+            <input id="report-section-order" type="text" class="form-input" placeholder="Findings, Impression">
+
+            <div class="report-actions">
+              <button id="btn-generate-report" class="btn btn-accent" type="button">Generate report</button>
+            </div>
+            <div id="report-status" class="settings-status"></div>
+          </div>
+
+          <div class="report-card">
+            <div class="report-preview-header">
+              <h3>Draft report</h3>
+              <button id="btn-copy-report" class="btn btn-ghost btn-sm" type="button">Copy</button>
+            </div>
+            <textarea id="report-output" class="form-input report-output" rows="16" placeholder="Generated report will appear here..."></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SETTINGS TAB -->
     <section id="panel-settings" class="tab-panel" role="tabpanel" style="display:none">
       <div class="settings-layout">
@@ -240,6 +291,30 @@
           <p class="settings-subtitle">Import search patterns from an HDF5 file exported by the desktop app.</p>
           <button id="btn-import-h5" class="btn btn-ghost">Import .h5 File</button>
           <input id="import-h5-input" type="file" accept=".h5,.hdf5" style="display:none">
+
+          <hr class="settings-divider">
+
+          <h2>Pattern Viewer</h2>
+          <p class="settings-subtitle">Control how step dropdowns open in Search Patterns.</p>
+          <label class="settings-checkbox-row" for="setting-step-accordion-mode">
+            <input id="setting-step-accordion-mode" type="checkbox">
+            <span>True accordion mode (only one step open at a time)</span>
+          </label>
+        </div>
+        <div class="settings-card">
+          <h2>Report Generator</h2>
+          <p class="settings-subtitle">Configure default behavior for AI report generation.</p>
+
+          <label class="form-label">Default output sections (comma separated)
+            <input id="report-default-sections" type="text" class="form-input" placeholder="Findings, Impression">
+          </label>
+
+          <label class="form-label">Global report rules
+            <textarea id="report-global-rules" class="form-input" rows="5" placeholder="Global rules. One rule per line."></textarea>
+          </label>
+
+          <button id="btn-save-report-settings" class="btn btn-ghost" type="button">Save report settings</button>
+          <div id="report-settings-status" class="settings-status"></div>
         </div>
       </div>
     </section>

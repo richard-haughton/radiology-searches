@@ -15,17 +15,35 @@ var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
 var _preferredStepIndex = null;
+var _openStepIndices = new Set();
+var _accordionMode = false;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
   searchPattern: 'Search Pattern'
 };
+var ACCORDION_MODE_STATE_KEY = 'patternStepAccordionMode';
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology'];
+var REQUIRED_FINDINGS_SUBSECTIONS = ['Hyperlinks', 'Workflow / Decision Tree', 'Image Examples'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
   searchPattern: true,
   dontMissPathology: false
 };
+
+function emitPatternSelectionChanged(pattern) {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  try {
+    window.dispatchEvent(new CustomEvent('pattern-selection-changed', {
+      detail: {
+        patternId: pattern && pattern.id ? pattern.id : null,
+        pattern: pattern || null
+      }
+    }));
+  } catch (err) {
+    // Keep legacy browsers from breaking if CustomEvent fails.
+  }
+}
 
 // ── Init ─────────────────────────────────────────────────────
 function initPatterns(userId) {
@@ -33,6 +51,8 @@ function initPatterns(userId) {
 
   initPatternSidebarToggle();
   loadStepSectionsOpenState();
+  loadAccordionModeState();
+  initPatternViewControls();
 
   // Subscribe to Firestore patterns
   _unsubscribePatterns = subscribePatterns(_pUid, patterns => {
@@ -59,10 +79,6 @@ function initPatterns(userId) {
     const id = e.target.value;
     loadPattern(id);
   });
-
-  // Step navigation
-  document.getElementById('btn-prev-step').addEventListener('click', () => navigateStep(-1));
-  document.getElementById('btn-next-step').addEventListener('click', () => navigateStep(1));
 
   // Timer controls
   document.getElementById('btn-record-study').addEventListener('click', openRecordModal);
@@ -167,6 +183,7 @@ function renderPatternList() {
     selectedPatternId = null;
     clearStepView();
     updateSidebarButtons(false);
+    emitPatternSelectionChanged(null);
   }
 }
 
@@ -179,8 +196,10 @@ function loadPattern(id, preferredStepIndex) {
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
     currentStepIndex = Math.max(0, Math.min(preferredStepIndex, steps.length - 1));
+    _openStepIndices = new Set([currentStepIndex]);
   } else {
     currentStepIndex = 0;
+    _openStepIndices = new Set();
   }
   updateSidebarButtons(true);
 
@@ -190,6 +209,7 @@ function loadPattern(id, preferredStepIndex) {
   startTimer(pattern.name);
 
   renderCurrentStep(pattern);
+  emitPatternSelectionChanged(pattern);
   const viewer = document.getElementById('step-viewer');
   const filterInput = document.getElementById('pattern-filter');
   if (viewer && document.activeElement !== filterInput) {
@@ -235,32 +255,96 @@ function renderCurrentStep(pattern) {
     return;
   }
 
-  const step = resolveLinkedStep(steps[currentStepIndex]);
-  if (!step) return;
-
   emptyEl.style.display = 'none';
   headerEl.style.display = '';
   contentEl.style.display = '';
 
-  // Counter
-  document.getElementById('step-counter').textContent =
-    `Step ${currentStepIndex + 1} of ${steps.length}`;
+  document.getElementById('step-counter').textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
+  document.getElementById('step-title').textContent = 'Select a step to view details';
+  updateExpandAllButton(steps.length);
 
-  // Title
-  document.getElementById('step-title').textContent = step.stepTitle || '';
-
-  // Content
   contentEl.innerHTML = '';
-  renderStepSections(contentEl, step);
+  const list = document.createElement('div');
+  list.className = 'step-list';
 
-  // Auto-stop timer on last step
-  if (currentStepIndex === steps.length - 1 && timerRunning) {
-    stopTimer();
+  steps.forEach((rawStep, idx) => {
+    const step = resolveLinkedStep(rawStep);
+    if (!step) return;
+
+    const item = document.createElement('section');
+    item.className = 'step-item';
+    item.dataset.stepIndex = String(idx);
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'step-item-toggle';
+
+    const isOpen = _openStepIndices.has(idx);
+    toggle.setAttribute('aria-expanded', String(isOpen));
+
+    const label = document.createElement('span');
+    label.className = 'step-item-label';
+
+    const number = document.createElement('span');
+    number.className = 'step-item-number';
+    number.textContent = `Step ${idx + 1}`;
+
+    const title = document.createElement('span');
+    title.className = 'step-item-title';
+    title.textContent = step.stepTitle || `Untitled Step ${idx + 1}`;
+
+    label.appendChild(number);
+    label.appendChild(title);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'step-item-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.textContent = isOpen ? '▾' : '▸';
+
+    toggle.appendChild(label);
+    toggle.appendChild(chevron);
+
+    const panel = document.createElement('div');
+    panel.className = 'step-item-panel';
+    if (!isOpen) panel.style.display = 'none';
+
+    const panelInner = document.createElement('div');
+    panelInner.className = 'step-item-panel-inner';
+    renderStepSections(panelInner, step);
+    panel.appendChild(panelInner);
+
+    toggle.addEventListener('click', () => {
+      const nextOpen = !_openStepIndices.has(idx);
+      if (nextOpen) {
+        if (_accordionMode) {
+          _openStepIndices = new Set([idx]);
+        } else {
+          _openStepIndices.add(idx);
+        }
+      } else {
+        _openStepIndices.delete(idx);
+      }
+      currentStepIndex = idx;
+      renderCurrentStep(pattern);
+    });
+
+    item.appendChild(toggle);
+    item.appendChild(panel);
+    list.appendChild(item);
+  });
+
+  contentEl.appendChild(list);
+
+  const activeItem = list.querySelector(`[data-step-index="${currentStepIndex}"]`);
+  if (activeItem && _openStepIndices.has(currentStepIndex)) {
+    requestAnimationFrame(() => {
+      activeItem.scrollIntoView({ block: 'nearest' });
+    });
   }
 
-  // Nav buttons
-  document.getElementById('btn-prev-step').disabled = currentStepIndex === 0;
-  document.getElementById('btn-next-step').disabled = currentStepIndex === steps.length - 1;
+  if (_openStepIndices.has(steps.length - 1) && timerRunning) {
+    stopTimer();
+  }
 }
 
 function resolveLinkedStep(step) {
@@ -388,7 +472,61 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
     }
   }
 
+  out.dontMissPathology = ensureRequiredFindingsSubsections(out.dontMissPathology);
+
   return out;
+}
+
+function inferSubsectionBoxType(chunk) {
+  const explicit = String(chunk?.boxType || '').trim();
+  if (explicit) return explicit;
+
+  const title = String(chunk?.title || chunk?.name || '').trim().toLowerCase();
+  if (title.includes('hyperlink')) return 'hyperlinks';
+  if (title.includes('decision tree') || title.includes('workflow')) return 'decisionTree';
+  if (title.includes('example imaging') || title.includes('image examples')) return 'exampleImaging';
+
+  const content = Array.isArray(chunk?.content) ? chunk.content : [];
+  if (content.some(item => item && item.type === 'link')) return 'hyperlinks';
+  if (content.some(item => item && item.type === 'image')) return 'exampleImaging';
+
+  return '';
+}
+
+function ensureRequiredFindingsSubsections(content) {
+  const items = Array.isArray(content) ? content.slice() : [];
+  const required = REQUIRED_FINDINGS_SUBSECTIONS.slice();
+  const keep = [];
+
+  items.forEach(chunk => {
+    if (!chunk || chunk.type !== 'subsection') {
+      keep.push(chunk);
+      return;
+    }
+
+    const title = String(chunk.title || '').trim();
+    const requiredIdx = required.indexOf(title);
+    if (requiredIdx === -1) {
+      keep.push(chunk);
+      return;
+    }
+
+    required[requiredIdx] = {
+      type: 'subsection',
+      title,
+      content: normaliseRichContent(chunk.content || [])
+    };
+  });
+
+  required.forEach(req => {
+    if (typeof req === 'string') {
+      keep.push({ type: 'subsection', title: req, content: [] });
+    } else {
+      keep.push(req);
+    }
+  });
+
+  return keep;
 }
 
 function normaliseStepForViewer(step) {
@@ -536,6 +674,7 @@ function normaliseSubsectionEntries(content) {
     if (chunk.type === 'subsection') {
       entries.push({
         title: (chunk.title || '').trim() || `Subsection ${entries.length + 1}`,
+        boxType: inferSubsectionBoxType(chunk),
         content: normaliseRichContent(chunk.content || [])
       });
       return;
@@ -602,8 +741,11 @@ function renderNestedSubsections(container, content) {
     btn.className = 'step-subsection-toggle';
     btn.setAttribute('aria-expanded', 'false');
     btn.innerHTML = `
-      <span>${entry.title || `Subsection ${idx + 1}`}</span>
-      <span class="step-subsection-chevron" aria-hidden="true">▸</span>
+      <span class="step-subsection-title">${entry.title || `Subsection ${idx + 1}`}</span>
+      <span class="step-subsection-meta">
+        ${entry.boxType ? `<span class="step-subsection-badge">${entry.boxType === 'decisionTree' ? 'Decision Tree' : entry.boxType === 'exampleImaging' ? 'Example Imaging' : entry.boxType === 'hyperlinks' ? 'Hyperlinks' : 'Custom'}</span>` : ''}
+        <span class="step-subsection-chevron" aria-hidden="true">▸</span>
+      </span>
     `;
 
     const panel = document.createElement('div');
@@ -709,6 +851,8 @@ function clearStepView() {
   document.getElementById('step-empty').querySelector('p').textContent = 'Select a pattern to begin.';
   document.getElementById('step-header').style.display = 'none';
   document.getElementById('step-content').style.display = 'none';
+  _openStepIndices = new Set();
+  updateExpandAllButton(0);
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = 'none';
   stopTimer();
@@ -721,7 +865,103 @@ function navigateStep(delta) {
   const next = currentStepIndex + delta;
   if (next < 0 || next >= steps.length) return;
   currentStepIndex = next;
+  if (_accordionMode) {
+    _openStepIndices = new Set([next]);
+  } else {
+    _openStepIndices.add(next);
+  }
   renderCurrentStep(pattern);
+
+  const toggle = document.querySelector(`.step-item[data-step-index="${next}"] .step-item-toggle`);
+  if (toggle) {
+    toggle.focus({ preventScroll: true });
+  }
+}
+
+function initPatternViewControls() {
+  const expandAllBtn = document.getElementById('btn-steps-expand-all');
+  if (expandAllBtn) {
+    expandAllBtn.addEventListener('click', () => {
+      const pattern = getSelectedPattern();
+      if (!pattern || _accordionMode) return;
+      const steps = pattern.steps || [];
+      if (!steps.length) return;
+
+      const allOpen = steps.every((_, idx) => _openStepIndices.has(idx));
+      if (allOpen) {
+        _openStepIndices = new Set();
+      } else {
+        const next = new Set();
+        steps.forEach((_, idx) => next.add(idx));
+        _openStepIndices = next;
+      }
+
+      renderCurrentStep(pattern);
+    });
+  }
+
+  const accordionCheckbox = document.getElementById('setting-step-accordion-mode');
+  if (accordionCheckbox) {
+    accordionCheckbox.checked = _accordionMode;
+    accordionCheckbox.addEventListener('change', () => {
+      applyAccordionModeState(accordionCheckbox.checked, true);
+    });
+  }
+}
+
+function loadAccordionModeState() {
+  _accordionMode = localStorage.getItem(ACCORDION_MODE_STATE_KEY) === '1';
+}
+
+function applyAccordionModeState(enabled, persist) {
+  _accordionMode = Boolean(enabled);
+  if (persist) {
+    localStorage.setItem(ACCORDION_MODE_STATE_KEY, _accordionMode ? '1' : '0');
+  }
+
+  const accordionCheckbox = document.getElementById('setting-step-accordion-mode');
+  if (accordionCheckbox) {
+    accordionCheckbox.checked = _accordionMode;
+  }
+
+  const pattern = getSelectedPattern();
+  if (!_accordionMode || !pattern) {
+    updateExpandAllButton(pattern && pattern.steps ? pattern.steps.length : 0);
+    return;
+  }
+
+  if (_openStepIndices.size > 1) {
+    const preferred = _openStepIndices.has(currentStepIndex)
+      ? currentStepIndex
+      : (_openStepIndices.values().next().value || 0);
+    _openStepIndices = new Set([preferred]);
+  }
+
+  renderCurrentStep(pattern);
+}
+
+function updateExpandAllButton(stepCount) {
+  const btn = document.getElementById('btn-steps-expand-all');
+  if (!btn) return;
+
+  if (!stepCount) {
+    btn.textContent = 'Expand All';
+    btn.disabled = true;
+    btn.title = 'Select a pattern to expand steps.';
+    return;
+  }
+
+  if (_accordionMode) {
+    btn.textContent = 'Expand All';
+    btn.disabled = true;
+    btn.title = 'Disable accordion mode in Settings to expand all steps.';
+    return;
+  }
+
+  const allOpen = Array.from({ length: stepCount }).every((_, idx) => _openStepIndices.has(idx));
+  btn.textContent = allOpen ? 'Collapse All' : 'Expand All';
+  btn.disabled = false;
+  btn.title = allOpen ? 'Collapse every step in this pattern.' : 'Expand every step in this pattern.';
 }
 
 // ── Timer ────────────────────────────────────────────────────
@@ -853,9 +1093,6 @@ function handleKeydown(e) {
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
     e.preventDefault();
     navigateStep(-1);
-  } else if (e.key === 'Tab') {
-    e.preventDefault();
-    navigateStep(e.shiftKey ? -1 : 1);
   } else if (e.key === ' ') {
     e.preventDefault();
     openRecordModal();
@@ -1065,6 +1302,7 @@ function normaliseRichContent(richContent) {
       return {
         type: 'subsection',
         title: chunk?.title || chunk?.name || '',
+        boxType: String(chunk?.boxType || '').trim(),
         content: normaliseRichContent(chunk?.content || [])
       };
     }
