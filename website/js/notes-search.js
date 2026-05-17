@@ -239,7 +239,6 @@ function splitSubsectionEntries(content) {
     if (chunk.type === 'subsection') {
       entries.push({
         title: String(chunk.title || chunk.name || '').trim(),
-        boxType: String(chunk.boxType || '').trim(),
         content: normaliseRichContent(chunk.content || [])
       });
     }

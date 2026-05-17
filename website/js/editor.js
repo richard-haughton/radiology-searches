@@ -21,40 +21,6 @@ var EDITOR_STEP_SECTION_LABELS = {
   searchPattern: 'Search Pattern'
 };
 var EDITOR_SUBSECTION_SECTION_KEYS = ['dontMissPathology'];
-var FINDINGS_BOX_TYPES = {
-  decisionTree: { label: 'Decision Tree', defaultTitle: 'Decision Tree' },
-  exampleImaging: { label: 'Example Imaging', defaultTitle: 'Example Imaging' },
-  hyperlinks: { label: 'Hyperlinks', defaultTitle: 'Hyperlinks' },
-  custom: { label: 'Custom', defaultTitle: '' }
-};
-
-function getFindingsBoxTypeInfo(boxType) {
-  var key = String(boxType || '').trim();
-  if (!Object.prototype.hasOwnProperty.call(FINDINGS_BOX_TYPES, key)) key = 'custom';
-  return { key: key, label: FINDINGS_BOX_TYPES[key].label, defaultTitle: FINDINGS_BOX_TYPES[key].defaultTitle };
-}
-
-function inferFindingsBoxTypeFromSubsection(chunk) {
-  var explicit = String(chunk && chunk.boxType || '').trim();
-  if (Object.prototype.hasOwnProperty.call(FINDINGS_BOX_TYPES, explicit)) return explicit;
-
-  var title = String((chunk && (chunk.title || chunk.name)) || '').trim().toLowerCase();
-  if (!title && Array.isArray(chunk && chunk.content)) {
-    var content = chunk.content || [];
-    if (content.some(function(item) { return item && item.type === 'link'; })) return 'hyperlinks';
-    if (content.some(function(item) { return item && item.type === 'image'; })) return 'exampleImaging';
-  }
-  if (title.includes('hyperlink')) return 'hyperlinks';
-  if (title.includes('decision tree') || title.includes('workflow')) return 'decisionTree';
-  if (title.includes('example imaging') || title.includes('image examples')) return 'exampleImaging';
-  return 'custom';
-}
-
-function inferFindingsBoxTitle(boxType, existingTitle) {
-  var current = String(existingTitle || '').trim();
-  if (current) return current;
-  return getFindingsBoxTypeInfo(boxType).defaultTitle;
-}
 
 function makeStepId() {
   if (window.crypto && window.crypto.randomUUID) {
@@ -745,7 +711,7 @@ function renderStepEditPanel() {
       ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
         <div id="subsection-rows" class="subsection-rows"></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Finding</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Subsection</button>
       </div>
       ` : `
       <div>
@@ -754,6 +720,7 @@ function renderStepEditPanel() {
           <button type="button" class="rich-tool rich-tool-red" id="tool-red" title="Red text">A</button>
           <button type="button" class="rich-tool rich-tool-green" id="tool-green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" id="tool-blue" title="Blue text">A</button>
+          <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
           <button type="button" class="rich-tool" id="tool-clear" title="Clear formatting">&#x2715; Format</button>
           <button type="button" class="rich-tool" id="tool-image" title="Paste image from clipboard">&#128247; Image</button>
           <button type="button" class="rich-tool" id="tool-move-up" title="Move step up">&#8593; Up</button>
@@ -843,7 +810,7 @@ function renderStepEditPanel() {
 
   if (isSubsectionSectionKey(activeStepSectionKey)) {
     renderSubsectionRows(step);
-    document.getElementById('btn-add-subsection-row').addEventListener('click', () => addSubsectionRow('text'));
+    document.getElementById('btn-add-subsection-row').addEventListener('click', addSubsectionRow);
   } else {
     // Populate rich editor from richContent
     const editor = document.getElementById('rich-editor');
@@ -856,6 +823,7 @@ function renderStepEditPanel() {
     document.getElementById('tool-red').addEventListener('click', () => execColor('red'));
     document.getElementById('tool-green').addEventListener('click', () => execColor('green'));
     document.getElementById('tool-blue').addEventListener('click', () => execColor('blue'));
+    document.getElementById('tool-link').addEventListener('click', () => addHyperlinkToSelection(editor));
     document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
     document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
@@ -1149,14 +1117,12 @@ function saveActiveStepToState() {
     const subsections = [];
     rows.forEach(row => {
       const title = ((row.querySelector('.subsection-title-input') || {}).value || '').trim();
-      const boxType = String((row.querySelector('.subsection-type-select') || {}).value || '').trim();
       const rowEditor = row.querySelector('.subsection-rich-editor');
       const content = rowEditor ? extractRichContent(rowEditor) : [];
       if (!title && !hasAnyRichContent(content)) return;
       subsections.push({
         type: 'subsection',
-        boxType: Object.prototype.hasOwnProperty.call(FINDINGS_BOX_TYPES, boxType) ? boxType : 'custom',
-        title: inferFindingsBoxTitle(boxType, title),
+        title: title || `Subsection ${subsections.length + 1}`,
         content: content
       });
     });
@@ -1210,35 +1176,29 @@ function hasAnyRichContent(content) {
 function getSubsectionRowsFromContent(content) {
   const chunks = normaliseRichContent(content || []);
   const rows = [];
-  const fallbackContent = [];
 
   chunks.forEach(chunk => {
     if (chunk.type === 'subsection') {
-      const boxType = inferFindingsBoxTypeFromSubsection(chunk);
       rows.push({
-        boxType,
-        title: inferFindingsBoxTitle(boxType, (chunk.title || '').trim()),
+        title: (chunk.title || '').trim(),
         content: normaliseRichContent(chunk.content || [])
       });
       return;
     }
-    fallbackContent.push(chunk);
+    if (chunk.type === 'text' && (chunk.text || '').trim()) {
+      rows.push({
+        title: `Subsection ${rows.length + 1}`,
+        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
+      });
+      return;
+    }
+    if (chunk.type === 'image' || chunk.type === 'link') {
+      rows.push({
+        title: `Subsection ${rows.length + 1}`,
+        content: [chunk]
+      });
+    }
   });
-
-  if (!rows.length) {
-    rows.push({
-      title: 'Subsection 1',
-      content: normaliseRichContent(fallbackContent)
-    });
-    return sortEditorSubsectionEntries(rows);
-  }
-
-  if (fallbackContent.length) {
-    rows[0] = {
-      ...rows[0],
-      content: normaliseRichContent(fallbackContent.concat(rows[0].content || []))
-    };
-  }
 
   return sortEditorSubsectionEntries(rows);
 }
@@ -1265,36 +1225,28 @@ function renderSubsectionRows(step) {
   container.innerHTML = '';
 
   const rows = getSubsectionRowsFromContent(getCurrentEditorSectionContent(step));
-  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [], item.boxType || 'custom')));
+  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [])));
 
   if (!rows.length) {
-    container.appendChild(createSubsectionRow('', [], 'custom'));
+    container.appendChild(createSubsectionRow('', []));
   }
 }
 
-function createSubsectionRow(title, content, boxType) {
-  const boxTypeInfo = getFindingsBoxTypeInfo(boxType);
+function createSubsectionRow(title, content) {
   const row = document.createElement('div');
   row.className = 'subsection-row';
   row.innerHTML = `
     <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Subsection title">
-    <select class="form-input subsection-type-select" aria-label="Subsection box type">
-      ${Object.keys(FINDINGS_BOX_TYPES).map(typeKey => {
-        const info = FINDINGS_BOX_TYPES[typeKey];
-        return `<option value="${escapeHtml(typeKey)}" ${typeKey === boxTypeInfo.key ? 'selected' : ''}>${escapeHtml(info.label)}</option>`;
-      }).join('')}
-    </select>
-    <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
     <div class="rich-toolbar subsection-rich-toolbar" role="toolbar" aria-label="Subsection text formatting">
       <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
       <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
       <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
       <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
-      <button type="button" class="rich-tool" data-rich-action="link" title="Insert hyperlink">Link</button>
-      <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">Image</button>
+      <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
       <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
     </div>
     <div class="rich-editor subsection-rich-editor" contenteditable="true" spellcheck="true"></div>
+    <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
   `;
 
   const toolbar = row.querySelector('.subsection-rich-toolbar');
@@ -1305,21 +1257,14 @@ function createSubsectionRow(title, content, boxType) {
   rowEditor.addEventListener('keydown', handleRichEditorKeydown);
   rowEditor.addEventListener('paste', handleEditorPaste);
 
-  row.querySelector('.subsection-type-select').addEventListener('change', e => {
-    const titleInput = row.querySelector('.subsection-title-input');
-    const nextInfo = getFindingsBoxTypeInfo(e.target.value);
-    if (titleInput && !String(titleInput.value || '').trim()) {
-      titleInput.value = nextInfo.defaultTitle;
-    }
-  });
   row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
   return row;
 }
 
-function addSubsectionRow(boxType) {
+function addSubsectionRow() {
   const container = document.getElementById('subsection-rows');
   if (!container) return;
-  const row = createSubsectionRow('', [], boxType || 'custom');
+  const row = createSubsectionRow('', []);
   container.appendChild(row);
   row.querySelector('.subsection-title-input').focus();
 }
@@ -1813,12 +1758,10 @@ function bindRichEditorToolbar(toolbar, editor) {
       const color = btn.dataset.richColor || '';
       if (action === 'bold') {
         execFormat('bold', editor);
-      } else if (action === 'clear') {
-        execRemoveFormat(editor);
       } else if (action === 'link') {
         addHyperlinkToSelection(editor);
-      } else if (action === 'image') {
-        handlePasteImageFromClipboard(editor);
+      } else if (action === 'clear') {
+        execRemoveFormat(editor);
       } else if (color) {
         execColor(color, editor);
       }
@@ -1874,12 +1817,23 @@ function execRemoveFormat(targetEditor) {
 }
 
 function addHyperlinkToSelection(targetEditor) {
-  const editor = getActiveRichEditor(targetEditor) || document.getElementById('rich-editor');
+  const editor = getActiveRichEditor(targetEditor);
   if (!editor) return;
+
+  setActiveRichEditor(editor);
+  editor.focus();
 
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
     showToast('Select text first to add a hyperlink.', true);
+    return;
+  }
+
+  const savedRange = selection.getRangeAt(0).cloneRange();
+
+  const selectedEditor = findParentRichEditor(selection.anchorNode);
+  if (selectedEditor && selectedEditor !== editor) {
+    showToast('Select text inside the active editor first.', true);
     return;
   }
 
@@ -1893,13 +1847,21 @@ function addHyperlinkToSelection(targetEditor) {
     return;
   }
 
+  selection.removeAllRanges();
+  selection.addRange(savedRange);
+
   document.execCommand('createLink', false, href);
+  const linkedAnchor = findParentAnchor(selection.anchorNode);
+  if (linkedAnchor) {
+    linkedAnchor.target = '_blank';
+    linkedAnchor.rel = 'noopener noreferrer';
+  }
   selection.removeAllRanges();
   editor.focus();
 }
 
-function removeHyperlinkFromSelection(targetEditor) {
-  const editor = getActiveRichEditor(targetEditor) || document.getElementById('rich-editor');
+function removeHyperlinkFromSelection() {
+  const editor = document.getElementById('rich-editor');
   if (!editor) return;
   document.execCommand('unlink', false, null);
   editor.focus();
@@ -1924,14 +1886,14 @@ function sanitiseEditorLinkUrl(url) {
 }
 
 // ── Image paste ──────────────────────────────────────────────
-async function handlePasteImageFromClipboard(targetEditor) {
+async function handlePasteImageFromClipboard() {
   try {
     const items = await navigator.clipboard.read();
     for (const item of items) {
       for (const mimeType of item.types) {
         if (mimeType.startsWith('image/')) {
           const blob = await item.getType(mimeType);
-          insertImageBlob(blob, targetEditor);
+          insertImageBlob(blob);
           return;
         }
       }

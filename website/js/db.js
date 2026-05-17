@@ -3,7 +3,6 @@
 function _userRef(uid)       { return appDb.collection('users').doc(uid); }
 function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
-function _reportTemplatesRef(uid) { return _userRef(uid).collection('reportTemplates'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
 var STEP_SECTION_KEYS = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
@@ -52,7 +51,6 @@ function normaliseSubsectionChunk(chunk) {
   return {
     type: 'subsection',
     title: (chunk && (chunk.title || chunk.name)) || '',
-    boxType: String((chunk && chunk.boxType) || '').trim(),
     content: cloneRichContentForStorage(content)
   };
 }
@@ -168,19 +166,10 @@ function _normalisePatternDoc(doc) {
     };
   });
 
-  var reportConfig = (doc && doc.reportConfig && typeof doc.reportConfig === 'object') ? doc.reportConfig : {};
-
   return {
     name: doc.name || doc.pattern_name || '',
     modality: doc.modality || 'Other',
     steps: steps,
-    reportConfig: {
-      selectedTemplateId: String(reportConfig.selectedTemplateId || ''),
-      selectedTemplateName: String(reportConfig.selectedTemplateName || ''),
-      sectionOrder: Array.isArray(reportConfig.sectionOrder)
-        ? reportConfig.sectionOrder.map(function(item) { return String(item || '').trim(); }).filter(Boolean)
-        : []
-    },
     updatedAt: doc.updatedAt || null
   };
 }
@@ -321,93 +310,6 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
 
 function deletePattern(uid, patternId) {
   return _patternsRef(uid).doc(patternId).delete();
-}
-
-function _normaliseReportSectionsArray(input, fallback) {
-  var base = Array.isArray(input) ? input : [];
-  var cleaned = base
-    .map(function(item) { return String(item || '').trim(); })
-    .filter(Boolean);
-  if (cleaned.length) return cleaned;
-  return Array.isArray(fallback) && fallback.length ? fallback.slice() : ['Findings', 'Impression'];
-}
-
-function _normaliseReportSettings(raw) {
-  var src = raw && typeof raw === 'object' ? raw : {};
-  return {
-    defaultSections: _normaliseReportSectionsArray(src.defaultSections, ['Findings', 'Impression']),
-    globalRulesText: String(src.globalRulesText || ''),
-    updatedAt: src.updatedAt || null
-  };
-}
-
-function getUserReportSettings(uid) {
-  return _userRef(uid).get().then(function(doc) {
-    var data = doc && doc.exists ? (doc.data() || {}) : {};
-    return _normaliseReportSettings(data.reportSettings || {});
-  });
-}
-
-function saveUserReportSettings(uid, settings) {
-  var cleaned = _normaliseReportSettings(settings || {});
-  return _userRef(uid).set({
-    reportSettings: {
-      defaultSections: cleaned.defaultSections,
-      globalRulesText: cleaned.globalRulesText,
-      updatedAt: _now()
-    }
-  }, { merge: true });
-}
-
-function subscribeReportTemplates(uid, callback) {
-  return _reportTemplatesRef(uid).orderBy('name').onSnapshot(function(snap) {
-    var templates = snap.docs.map(function(doc) {
-      var data = doc.data() || {};
-      return {
-        id: doc.id,
-        name: String(data.name || '').trim() || 'Untitled Template',
-        body: String(data.body || ''),
-        createdAt: data.createdAt || null,
-        updatedAt: data.updatedAt || null
-      };
-    });
-    callback(templates);
-  }, function(err) {
-    console.error('subscribeReportTemplates error:', err);
-  });
-}
-
-function upsertReportTemplate(uid, templateId, data) {
-  var payload = {
-    name: String((data && data.name) || '').trim() || 'Untitled Template',
-    body: String((data && data.body) || ''),
-    updatedAt: _now()
-  };
-
-  if (templateId) {
-    return _reportTemplatesRef(uid).doc(templateId).set(payload, { merge: true }).then(function() {
-      return templateId;
-    });
-  }
-
-  payload.createdAt = _now();
-  return _reportTemplatesRef(uid).add(payload).then(function(ref) { return ref.id; });
-}
-
-function deleteReportTemplate(uid, templateId) {
-  return _reportTemplatesRef(uid).doc(templateId).delete();
-}
-
-function updatePatternReportConfig(uid, patternId, config) {
-  var incoming = config && typeof config === 'object' ? config : {};
-  return _patternsRef(uid).doc(patternId).set({
-    reportConfig: {
-      selectedTemplateId: String(incoming.selectedTemplateId || ''),
-      selectedTemplateName: String(incoming.selectedTemplateName || ''),
-      sectionOrder: _normaliseReportSectionsArray(incoming.sectionOrder, [])
-    },
-    updatedAt: _now()
-  }, { merge: true });
 }
 
 // ── Study Log ─────────────────────────────────────────────────

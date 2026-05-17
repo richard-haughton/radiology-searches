@@ -31,20 +31,6 @@ var _stepSectionsOpenState = {
   dontMissPathology: false
 };
 
-function emitPatternSelectionChanged(pattern) {
-  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-  try {
-    window.dispatchEvent(new CustomEvent('pattern-selection-changed', {
-      detail: {
-        patternId: pattern && pattern.id ? pattern.id : null,
-        pattern: pattern || null
-      }
-    }));
-  } catch (err) {
-    // Keep legacy browsers from breaking if CustomEvent fails.
-  }
-}
-
 // ── Init ─────────────────────────────────────────────────────
 function initPatterns(userId) {
   _pUid = userId;
@@ -183,7 +169,6 @@ function renderPatternList() {
     selectedPatternId = null;
     clearStepView();
     updateSidebarButtons(false);
-    emitPatternSelectionChanged(null);
   }
 }
 
@@ -209,7 +194,6 @@ function loadPattern(id, preferredStepIndex) {
   startTimer(pattern.name);
 
   renderCurrentStep(pattern);
-  emitPatternSelectionChanged(pattern);
   const viewer = document.getElementById('step-viewer');
   const filterInput = document.getElementById('pattern-filter');
   if (viewer && document.activeElement !== filterInput) {
@@ -477,22 +461,6 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
   return out;
 }
 
-function inferSubsectionBoxType(chunk) {
-  const explicit = String(chunk?.boxType || '').trim();
-  if (explicit) return explicit;
-
-  const title = String(chunk?.title || chunk?.name || '').trim().toLowerCase();
-  if (title.includes('hyperlink')) return 'hyperlinks';
-  if (title.includes('decision tree') || title.includes('workflow')) return 'decisionTree';
-  if (title.includes('example imaging') || title.includes('image examples')) return 'exampleImaging';
-
-  const content = Array.isArray(chunk?.content) ? chunk.content : [];
-  if (content.some(item => item && item.type === 'link')) return 'hyperlinks';
-  if (content.some(item => item && item.type === 'image')) return 'exampleImaging';
-
-  return '';
-}
-
 function ensureRequiredFindingsSubsections(content) {
   const items = Array.isArray(content) ? content.slice() : [];
   const required = REQUIRED_FINDINGS_SUBSECTIONS.slice();
@@ -669,34 +637,36 @@ function renderHyperlinkSection(container, content) {
 function normaliseSubsectionEntries(content) {
   const chunks = normaliseRichContent(content);
   const entries = [];
-  const fallbackContent = [];
 
   chunks.forEach((chunk, idx) => {
     if (chunk.type === 'subsection') {
       entries.push({
         title: (chunk.title || '').trim() || `Subsection ${entries.length + 1}`,
-        boxType: inferSubsectionBoxType(chunk),
         content: normaliseRichContent(chunk.content || [])
       });
       return;
     }
-    fallbackContent.push(chunk);
+    if (chunk.type === 'text' && (chunk.text || '').trim()) {
+      entries.push({
+        title: `Subsection ${entries.length + 1}`,
+        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
+      });
+      return;
+    }
+    if (chunk.type === 'image' || chunk.type === 'link') {
+      entries.push({
+        title: `Subsection ${entries.length + 1}`,
+        content: [chunk]
+      });
+      return;
+    }
+    if (idx === chunks.length - 1 && !entries.length) {
+      entries.push({
+        title: 'Subsection 1',
+        content: []
+      });
+    }
   });
-
-  if (!entries.length) {
-    entries.push({
-      title: 'Subsection 1',
-      content: normaliseRichContent(fallbackContent)
-    });
-    return sortSubsectionEntries(entries);
-  }
-
-  if (fallbackContent.length) {
-    entries[0] = {
-      ...entries[0],
-      content: normaliseRichContent(fallbackContent.concat(entries[0].content || []))
-    };
-  }
 
   return sortSubsectionEntries(entries);
 }
@@ -738,11 +708,8 @@ function renderNestedSubsections(container, content) {
     btn.className = 'step-subsection-toggle';
     btn.setAttribute('aria-expanded', 'false');
     btn.innerHTML = `
-      <span class="step-subsection-title">${entry.title || `Subsection ${idx + 1}`}</span>
-      <span class="step-subsection-meta">
-        ${entry.boxType ? `<span class="step-subsection-badge">${entry.boxType === 'decisionTree' ? 'Decision Tree' : entry.boxType === 'exampleImaging' ? 'Example Imaging' : entry.boxType === 'hyperlinks' ? 'Hyperlinks' : 'Custom'}</span>` : ''}
-        <span class="step-subsection-chevron" aria-hidden="true">▸</span>
-      </span>
+      <span>${entry.title || `Subsection ${idx + 1}`}</span>
+      <span class="step-subsection-chevron" aria-hidden="true">▸</span>
     `;
 
     const panel = document.createElement('div');
@@ -1299,7 +1266,6 @@ function normaliseRichContent(richContent) {
       return {
         type: 'subsection',
         title: chunk?.title || chunk?.name || '',
-        boxType: String(chunk?.boxType || '').trim(),
         content: normaliseRichContent(chunk?.content || [])
       };
     }
