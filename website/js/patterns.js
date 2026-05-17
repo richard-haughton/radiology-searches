@@ -669,6 +669,7 @@ function renderHyperlinkSection(container, content) {
 function normaliseSubsectionEntries(content) {
   const chunks = normaliseRichContent(content);
   const entries = [];
+  const fallbackContent = [];
 
   chunks.forEach((chunk, idx) => {
     if (chunk.type === 'subsection') {
@@ -679,27 +680,23 @@ function normaliseSubsectionEntries(content) {
       });
       return;
     }
-    if (chunk.type === 'text' && (chunk.text || '').trim()) {
-      entries.push({
-        title: `Subsection ${entries.length + 1}`,
-        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
-      });
-      return;
-    }
-    if (chunk.type === 'image' || chunk.type === 'link') {
-      entries.push({
-        title: `Subsection ${entries.length + 1}`,
-        content: [chunk]
-      });
-      return;
-    }
-    if (idx === chunks.length - 1 && !entries.length) {
-      entries.push({
-        title: 'Subsection 1',
-        content: []
-      });
-    }
+    fallbackContent.push(chunk);
   });
+
+  if (!entries.length) {
+    entries.push({
+      title: 'Subsection 1',
+      content: normaliseRichContent(fallbackContent)
+    });
+    return sortSubsectionEntries(entries);
+  }
+
+  if (fallbackContent.length) {
+    entries[0] = {
+      ...entries[0],
+      content: normaliseRichContent(fallbackContent.concat(entries[0].content || []))
+    };
+  }
 
   return sortSubsectionEntries(entries);
 }

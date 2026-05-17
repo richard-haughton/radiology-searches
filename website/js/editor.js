@@ -745,12 +745,7 @@ function renderStepEditPanel() {
       ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
         <div id="subsection-rows" class="subsection-rows"></div>
-        <div class="subsection-add-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="decisionTree">+ Decision Tree</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="exampleImaging">+ Example Imaging</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="hyperlinks">+ Hyperlinks</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-subsection-type="custom">+ Custom Box</button>
-        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Finding</button>
       </div>
       ` : `
       <div>
@@ -848,9 +843,7 @@ function renderStepEditPanel() {
 
   if (isSubsectionSectionKey(activeStepSectionKey)) {
     renderSubsectionRows(step);
-    document.querySelectorAll('[data-add-subsection-type]').forEach(btn => {
-      btn.addEventListener('click', () => addSubsectionRow(btn.dataset.addSubsectionType));
-    });
+    document.getElementById('btn-add-subsection-row').addEventListener('click', () => addSubsectionRow('text'));
   } else {
     // Populate rich editor from richContent
     const editor = document.getElementById('rich-editor');
@@ -1217,6 +1210,7 @@ function hasAnyRichContent(content) {
 function getSubsectionRowsFromContent(content) {
   const chunks = normaliseRichContent(content || []);
   const rows = [];
+  const fallbackContent = [];
 
   chunks.forEach(chunk => {
     if (chunk.type === 'subsection') {
@@ -1228,20 +1222,23 @@ function getSubsectionRowsFromContent(content) {
       });
       return;
     }
-    if (chunk.type === 'text' && (chunk.text || '').trim()) {
-      rows.push({
-        title: `Subsection ${rows.length + 1}`,
-        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
-      });
-      return;
-    }
-    if (chunk.type === 'image' || chunk.type === 'link') {
-      rows.push({
-        title: `Subsection ${rows.length + 1}`,
-        content: [chunk]
-      });
-    }
+    fallbackContent.push(chunk);
   });
+
+  if (!rows.length) {
+    rows.push({
+      title: 'Subsection 1',
+      content: normaliseRichContent(fallbackContent)
+    });
+    return sortEditorSubsectionEntries(rows);
+  }
+
+  if (fallbackContent.length) {
+    rows[0] = {
+      ...rows[0],
+      content: normaliseRichContent(fallbackContent.concat(rows[0].content || []))
+    };
+  }
 
   return sortEditorSubsectionEntries(rows);
 }
