@@ -203,21 +203,21 @@ function buildSearchSections(sections, fallbackRich) {
     if (measurementContent && measurementContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Measurements',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: measurementContent
       });
     }
     if (hyperlinkContent && hyperlinkContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Hyperlinks',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: hyperlinkContent
       });
     }
     if (imageContent && imageContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Workflow / Decision Tree',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: imageContent
       });
     }

@@ -24,7 +24,6 @@ var STEP_SECTION_LABELS = {
 };
 var ACCORDION_MODE_STATE_KEY = 'patternStepAccordionMode';
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology'];
-var REQUIRED_FINDINGS_SUBSECTIONS = ['Hyperlinks', 'Workflow / Decision Tree', 'Image Examples'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var _stepSectionsOpenState = {
   searchPattern: true,
@@ -435,21 +434,21 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
     if (measurementContent && measurementContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Measurements',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: measurementContent
       });
     }
     if (hyperlinkContent && hyperlinkContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Hyperlinks',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: hyperlinkContent
       });
     }
     if (imageContent && imageContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Workflow / Decision Tree',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: imageContent
       });
     }
@@ -461,46 +460,7 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
     }
   }
 
-  out.dontMissPathology = ensureRequiredFindingsSubsections(out.dontMissPathology);
-
   return out;
-}
-
-function ensureRequiredFindingsSubsections(content) {
-  const items = Array.isArray(content) ? content.slice() : [];
-  const required = REQUIRED_FINDINGS_SUBSECTIONS.slice();
-  const keep = [];
-
-  items.forEach(chunk => {
-    if (!chunk || chunk.type !== 'subsection') {
-      keep.push(chunk);
-      return;
-    }
-
-    const title = String(chunk.title || '').trim();
-    const requiredIdx = required.indexOf(title);
-    if (requiredIdx === -1) {
-      keep.push(chunk);
-      return;
-    }
-
-    required[requiredIdx] = {
-      type: 'subsection',
-      title,
-      isRedFinding: Boolean(chunk.isRedFinding),
-      content: normaliseRichContent(chunk.content || [])
-    };
-  });
-
-  required.forEach(req => {
-    if (typeof req === 'string') {
-      keep.push({ type: 'subsection', title: req, isRedFinding: false, content: [] });
-    } else {
-      keep.push(req);
-    }
-  });
-
-  return keep;
 }
 
 function normaliseStepForViewer(step) {
@@ -604,43 +564,6 @@ function rememberStepForPattern(patternId, stepIndex) {
   _preferredStepIndex = typeof stepIndex === 'number' ? stepIndex : null;
 }
 
-function renderHyperlinkSection(container, content) {
-  const chunks = normaliseRichContent(content);
-  var links = [];
-  chunks.forEach(function(chunk) {
-    if (chunk.type === 'link' && (chunk.url || chunk.text)) {
-      links.push({ url: chunk.url || chunk.text, label: chunk.text || chunk.url });
-    } else if (chunk.type === 'text' && chunk.text) {
-      // auto-linkify plain text that looks like a URL
-      var urlMatch = chunk.text.match(/https?:\/\/\S+|www\.\S+/i);
-      if (urlMatch) {
-        links.push({ url: urlMatch[0], label: chunk.text });
-      }
-    }
-  });
-  if (!links.length) {
-    var empty = document.createElement('p');
-    empty.className = 'step-section-empty';
-    empty.textContent = 'No links yet.';
-    container.appendChild(empty);
-    return;
-  }
-  links.forEach(function(link) {
-    var href = sanitiseLinkUrl(link.url || '');
-    if (!href) return;
-    var row = document.createElement('div');
-    row.className = 'step-hyperlink-row';
-    var anchor = document.createElement('a');
-    anchor.href = href;
-    anchor.textContent = link.label || href;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-    anchor.className = 'step-link';
-    row.appendChild(anchor);
-    container.appendChild(row);
-  });
-}
-
 function normaliseSubsectionEntries(content) {
   const chunks = normaliseRichContent(content);
   const entries = [];
@@ -731,12 +654,7 @@ function renderNestedSubsections(container, content) {
     const panelInner = document.createElement('div');
     panelInner.className = 'step-subsection-content';
     if ((entry.content || []).length) {
-      // Special handling for Hyperlinks subsection
-      if (entry.title && entry.title.toLowerCase().includes('hyperlink')) {
-        renderHyperlinkSection(panelInner, entry.content);
-      } else {
-        renderRichContent(panelInner, entry.content);
-      }
+      renderRichContent(panelInner, entry.content);
     } else {
       const empty = document.createElement('p');
       empty.className = 'step-section-empty';

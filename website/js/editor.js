@@ -343,21 +343,21 @@ function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
     if (measurementContent && measurementContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Measurements',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: measurementContent
       });
     }
     if (hyperlinkContent && hyperlinkContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Hyperlinks',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: hyperlinkContent
       });
     }
     if (imageContent && imageContent.length) {
       legacySections.push({
         type: 'subsection',
-        title: 'Workflow / Decision Tree',
+        title: 'Findings Section ' + (legacySections.length + 1),
         content: imageContent
       });
     }
@@ -724,7 +724,7 @@ function renderStepEditPanel() {
       ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
         <div id="subsection-rows" class="subsection-rows"></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Subsection</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Findings Section</button>
       </div>
       ` : `
       <div>
@@ -1252,34 +1252,66 @@ function renderSubsectionRows(step) {
   container.innerHTML = '';
 
   const rows = getSubsectionRowsFromContent(getCurrentEditorSectionContent(step));
-  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [], Boolean(item.isRedFinding))));
+  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [], Boolean(item.isRedFinding), { expanded: false })));
 
   if (!rows.length) {
-    container.appendChild(createSubsectionRow('', [], false));
+    container.appendChild(createSubsectionRow('', [], false, { expanded: true }));
   }
 }
 
-function createSubsectionRow(title, content, isRedFinding) {
+function createSubsectionRow(title, content, isRedFinding, options) {
   const row = document.createElement('div');
   row.className = 'subsection-row';
   const redInputId = `subsection-red-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const opts = options || {};
+  const expanded = opts.expanded !== false;
+  const initialTitle = String(title || '').trim() || 'Findings Section';
   row.innerHTML = `
-    <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Subsection title">
-    <label class="subsection-red-row" for="${redInputId}">
-      <input type="checkbox" class="subsection-red-checkbox" id="${redInputId}" ${isRedFinding ? 'checked' : ''}>
-      <span>Show this finding in red in main display</span>
-    </label>
-    <div class="rich-toolbar subsection-rich-toolbar" role="toolbar" aria-label="Subsection text formatting">
-      <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
-      <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
-      <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
-      <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
-      <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
-      <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
+    <button type="button" class="subsection-row-toggle" aria-expanded="${expanded ? 'true' : 'false'}">
+      <span class="subsection-row-title">${escapeHtml(initialTitle)}</span>
+      <span class="subsection-row-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
+    </button>
+    <div class="subsection-row-body" style="display:${expanded ? '' : 'none'};">
+      <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Findings section title">
+      <label class="subsection-red-row" for="${redInputId}">
+        <input type="checkbox" class="subsection-red-checkbox" id="${redInputId}" ${isRedFinding ? 'checked' : ''}>
+        <span>Show this finding in red in main display</span>
+      </label>
+      <div class="rich-toolbar subsection-rich-toolbar" role="toolbar" aria-label="Subsection text formatting">
+        <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
+        <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
+        <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
+        <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
+        <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
+        <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>
+      </div>
+      <div class="rich-editor subsection-rich-editor" contenteditable="true" spellcheck="true"></div>
+      <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
     </div>
-    <div class="rich-editor subsection-rich-editor" contenteditable="true" spellcheck="true"></div>
-    <button type="button" class="btn btn-ghost btn-sm subsection-del-btn" aria-label="Remove subsection">&#x2715;</button>
   `;
+
+  const toggleBtn = row.querySelector('.subsection-row-toggle');
+  const titleLabel = row.querySelector('.subsection-row-title');
+  const chevron = row.querySelector('.subsection-row-chevron');
+  const rowBody = row.querySelector('.subsection-row-body');
+  const titleInput = row.querySelector('.subsection-title-input');
+
+  function setExpanded(nextExpanded) {
+    toggleBtn.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+    rowBody.style.display = nextExpanded ? '' : 'none';
+    chevron.textContent = nextExpanded ? '▾' : '▸';
+  }
+
+  toggleBtn.addEventListener('click', function() {
+    const nextExpanded = toggleBtn.getAttribute('aria-expanded') !== 'true';
+    setExpanded(nextExpanded);
+  });
+
+  titleInput.addEventListener('input', function() {
+    const displayTitle = String(titleInput.value || '').trim() || 'Findings Section';
+    titleLabel.textContent = displayTitle;
+  });
 
   const toolbar = row.querySelector('.subsection-rich-toolbar');
   const rowEditor = row.querySelector('.subsection-rich-editor');
@@ -1296,7 +1328,7 @@ function createSubsectionRow(title, content, isRedFinding) {
 function addSubsectionRow() {
   const container = document.getElementById('subsection-rows');
   if (!container) return;
-  const row = createSubsectionRow('', [], false);
+  const row = createSubsectionRow('', [], false, { expanded: true });
   container.appendChild(row);
   row.querySelector('.subsection-title-input').focus();
 }
@@ -1798,6 +1830,8 @@ function bindRichEditorToolbar(toolbar, editor) {
         addHyperlinkToSelection(editor);
       } else if (action === 'clear') {
         execRemoveFormat(editor);
+      } else if (action === 'image') {
+        handlePasteImageFromClipboard();
       } else if (color) {
         execColor(color, editor);
       }
