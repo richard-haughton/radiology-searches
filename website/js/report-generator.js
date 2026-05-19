@@ -4,6 +4,7 @@ var _reportUid = null;
 var _reportTemplates = [];
 var _unsubscribeReportTemplates = null;
 var _reportLastDraftSections = {};
+var _pendingTemplateSelection = '';
 
 function initReportGenerator(uid) {
   _reportUid = uid;
@@ -61,7 +62,7 @@ function renderReportTemplateOptions() {
   var select = document.getElementById('report-template-select');
   if (!select) return;
 
-  var selected = String(select.value || '').trim();
+  var selected = String(_pendingTemplateSelection || select.value || '').trim();
   var options = ['<option value="">No template</option>'];
   _reportTemplates.forEach(function(template) {
     options.push('<option value="' + escapeHtmlAttr(template.id) + '">' + escapeHtmlText(template.name) + '</option>');
@@ -69,7 +70,12 @@ function renderReportTemplateOptions() {
   select.innerHTML = options.join('');
 
   var hasSelected = selected && _reportTemplates.some(function(item) { return item.id === selected; });
-  select.value = hasSelected ? selected : '';
+  if (hasSelected) {
+    select.value = selected;
+    _pendingTemplateSelection = '';
+  } else {
+    select.value = '';
+  }
 }
 
 function getSelectedPatternForReport() {
@@ -152,6 +158,19 @@ function getSelectedTemplate() {
   var templateId = select ? String(select.value || '').trim() : '';
   if (!templateId) return null;
   return _reportTemplates.find(function(item) { return item.id === templateId; }) || null;
+}
+
+function getManualTemplateText() {
+  var inputEl = document.getElementById('manual-template-input');
+  return inputEl ? String(inputEl.value || '').trim() : '';
+}
+
+function setSelectedTemplateById(templateId) {
+  var select = document.getElementById('report-template-select');
+  var value = String(templateId || '').trim();
+  if (!select || !value) return;
+  select.value = value;
+  _pendingTemplateSelection = value;
 }
 
 function setReportStatus(text, isError) {
@@ -326,6 +345,7 @@ async function handleGenerateReport() {
   var settings = getReportSettingsSnapshotSafe();
   var pattern = getSelectedPatternForReport();
   var template = getSelectedTemplate();
+  var manualTemplateText = getManualTemplateText();
   var sections = parseSectionOrderInput(sectionOrderEl.value, settings.defaultSections);
 
   setReportStatus('Generating report...');
@@ -336,7 +356,7 @@ async function handleGenerateReport() {
       model: typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '',
       findings: findings,
       sectionOrder: sections,
-      templateText: template ? template.body : '',
+      templateText: manualTemplateText || (template ? template.body : ''),
       globalRulesText: String(settings.globalRulesText || '')
     });
 
@@ -451,9 +471,9 @@ function handleSaveManualTemplate() {
   var templateName = 'Manual Template';
 
   upsertReportTemplate(_reportUid, '', { name: templateName, body: templateText })
-    .then(function() {
+    .then(function(savedTemplateId) {
+      if (savedTemplateId) setSelectedTemplateById(savedTemplateId);
       setReportStatus('Manual template saved.');
-      inputEl.value = '';
       if (typeof showToast === 'function') showToast('Manual template saved.');
     })
     .catch(function(err) {

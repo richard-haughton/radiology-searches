@@ -1507,6 +1507,7 @@ async function pushCurrentStepToSelectedLink() {
     await updatePattern(editorUid, sourcePatternId, {
       name: sourcePattern.name || 'Untitled Pattern',
       modality: sourcePattern.modality || 'Other',
+      goalSeconds: sourcePattern.goalSeconds,
       steps: prepared
     });
 
@@ -1600,7 +1601,15 @@ async function savePattern() {
     const stepsForStorage = await prepareStepsForStorage(editorSteps);
 
     if (editingPatternId) {
-      await updatePattern(editorUid, editingPatternId, { name, modality, steps: stepsForStorage });
+      var existingPattern = (_allPatternsRef || []).find(function(p) {
+        return p && String(p.id || '') === String(editingPatternId);
+      });
+      await updatePattern(editorUid, editingPatternId, {
+        name: name,
+        modality: modality,
+        goalSeconds: existingPattern ? existingPattern.goalSeconds : null,
+        steps: stepsForStorage
+      });
       const updatedCount = await propagateLinkedSteps(editorUid, editingPatternId, stepsForStorage, _allPatternsRef);
       if (updatedCount > 0) {
         showToast(`Pattern updated. Synced linked steps in ${updatedCount} pattern(s).`);

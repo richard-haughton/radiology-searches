@@ -11,6 +11,16 @@ function _makeStepId() {
   return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
+function _normaliseGoalSeconds(rawGoalSeconds, rawGoalMinutes) {
+  var fromSeconds = Number(rawGoalSeconds);
+  if (Number.isFinite(fromSeconds) && fromSeconds > 0) return Math.round(fromSeconds);
+
+  var fromMinutes = Number(rawGoalMinutes);
+  if (Number.isFinite(fromMinutes) && fromMinutes > 0) return Math.round(fromMinutes * 60);
+
+  return null;
+}
+
 function _normaliseLinkMeta(raw) {
   if (!raw || typeof raw !== 'object') return null;
   var mode = raw.mode === 'snapshot' ? 'snapshot' : 'internal';
@@ -172,6 +182,7 @@ function _normalisePatternDoc(doc) {
     name: doc.name || doc.pattern_name || '',
     modality: doc.modality || 'Other',
     steps: steps,
+    goalSeconds: _normaliseGoalSeconds(doc.goalSeconds, doc.goalMinutes),
     updatedAt: doc.updatedAt || null
   };
 }
@@ -187,19 +198,33 @@ function subscribePatterns(uid, callback) {
 }
 
 function createPattern(uid, data) {
+  var goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
   return _patternsRef(uid).add({
     name: data.name,
     modality: data.modality || 'Other',
     steps: data.steps || [],
+    goalSeconds: goalSeconds,
     updatedAt: _now()
   }).then(function(ref) { return ref.id; });
 }
 
 function updatePattern(uid, patternId, data) {
-  return _patternsRef(uid).doc(patternId).update({
+  var payload = {
     name: data.name,
     modality: data.modality || 'Other',
     steps: data.steps || [],
+    updatedAt: _now()
+  };
+  if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
+    payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
+  }
+  return _patternsRef(uid).doc(patternId).update(payload);
+}
+
+function updatePatternGoalSeconds(uid, patternId, goalSeconds) {
+  var normalisedGoal = _normaliseGoalSeconds(goalSeconds, null);
+  return _patternsRef(uid).doc(patternId).update({
+    goalSeconds: normalisedGoal,
     updatedAt: _now()
   });
 }
@@ -367,6 +392,7 @@ function batchImportPatterns(uid, patterns, onProgress) {
         name: p.name,
         modality: p.modality || 'Other',
         steps: p.steps || [],
+        goalSeconds: _normaliseGoalSeconds(p.goalSeconds, p.goalMinutes),
         updatedAt: firebase.firestore.Timestamp.now()
       });
     });

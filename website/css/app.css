@@ -280,9 +280,28 @@ body {
   border-bottom: 1px solid #c2ddd3;
   flex-shrink: 0;
 }
-.timer-info { display: flex; align-items: center; gap: 14px; }
+.timer-info { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .timer-label { font-weight: 700; font-size: 0.9rem; color: var(--ink); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timer-display { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); font-family: var(--font-mono); }
+.timer-display.timer-display-over-goal { color: var(--danger); }
+.timer-goal-control { display: inline-flex; align-items: center; gap: 8px; }
+.timer-goal-label { font-size: 0.78rem; color: var(--ink-soft); font-weight: 700; }
+.timer-goal-input {
+  width: 80px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-family: var(--font);
+  font-size: 0.84rem;
+  color: var(--ink);
+  background: var(--card);
+}
+.timer-goal-status {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.timer-goal-status.timer-goal-over { color: var(--danger); }
 .timer-actions { display: flex; gap: 8px; }
 
 .step-viewer {

@@ -9,6 +9,7 @@ var currentStepIndex = 0;
 var timerInterval = null;
 var timerSeconds = 0;
 var timerRunning = false;
+var timerGoalSeconds = null;
 var activeModality = 'All';
 var pendingRecordPatternName = '';
 var pendingRecordSeconds = 0;
@@ -68,6 +69,13 @@ function initPatterns(userId) {
   // Timer controls
   document.getElementById('btn-record-study').addEventListener('click', openRecordModal);
   document.getElementById('btn-stop-timer').addEventListener('click', stopTimer);
+  document.getElementById('btn-save-study-goal').addEventListener('click', saveStudyGoal);
+  document.getElementById('timer-goal-minutes').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveStudyGoal();
+    }
+  });
 
   // Record modal
   document.getElementById('btn-record-confirm').addEventListener('click', confirmRecord);
@@ -190,7 +198,7 @@ function loadPattern(id, preferredStepIndex) {
   // Reset timer
   stopTimer();
   timerSeconds = 0;
-  startTimer(pattern.name);
+  startTimer(pattern);
 
   renderCurrentStep(pattern);
   const viewer = document.getElementById('step-viewer');
@@ -750,6 +758,8 @@ function clearStepView() {
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = 'none';
   stopTimer();
+  timerGoalSeconds = null;
+  renderGoalStatus();
 }
 
 function navigateStep(delta) {
@@ -855,10 +865,13 @@ function updateExpandAllButton(stepCount) {
 }
 
 // ── Timer ────────────────────────────────────────────────────
-function startTimer(patternName) {
+function startTimer(pattern) {
+  const patternName = pattern && pattern.name ? pattern.name : '';
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = '';
   document.getElementById('timer-pattern-name').textContent = patternName;
+  timerGoalSeconds = normaliseGoalSeconds(pattern && pattern.goalSeconds);
+  syncGoalInputFromState();
   timerSeconds = 0;
   timerRunning = true;
   updateTimerDisplay();
@@ -874,10 +887,86 @@ function stopTimer() {
 }
 
 function updateTimerDisplay() {
-  const m = Math.floor(timerSeconds / 60);
-  const s = timerSeconds % 60;
-  document.getElementById('timer-display').textContent =
-    `${m}:${String(s).padStart(2, '0')}`;
+  const timerDisplay = document.getElementById('timer-display');
+  timerDisplay.textContent = formatTimerClock(timerSeconds);
+  const overGoal = timerGoalSeconds !== null && timerSeconds > timerGoalSeconds;
+  timerDisplay.classList.toggle('timer-display-over-goal', overGoal);
+  renderGoalStatus();
+}
+
+function normaliseGoalSeconds(rawValue) {
+  const n = Number(rawValue);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
+function formatTimerClock(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function renderGoalStatus() {
+  const statusEl = document.getElementById('timer-goal-status');
+  if (!statusEl) return;
+
+  if (timerGoalSeconds === null) {
+    statusEl.textContent = 'No goal set';
+    statusEl.classList.remove('timer-goal-over');
+    return;
+  }
+
+  if (timerSeconds <= timerGoalSeconds) {
+    const remaining = timerGoalSeconds - timerSeconds;
+    statusEl.textContent = `Goal ${formatTimerClock(timerGoalSeconds)} • ${formatTimerClock(remaining)} left`;
+    statusEl.classList.remove('timer-goal-over');
+    return;
+  }
+
+  const overBy = timerSeconds - timerGoalSeconds;
+  statusEl.textContent = `Goal ${formatTimerClock(timerGoalSeconds)} • over by ${formatTimerClock(overBy)}`;
+  statusEl.classList.add('timer-goal-over');
+}
+
+function syncGoalInputFromState() {
+  const input = document.getElementById('timer-goal-minutes');
+  if (!input) return;
+  input.value = timerGoalSeconds === null ? '' : String(Math.max(1, Math.round(timerGoalSeconds / 60)));
+}
+
+async function saveStudyGoal() {
+  const pattern = getSelectedPattern();
+  if (!pattern || !_pUid) return;
+
+  const input = document.getElementById('timer-goal-minutes');
+  const raw = (input && input.value || '').trim();
+
+  let nextGoalSeconds = null;
+  if (raw !== '') {
+    const minutes = Number(raw);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      showToast('Goal minutes must be a positive number.', true);
+      return;
+    }
+    nextGoalSeconds = Math.round(minutes * 60);
+  }
+
+  try {
+    await updatePatternGoalSeconds(_pUid, pattern.id, nextGoalSeconds);
+    pattern.goalSeconds = nextGoalSeconds;
+    timerGoalSeconds = nextGoalSeconds;
+    syncGoalInputFromState();
+    updateTimerDisplay();
+
+    if (nextGoalSeconds === null) {
+      showToast(`Cleared goal for "${pattern.name}".`);
+    } else {
+      showToast(`Saved goal for "${pattern.name}": ${formatTimerClock(nextGoalSeconds)}.`);
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to save goal time.', true);
+  }
 }
 
 // ── Record modal ─────────────────────────────────────────────
@@ -919,15 +1008,19 @@ function openRecordModal() {
 async function confirmRecord() {
   const rvu = document.getElementById('record-rvu-input').value;
   document.getElementById('modal-record').style.display = 'none';
+  const recordedSeconds = pendingRecordSeconds;
 
   try {
     await addStudyLogEntry(_pUid, {
       study:    pendingRecordPatternName,
-      seconds:  pendingRecordSeconds,
-      duration: formatDuration(pendingRecordSeconds),
+      seconds:  recordedSeconds,
+      duration: formatDuration(recordedSeconds),
       rvu:      rvu !== '' ? rvu : null
     });
-    showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(pendingRecordSeconds)}`);
+    timerSeconds = 0;
+    updateTimerDisplay();
+    pendingRecordSeconds = 0;
+    showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(recordedSeconds)}`);
   } catch (err) {
     console.error(err);
     showToast('Failed to save study record.', true);

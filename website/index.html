@@ -113,6 +113,12 @@
             <div class="timer-info">
               <span class="timer-label" id="timer-pattern-name"></span>
               <span class="timer-display" id="timer-display">0:00</span>
+              <div class="timer-goal-control">
+                <label for="timer-goal-minutes" class="timer-goal-label">Goal (min)</label>
+                <input id="timer-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 15">
+                <button id="btn-save-study-goal" class="btn btn-ghost btn-sm" type="button">Save Goal</button>
+              </div>
+              <span id="timer-goal-status" class="timer-goal-status">No goal set</span>
             </div>
             <div class="timer-actions">
               <button id="btn-record-study" class="btn btn-accent btn-sm">Record Study</button>

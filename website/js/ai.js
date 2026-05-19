@@ -357,6 +357,8 @@ function buildReportGenerationPrompt(input) {
     'INSTRUCTIONS:',
     '- Write each section in full — never truncate or summarize prematurely.',
     '- Use precise, professional radiology language.',
+    '- Only generate or revise text that is directly supported by the provided findings.',
+    '- Do not add new abnormalities, negatives, normal statements, measurments or modifiers unless they are explicitly supported by the findings.',
     '- Do not include markdown code fences in your JSON response.',
     '- Set finalized=true and questions=[] in every response.',
     '',
@@ -370,8 +372,14 @@ function buildReportGenerationPrompt(input) {
       'REPORT TEMPLATE — PRIMARY OUTPUT STRUCTURE:',
       'The template below defines all required section names and any existing boilerplate.',
       'Use the template section headings as the keys in your "sections" JSON object.',
-      'Preserve all boilerplate text already in the template; expand blanks and',
-      'placeholder lines with content derived from the findings above.',
+      'Treat the template as the source of truth for wording outside the supplied findings.',
+      'For each template section, first ask: does the findings input explicitly provide content for this section?',
+      'If YES: update only the specific text supported by the findings.',
+      'If NO: copy that template section verbatim, preserving the original wording exactly.',
+      'Do not paraphrase unchanged template sections.',
+      'Do not fill blanks, placeholders, or optional categories unless the findings explicitly support doing so.',
+      'If a section is not mentioned in the findings, return the template text for that section unchanged.',
+      'Verbatim means preserve the template wording exactly except for JSON escaping.',
       templateText
     );
   } else {
