@@ -13,6 +13,8 @@ var _linkDuplicateCounts = {};
 var _stepAiUndoSnapshot = null;
 var _activeRichEditor = null;
 var _draggingStepIndex = null;
+var _contentLinkContext = null;
+var CONTENT_LINK_CREATE_NEW_FINDING_VALUE = '__create_new_from_current__';
 var activeStepSectionKey = 'dontMissPathology';
 var _stepAiTargetSection = 'dontMissPathology';
 var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
@@ -27,6 +29,13 @@ function makeStepId() {
     return 'step_' + window.crypto.randomUUID().replace(/-/g, '');
   }
   return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+function makeSubsectionId() {
+  if (window.crypto && window.crypto.randomUUID) {
+    return 'sub_' + window.crypto.randomUUID().replace(/-/g, '');
+  }
+  return 'sub_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
 function ensureStepId(step) {
@@ -51,9 +60,35 @@ function cloneStepSnapshot(step) {
     isRedStep: Boolean(safeStep.isRedStep || safeStep.is_red_step || safeStep.stepColorRed),
     stepId: String(safeStep.stepId || '').trim() || makeStepId(),
     linkedStepId: String(safeStep.linkedStepId || '').trim(),
+    sectionLinks: normaliseSectionLinksMeta(safeStep.sectionLinks),
     richContent: normaliseRichContent(fallback),
     sections: JSON.parse(JSON.stringify(sections))
   };
+}
+
+function normaliseSectionLinkMeta(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    mode: raw.mode === 'snapshot' ? 'snapshot' : 'internal',
+    sourcePatternId: String(raw.sourcePatternId || '').trim(),
+    sourcePatternName: String(raw.sourcePatternName || '').trim(),
+    sourceStepId: String(raw.sourceStepId || '').trim(),
+    sourceStepTitle: String(raw.sourceStepTitle || '').trim(),
+    sourceSubsectionId: String(raw.sourceSubsectionId || '').trim(),
+    sourceSubsectionTitle: String(raw.sourceSubsectionTitle || '').trim(),
+    targetType: String(raw.targetType || '').trim(),
+    tokenVersion: Number(raw.tokenVersion || 1)
+  };
+}
+
+function normaliseSectionLinksMeta(raw) {
+  var out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  if (raw.searchPattern) {
+    var link = normaliseSectionLinkMeta(raw.searchPattern);
+    if (link && link.sourceStepId) out.searchPattern = link;
+  }
+  return out;
 }
 
 function rebuildEditorLinkIndex() {
@@ -79,6 +114,7 @@ function rebuildEditorLinkIndex() {
         stepTitle: stepClone.stepTitle || ('Step ' + (idx + 1)),
         isRedStep: Boolean(stepClone.isRedStep),
         linkedStepId: String(stepClone.linkedStepId || '').trim(),
+        sectionLinks: normaliseSectionLinksMeta(stepClone.sectionLinks),
         richContent: normaliseRichContent(stepClone.richContent || []),
         sections: normaliseStepSectionsForEditor(stepClone.sections, stepClone.richContent || [])
       };
@@ -119,37 +155,99 @@ function setAllPatternsRef(patterns) {
   rebuildEditorLinkIndex();
 }
 
+function ensureSubsectionMetadata(content) {
+  var chunks = normaliseRichContent(content || []);
+  return chunks.map(function(chunk) {
+    if (!chunk || chunk.type !== 'subsection') return chunk;
+    return Object.assign({}, chunk, {
+      subsectionId: String(chunk.subsectionId || '').trim() || makeSubsectionId(),
+      linkMeta: normaliseSectionLinkMeta(chunk.linkMeta)
+    });
+  });
+}
+
+function findSourceSubsectionById(sourceEntry, subsectionId) {
+  if (!sourceEntry || !subsectionId) return null;
+  var sections = normaliseStepSectionsForEditor(sourceEntry.sections, sourceEntry.richContent || []);
+  var findings = ensureSubsectionMetadata(sections.dontMissPathology || []);
+  for (var i = 0; i < findings.length; i++) {
+    var item = findings[i];
+    if (item.type !== 'subsection') continue;
+    if (String(item.subsectionId || '').trim() === String(subsectionId).trim()) {
+      return item;
+    }
+  }
+  return null;
+}
+
+function resolveSectionLinksForEditor(step) {
+  var resolved = cloneStepSnapshot(step);
+  resolved.sectionLinks = normaliseSectionLinksMeta(resolved.sectionLinks);
+  resolved.sections = normaliseStepSectionsForEditor(resolved.sections, resolved.richContent || []);
+
+  var searchPatternLink = resolved.sectionLinks.searchPattern;
+  if (searchPatternLink && searchPatternLink.sourceStepId) {
+    var sourceStep = findSourceEntryForLinkedId(searchPatternLink.sourceStepId);
+    if (sourceStep) {
+      var sourceSections = normaliseStepSectionsForEditor(sourceStep.sections, sourceStep.richContent || []);
+      resolved.sections.searchPattern = normaliseRichContent(sourceSections.searchPattern || []);
+      resolved.richContent = normaliseRichContent(resolved.sections.searchPattern || []);
+    }
+  }
+
+  var findings = ensureSubsectionMetadata(resolved.sections.dontMissPathology || []);
+  resolved.sections.dontMissPathology = findings.map(function(item) {
+    if (!item || item.type !== 'subsection' || !item.linkMeta || !item.linkMeta.sourceSubsectionId) {
+      return item;
+    }
+    var sourceEntry = findSourceEntryForLinkedId(item.linkMeta.sourceStepId || '');
+    if (!sourceEntry) return item;
+    var sourceSub = findSourceSubsectionById(sourceEntry, item.linkMeta.sourceSubsectionId);
+    if (!sourceSub) return item;
+
+    return Object.assign({}, item, {
+      title: sourceSub.title || item.title,
+      isRedFinding: Boolean(sourceSub.isRedFinding),
+      content: normaliseRichContent(sourceSub.content || [])
+    });
+  });
+
+  return resolved;
+}
+
 function resolveLinkedStepForEditor(step) {
   if (!step) return step;
 
   if (step.linkMeta && step.linkMeta.mode === 'snapshot' && step.linkMeta.snapshot) {
     var snapshot = step.linkMeta.snapshot;
-    return {
+    return resolveSectionLinksForEditor({
       stepTitle: snapshot.stepTitle || step.stepTitle || '',
       isRedStep: Boolean(snapshot.isRedStep || step.isRedStep),
       stepId: String(step.stepId || '').trim() || String(snapshot.stepId || '').trim() || makeStepId(),
       linkedStepId: String(step.linkedStepId || '').trim(),
       linkMeta: step.linkMeta,
+      sectionLinks: normaliseSectionLinksMeta(step.sectionLinks),
       richContent: normaliseRichContent(snapshot.richContent || []),
       sections: normaliseStepSectionsForEditor(snapshot.sections, snapshot.richContent || [])
-    };
+    });
   }
 
   const linkedStepId = String(step.linkedStepId || '').trim();
-  if (!linkedStepId) return step;
+  if (!linkedStepId) return resolveSectionLinksForEditor(step);
 
   const shared = findLinkedStepDataForEditor(linkedStepId);
-  if (!shared) return step;
+  if (!shared) return resolveSectionLinksForEditor(step);
 
-  return {
+  return resolveSectionLinksForEditor({
     stepTitle: shared.stepTitle,
     isRedStep: Boolean(shared.isRedStep),
     stepId: String(step.stepId || '').trim() || makeStepId(),
     linkedStepId,
     linkMeta: step.linkMeta || null,
+    sectionLinks: normaliseSectionLinksMeta(step.sectionLinks),
     richContent: shared.richContent,
     sections: shared.sections
-  };
+  });
 }
 
 function findLinkedStepDataForEditor(linkedStepId) {
@@ -235,6 +333,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
         stepId: ensureStepId(step),
         linkedStepId: step.linkedStepId || '',
         linkMeta: step.linkMeta || null,
+        sectionLinks: normaliseSectionLinksMeta(step.sectionLinks),
         richContent: normaliseRichContent(step.richContent || step.rich_content || []),
         sections: normaliseStepSectionsForEditor(step.sections, step.richContent || step.rich_content || [])
       }));
@@ -303,6 +402,27 @@ function initEditor() {
       document.removeEventListener('mouseup',   onMouseUp);
     }
   })();
+
+  var linkModal = document.getElementById('modal-content-link');
+  var closeBtn = document.getElementById('btn-content-link-close');
+  var cancelBtn = document.getElementById('btn-content-link-cancel');
+  var applyBtn = document.getElementById('btn-content-link-apply');
+  var unlinkBtn = document.getElementById('btn-content-link-unlink');
+  var patternSelect = document.getElementById('content-link-pattern-select');
+  var stepSelect = document.getElementById('content-link-step-select');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeContentLinkModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeContentLinkModal);
+  if (applyBtn) applyBtn.addEventListener('click', applyContentLinkFromModal);
+  if (unlinkBtn) unlinkBtn.addEventListener('click', unlinkContentLinkFromModal);
+  if (patternSelect) patternSelect.addEventListener('change', populateContentLinkStepSelect);
+  if (stepSelect) stepSelect.addEventListener('change', populateContentLinkFindingSelect);
+
+  if (linkModal) {
+    linkModal.addEventListener('click', function(e) {
+      if (e.target === linkModal) closeContentLinkModal();
+    });
+  }
 }
 
 function closeEditor() {
@@ -312,6 +432,7 @@ function closeEditor() {
   activeStepSectionKey = 'dontMissPathology';
   _stepAiTargetSection = 'dontMissPathology';
   _stepAiUndoSnapshot = null;
+  _contentLinkContext = null;
 }
 
 function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
@@ -377,7 +498,16 @@ function getCurrentEditorSectionContent(step) {
   if (!step.sections) {
     step.sections = normaliseStepSectionsForEditor(null, step.richContent || []);
   }
-  return step.sections[activeStepSectionKey] || [];
+  if (!step.sectionLinks || typeof step.sectionLinks !== 'object') {
+    step.sectionLinks = {};
+  }
+  var content = step.sections[activeStepSectionKey] || [];
+  if (isSubsectionSectionKey(activeStepSectionKey)) {
+    var withMeta = ensureSubsectionMetadata(content);
+    step.sections[activeStepSectionKey] = withMeta;
+    return withMeta;
+  }
+  return content;
 }
 
 function setCurrentEditorSectionContent(step, richContent) {
@@ -385,7 +515,9 @@ function setCurrentEditorSectionContent(step, richContent) {
   if (!step.sections) {
     step.sections = normaliseStepSectionsForEditor(null, step.richContent || []);
   }
-  step.sections[activeStepSectionKey] = richContent;
+  step.sections[activeStepSectionKey] = isSubsectionSectionKey(activeStepSectionKey)
+    ? ensureSubsectionMetadata(richContent)
+    : richContent;
   // Keep legacy field in sync with Search Pattern section for compatibility.
   step.richContent = (step.sections.searchPattern || []).slice();
 }
@@ -554,9 +686,24 @@ function renderStepList() {
 
     const hasLiveLink = Boolean(String(step.linkedStepId || '').trim());
     const isSnapshot = Boolean(step.linkMeta && step.linkMeta.mode === 'snapshot');
+    const hasSearchPatternLink = Boolean(
+      step && step.sectionLinks && step.sectionLinks.searchPattern && String(step.sectionLinks.searchPattern.sourceStepId || '').trim()
+    );
+    const findings = normaliseStepSectionsForEditor(step && step.sections, step && step.richContent || []).dontMissPathology || [];
+    const linkedFindingCount = findings.filter(function(item) {
+      return item && item.type === 'subsection' && item.linkMeta && String(item.linkMeta.sourceSubsectionId || '').trim();
+    }).length;
     const linkedBadge = isSnapshot
       ? ' <span class="step-linked-badge snapshot">[Snapshot]</span>'
-      : (hasLiveLink ? ' <span class="step-linked-badge">[Linked]</span>' : '');
+      : (
+          hasLiveLink
+            ? ' <span class="step-linked-badge">[Linked]</span>'
+            : (
+                (hasSearchPatternLink || linkedFindingCount)
+                  ? ' <span class="step-linked-badge">[Section Linked]</span>'
+                  : ''
+              )
+        );
     const displayTitle = getDisplayTitleWithoutLeadingNumbering(step.stepTitle || '') || 'Untitled step';
     li.innerHTML = `
       <span class="step-drag-handle" title="Drag to reorder" aria-hidden="true">&#x2630;</span>
@@ -649,7 +796,10 @@ function addStep() {
     stepId: makeStepId(),
     richContent: [{ type: 'text', text: '', bold: false, color: null }],
     linkedStepId: '',
+    sectionLinks: {},
+    sectionLinks: {},
     linkMeta: null,
+    sectionLinks: {},
     sections: normaliseStepSectionsForEditor(null, [{ type: 'text', text: '', bold: false, color: null }])
   });
   activeStepIndex = editorSteps.length - 1;
@@ -693,12 +843,6 @@ function renderStepEditPanel() {
 
   const step = editorSteps[activeStepIndex];
   ensureStepId(step);
-  const sourceOptions = getActiveStepSourceOptions(); // Get available source patterns
-  const currentLinkedSource = findSourceEntryForLinkedId(step.linkedStepId || '');
-  const selectedPatternForLink = currentLinkedSource
-    ? String(currentLinkedSource.patternId || '')
-    : (sourceOptions.length ? sourceOptions[0].patternId : '');
-  const status = getLinkStatusForStep(step);
 
   panel.innerHTML = `
     <label class="form-label">Step Title
@@ -723,11 +867,16 @@ function renderStepEditPanel() {
       </div>
       ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
+        <p class="section-link-help">Use Link Finding on each findings section to link only that finding across studies.</p>
         <div id="subsection-rows" class="subsection-rows"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Findings Section</button>
       </div>
       ` : `
       <div>
+        <div class="section-link-inline">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-link-search-pattern">Link Search Pattern...</button>
+          <span class="section-link-current" id="search-pattern-link-current"></span>
+        </div>
         <div class="rich-toolbar">
           <button type="button" class="rich-tool" id="tool-bold" title="Bold (Ctrl+B)"><b>B</b></button>
           <button type="button" class="rich-tool rich-tool-red" id="tool-red" title="Red text">A</button>
@@ -769,42 +918,6 @@ function renderStepEditPanel() {
         <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-undo-step" ${_stepAiUndoSnapshot ? '' : 'disabled'}>Undo AI Change</button>
       </div>
     </div>
-
-    <div class="step-link-card">
-      <label class="form-label">Link This Step To Another Pattern Step
-        <div class="step-link-stack">
-          <div class="step-link-row">
-            <div class="step-link-row-label">Study / Pattern</div>
-            <select id="step-link-pattern-select" class="form-input">
-              ${sourceOptions.length
-                ? sourceOptions
-                  .map(item => item.patternId)
-                  .filter((value, index, array) => array.indexOf(value) === index)
-                  .map(patternId => {
-                    const pattern = _allPatternsRef.find(p => String(p.id) === String(patternId));
-                    return `<option value="${escapeHtml(String(patternId))}" ${String(patternId) === String(selectedPatternForLink) ? 'selected' : ''}>${escapeHtml((pattern && pattern.name) || 'Untitled Pattern')}</option>`;
-                  }).join('')
-                : '<option value="">No source patterns available</option>'}
-            </select>
-          </div>
-
-          <div class="step-link-row">
-            <div class="step-link-row-label">Step</div>
-            <select id="step-link-step-select" class="form-input"></select>
-          </div>
-
-          <div class="step-link-actions">
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-pull-step-link">Pull Selected → Current</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-push-step-link">Push Current → Selected</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-step-link">Unlink</button>
-          </div>
-        </div>
-      </label>
-
-      <div class="step-link-current">Current Source: ${escapeHtml(getCurrentStepLinkedSourceLabel(step))}</div>
-
-      <div id="step-link-status" class="step-link-status step-link-status-${status.tone}">${escapeHtml(status.text)}</div>
-    </div>
   `;
 
   // Section tabs — always present
@@ -821,13 +934,6 @@ function renderStepEditPanel() {
       setActiveStepSection(btn.dataset.sectionKey);
     });
   });
-
-  document.getElementById('btn-clear-step-link').addEventListener('click', clearLinkedStep);
-  document.getElementById('btn-pull-step-link').addEventListener('click', applyLinkFromPicker);
-  document.getElementById('btn-push-step-link').addEventListener('click', pushCurrentStepToSelectedLink);
-  document.getElementById('step-link-pattern-select').addEventListener('change', populateStepLinkStepSelect);
-  populateStepLinkStepSelect();
-  updateStepLinkStatus();
 
   if (isSubsectionSectionKey(activeStepSectionKey)) {
     renderSubsectionRows(step);
@@ -863,6 +969,22 @@ function renderStepEditPanel() {
 
     // Focus editor
     editor.focus();
+
+    const searchPatternLinkBtn = document.getElementById('btn-link-search-pattern');
+    const searchPatternLinkCurrent = document.getElementById('search-pattern-link-current');
+    const searchPatternLink = step.sectionLinks && step.sectionLinks.searchPattern
+      ? step.sectionLinks.searchPattern
+      : null;
+    if (searchPatternLinkCurrent) {
+      searchPatternLinkCurrent.textContent = searchPatternLink && searchPatternLink.sourceStepId
+        ? ('Linked from ' + ((searchPatternLink.sourcePatternName || 'Pattern') + ' / ' + (searchPatternLink.sourceStepTitle || 'Step')))
+        : 'No Search Pattern link set.';
+    }
+    if (searchPatternLinkBtn) {
+      searchPatternLinkBtn.addEventListener('click', function() {
+        openContentLinkModal({ type: 'searchPattern' });
+      });
+    }
   }
 
   // AI section select and buttons are always rendered — wire them up here regardless of section tab
@@ -1143,10 +1265,15 @@ function saveActiveStepToState() {
       const redCheckbox = row.querySelector('.subsection-red-checkbox');
       const content = rowEditor ? extractRichContent(rowEditor) : [];
       if (!title && !hasAnyRichContent(content)) return;
+      const subsectionId = String(row.dataset.subsectionId || '').trim() || makeSubsectionId();
+      row.dataset.subsectionId = subsectionId;
+      const linkMeta = normaliseSectionLinkMeta(row._linkMeta || null);
       subsections.push({
         type: 'subsection',
+        subsectionId: subsectionId,
         title: title || `Subsection ${subsections.length + 1}`,
         isRedFinding: Boolean(redCheckbox && redCheckbox.checked),
+        linkMeta: linkMeta,
         content: content
       });
     });
@@ -1198,30 +1325,36 @@ function hasAnyRichContent(content) {
 }
 
 function getSubsectionRowsFromContent(content) {
-  const chunks = normaliseRichContent(content || []);
+  const chunks = ensureSubsectionMetadata(content || []);
   const rows = [];
 
   chunks.forEach(chunk => {
     if (chunk.type === 'subsection') {
       rows.push({
+        subsectionId: String(chunk.subsectionId || '').trim() || makeSubsectionId(),
         title: (chunk.title || '').trim(),
         isRedFinding: Boolean(chunk.isRedFinding),
+        linkMeta: normaliseSectionLinkMeta(chunk.linkMeta),
         content: normaliseRichContent(chunk.content || [])
       });
       return;
     }
     if (chunk.type === 'text' && (chunk.text || '').trim()) {
       rows.push({
+        subsectionId: makeSubsectionId(),
         title: `Subsection ${rows.length + 1}`,
         isRedFinding: false,
+        linkMeta: null,
         content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
       });
       return;
     }
     if (chunk.type === 'image' || chunk.type === 'link') {
       rows.push({
+        subsectionId: makeSubsectionId(),
         title: `Subsection ${rows.length + 1}`,
         isRedFinding: false,
+        linkMeta: null,
         content: [chunk]
       });
     }
@@ -1252,10 +1385,16 @@ function renderSubsectionRows(step) {
   container.innerHTML = '';
 
   const rows = getSubsectionRowsFromContent(getCurrentEditorSectionContent(step));
-  rows.forEach(item => container.appendChild(createSubsectionRow(item.title || '', item.content || [], Boolean(item.isRedFinding), { expanded: false })));
+  rows.forEach(item => {
+    container.appendChild(createSubsectionRow(item.title || '', item.content || [], Boolean(item.isRedFinding), {
+      expanded: false,
+      subsectionId: item.subsectionId,
+      linkMeta: item.linkMeta || null
+    }));
+  });
 
   if (!rows.length) {
-    container.appendChild(createSubsectionRow('', [], false, { expanded: true }));
+    container.appendChild(createSubsectionRow('', [], false, { expanded: true, subsectionId: makeSubsectionId(), linkMeta: null }));
   }
 }
 
@@ -1264,8 +1403,13 @@ function createSubsectionRow(title, content, isRedFinding, options) {
   row.className = 'subsection-row';
   const redInputId = `subsection-red-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const opts = options || {};
+  row.dataset.subsectionId = String(opts.subsectionId || '').trim() || makeSubsectionId();
+  row._linkMeta = normaliseSectionLinkMeta(opts.linkMeta || null);
   const expanded = opts.expanded !== false;
   const initialTitle = String(title || '').trim() || 'Findings Section';
+  const linkedLabel = row._linkMeta && row._linkMeta.sourceSubsectionId
+    ? ((row._linkMeta.sourcePatternName || 'Pattern') + ' / ' + (row._linkMeta.sourceStepTitle || 'Step') + ' / ' + (row._linkMeta.sourceSubsectionTitle || 'Finding'))
+    : 'No finding link set.';
   row.innerHTML = `
     <button type="button" class="subsection-row-toggle" aria-expanded="${expanded ? 'true' : 'false'}">
       <span class="subsection-row-title">${escapeHtml(initialTitle)}</span>
@@ -1273,6 +1417,10 @@ function createSubsectionRow(title, content, isRedFinding, options) {
     </button>
     <div class="subsection-row-body" style="display:${expanded ? '' : 'none'};">
       <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Findings section title">
+      <div class="section-link-inline">
+        <button type="button" class="btn btn-ghost btn-sm subsection-link-btn">Link Finding...</button>
+        <span class="section-link-current subsection-link-current">${escapeHtml(linkedLabel)}</span>
+      </div>
       <label class="subsection-red-row" for="${redInputId}">
         <input type="checkbox" class="subsection-red-checkbox" id="${redInputId}" ${isRedFinding ? 'checked' : ''}>
         <span>Show this finding in red in main display</span>
@@ -1322,15 +1470,386 @@ function createSubsectionRow(title, content, isRedFinding, options) {
   rowEditor.addEventListener('paste', handleEditorPaste);
 
   row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
+  row.querySelector('.subsection-link-btn').addEventListener('click', function() {
+    openContentLinkModal({ type: 'finding', subsectionId: row.dataset.subsectionId });
+  });
   return row;
 }
 
 function addSubsectionRow() {
   const container = document.getElementById('subsection-rows');
   if (!container) return;
-  const row = createSubsectionRow('', [], false, { expanded: true });
+  const row = createSubsectionRow('', [], false, { expanded: true, subsectionId: makeSubsectionId(), linkMeta: null });
   container.appendChild(row);
   row.querySelector('.subsection-title-input').focus();
+}
+
+function getSourceEntryByPatternAndStep(patternId, stepId) {
+  var entries = getSourceEntriesForPattern(patternId);
+  var target = String(stepId || '').trim();
+  for (var i = 0; i < entries.length; i++) {
+    if (String(entries[i].stepId || '').trim() === target) return entries[i];
+  }
+  return null;
+}
+
+function getFindingsForSourceEntry(entry) {
+  if (!entry) return [];
+  var sections = normaliseStepSectionsForEditor(entry.sections, entry.richContent || []);
+  return ensureSubsectionMetadata(sections.dontMissPathology || []).filter(function(item) {
+    return item && item.type === 'subsection';
+  });
+}
+
+function findStepSubsectionById(step, subsectionId) {
+  if (!step || !subsectionId) return null;
+  if (!step.sections) {
+    step.sections = normaliseStepSectionsForEditor(null, step.richContent || []);
+  }
+  var findings = ensureSubsectionMetadata(step.sections.dontMissPathology || []);
+  step.sections.dontMissPathology = findings;
+  for (var i = 0; i < findings.length; i++) {
+    var item = findings[i];
+    if (item.type !== 'subsection') continue;
+    if (String(item.subsectionId || '').trim() === String(subsectionId).trim()) return item;
+  }
+  return null;
+}
+
+function getCurrentContentLinkLabel() {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return 'No link set.';
+  var step = editorSteps[activeStepIndex];
+  if (!_contentLinkContext) return 'No link set.';
+
+  if (_contentLinkContext.type === 'searchPattern') {
+    var link = step.sectionLinks && step.sectionLinks.searchPattern ? step.sectionLinks.searchPattern : null;
+    if (!link || !link.sourceStepId) return 'No link set.';
+    return (link.sourcePatternName || 'Pattern') + ' / ' + (link.sourceStepTitle || 'Step');
+  }
+
+  var finding = findStepSubsectionById(step, _contentLinkContext.subsectionId);
+  if (!finding || !finding.linkMeta || !finding.linkMeta.sourceSubsectionId) return 'No link set.';
+  return (finding.linkMeta.sourcePatternName || 'Pattern') + ' / '
+    + (finding.linkMeta.sourceStepTitle || 'Step') + ' / '
+    + (finding.linkMeta.sourceSubsectionTitle || 'Finding');
+}
+
+function populateContentLinkStepSelect() {
+  var patternSelect = document.getElementById('content-link-pattern-select');
+  var stepSelect = document.getElementById('content-link-step-select');
+  if (!patternSelect || !stepSelect) return;
+
+  var entries = getSourceEntriesForPattern(patternSelect.value);
+  stepSelect.innerHTML = '';
+  if (!entries.length) {
+    stepSelect.innerHTML = '<option value="">No source steps found</option>';
+    populateContentLinkFindingSelect();
+    return;
+  }
+
+  entries.forEach(function(entry) {
+    var option = document.createElement('option');
+    option.value = String(entry.stepId || '');
+    var cleaned = getDisplayTitleWithoutLeadingNumbering(entry.stepTitle || '');
+    option.textContent = 'Step ' + (entry.stepIndex + 1) + ': ' + (cleaned || 'Untitled Step');
+    stepSelect.appendChild(option);
+  });
+
+  populateContentLinkFindingSelect();
+}
+
+function populateContentLinkFindingSelect() {
+  var findingWrap = document.getElementById('content-link-finding-wrap');
+  var findingSelect = document.getElementById('content-link-finding-select');
+  var patternSelect = document.getElementById('content-link-pattern-select');
+  var stepSelect = document.getElementById('content-link-step-select');
+  if (!findingWrap || !findingSelect || !patternSelect || !stepSelect) return;
+
+  var isFinding = _contentLinkContext && _contentLinkContext.type === 'finding';
+  findingWrap.style.display = isFinding ? '' : 'none';
+  if (!isFinding) return;
+
+  var sourceEntry = getSourceEntryByPatternAndStep(patternSelect.value, stepSelect.value);
+  var findings = getFindingsForSourceEntry(sourceEntry);
+  findingSelect.innerHTML = '';
+
+  var createOption = document.createElement('option');
+  createOption.value = CONTENT_LINK_CREATE_NEW_FINDING_VALUE;
+  createOption.textContent = '+ Create new linked finding in selected step from current finding';
+  findingSelect.appendChild(createOption);
+
+  if (!findings.length) {
+    findingSelect.value = CONTENT_LINK_CREATE_NEW_FINDING_VALUE;
+    return;
+  }
+
+  findings.forEach(function(item, idx) {
+    var option = document.createElement('option');
+    option.value = String(item.subsectionId || '');
+    option.textContent = item.title || ('Findings Section ' + (idx + 1));
+    findingSelect.appendChild(option);
+  });
+
+  findingSelect.value = String(findings[0].subsectionId || '').trim() || CONTENT_LINK_CREATE_NEW_FINDING_VALUE;
+}
+
+function getEditingPatternNameForLinks() {
+  var fromInput = ((document.getElementById('editor-pattern-name') || {}).value || '').trim();
+  if (fromInput) return fromInput;
+  var current = (_allPatternsRef || []).find(function(pattern) {
+    return pattern && String(pattern.id || '') === String(editingPatternId || '');
+  });
+  return (current && current.name) || 'Current Pattern';
+}
+
+async function createLinkedFindingInSelectedStudy(sourceEntry, currentStep, targetFinding) {
+  if (!editorUid || !editingPatternId) {
+    throw new Error('Save this pattern first, then create linked findings in another study.');
+  }
+
+  var sourcePatternId = String((sourceEntry && sourceEntry.patternId) || '').trim();
+  var sourceStepId = String((sourceEntry && sourceEntry.stepId) || '').trim();
+  if (!sourcePatternId || !sourceStepId) {
+    throw new Error('Selected source step is missing identifiers.');
+  }
+
+  var sourcePattern = (_allPatternsRef || []).find(function(pattern) {
+    return pattern && String(pattern.id || '') === sourcePatternId;
+  });
+  if (!sourcePattern) {
+    throw new Error('Selected source pattern was not found.');
+  }
+
+  var sourceSteps = JSON.parse(JSON.stringify(sourcePattern.steps || []));
+  var sourceIdx = sourceSteps.findIndex(function(step) {
+    return String((step && step.stepId) || '').trim() === sourceStepId;
+  });
+  if (sourceIdx < 0) {
+    throw new Error('Selected source step was not found.');
+  }
+
+  var sourceStep = sourceSteps[sourceIdx] || {};
+  sourceStep.sections = normaliseStepSectionsForEditor(sourceStep.sections, sourceStep.richContent || []);
+  var sourceFindings = ensureSubsectionMetadata(sourceStep.sections.dontMissPathology || []);
+
+  var newSubsectionId = makeSubsectionId();
+  var newSubsectionTitle = (targetFinding.title || '').trim() || ('Findings Section ' + (sourceFindings.length + 1));
+  var linkBackMeta = {
+    mode: 'internal',
+    sourcePatternId: String(editingPatternId || '').trim(),
+    sourcePatternName: getEditingPatternNameForLinks(),
+    sourceStepId: String(currentStep.stepId || '').trim(),
+    sourceStepTitle: currentStep.stepTitle || 'Step',
+    sourceSubsectionId: String(targetFinding.subsectionId || '').trim(),
+    sourceSubsectionTitle: targetFinding.title || 'Finding',
+    targetType: 'finding',
+    tokenVersion: 1
+  };
+
+  sourceFindings.push({
+    type: 'subsection',
+    subsectionId: newSubsectionId,
+    title: newSubsectionTitle,
+    isRedFinding: Boolean(targetFinding.isRedFinding),
+    linkMeta: linkBackMeta,
+    content: normaliseRichContent(targetFinding.content || [])
+  });
+
+  sourceStep.sections.dontMissPathology = sourceFindings;
+  sourceStep.sections.searchPattern = normaliseRichContent(sourceStep.sections.searchPattern || []);
+  sourceStep.richContent = normaliseRichContent(sourceStep.sections.searchPattern || []);
+  sourceSteps[sourceIdx] = sourceStep;
+
+  var prepared = await prepareStepsForStorage(sourceSteps);
+  await updatePattern(editorUid, sourcePatternId, {
+    name: sourcePattern.name || 'Untitled Pattern',
+    modality: sourcePattern.modality || 'Other',
+    goalSeconds: sourcePattern.goalSeconds,
+    steps: prepared
+  });
+
+  sourcePattern.steps = prepared;
+  setAllPatternsRef(_allPatternsRef);
+
+  return {
+    sourcePatternId: sourcePatternId,
+    sourcePatternName: sourcePattern.name || sourceEntry.patternName || 'Pattern',
+    sourceStepId: sourceStepId,
+    sourceStepTitle: sourceEntry.stepTitle || 'Step',
+    sourceSubsectionId: newSubsectionId,
+    sourceSubsectionTitle: newSubsectionTitle
+  };
+}
+
+function openContentLinkModal(context) {
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  saveActiveStepToState();
+  _contentLinkContext = context || null;
+
+  var modal = document.getElementById('modal-content-link');
+  var targetLabel = document.getElementById('content-link-target-label');
+  var currentLabel = document.getElementById('content-link-current');
+  var patternSelect = document.getElementById('content-link-pattern-select');
+  var stepSelect = document.getElementById('content-link-step-select');
+  var findingSelect = document.getElementById('content-link-finding-select');
+  if (!modal || !targetLabel || !currentLabel || !patternSelect || !stepSelect || !findingSelect) return;
+
+  targetLabel.textContent = context && context.type === 'finding'
+    ? 'Target: Findings section'
+    : 'Target: Search Pattern section';
+
+  var options = getActiveStepSourceOptions();
+  var patternIds = options
+    .map(function(item) { return item.patternId; })
+    .filter(function(value, index, array) { return array.indexOf(value) === index; });
+
+  patternSelect.innerHTML = '';
+  if (!patternIds.length) {
+    patternSelect.innerHTML = '<option value="">No source patterns available</option>';
+    stepSelect.innerHTML = '<option value="">No source steps found</option>';
+    findingSelect.innerHTML = '<option value="">No findings sections found</option>';
+  } else {
+    patternIds.forEach(function(patternId) {
+      var pattern = (_allPatternsRef || []).find(function(p) { return String((p && p.id) || '') === String(patternId); });
+      var option = document.createElement('option');
+      option.value = String(patternId);
+      option.textContent = (pattern && pattern.name) || 'Untitled Pattern';
+      patternSelect.appendChild(option);
+    });
+    populateContentLinkStepSelect();
+  }
+
+  currentLabel.textContent = getCurrentContentLinkLabel();
+  modal.style.display = '';
+}
+
+function closeContentLinkModal() {
+  _contentLinkContext = null;
+  var modal = document.getElementById('modal-content-link');
+  if (modal) modal.style.display = 'none';
+}
+
+async function applyContentLinkFromModal() {
+  if (!_contentLinkContext) return;
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+
+  var patternSelect = document.getElementById('content-link-pattern-select');
+  var stepSelect = document.getElementById('content-link-step-select');
+  var findingSelect = document.getElementById('content-link-finding-select');
+  if (!patternSelect || !stepSelect || !findingSelect) return;
+
+  var sourceEntry = getSourceEntryByPatternAndStep(patternSelect.value, stepSelect.value);
+  if (!sourceEntry) {
+    showToast('Select a valid source step first.', true);
+    return;
+  }
+
+  var step = editorSteps[activeStepIndex];
+  if (!step.sectionLinks || typeof step.sectionLinks !== 'object') step.sectionLinks = {};
+
+  if (_contentLinkContext.type === 'searchPattern') {
+    var sourceSections = normaliseStepSectionsForEditor(sourceEntry.sections, sourceEntry.richContent || []);
+    step.sections = normaliseStepSectionsForEditor(step.sections, step.richContent || []);
+    step.sections.searchPattern = normaliseRichContent(sourceSections.searchPattern || []);
+    step.richContent = normaliseRichContent(step.sections.searchPattern || []);
+    step.sectionLinks.searchPattern = {
+      mode: 'internal',
+      sourcePatternId: sourceEntry.patternId,
+      sourcePatternName: sourceEntry.patternName,
+      sourceStepId: sourceEntry.stepId,
+      sourceStepTitle: sourceEntry.stepTitle,
+      targetType: 'searchPattern',
+      tokenVersion: 1
+    };
+    showToast('Linked Search Pattern section.');
+  } else {
+    var sourceSubsectionId = String((findingSelect.value || '')).trim();
+    if (!sourceSubsectionId) {
+      showToast('Select a source finding section first.', true);
+      return;
+    }
+
+    var targetFinding = findStepSubsectionById(step, _contentLinkContext.subsectionId);
+    if (!targetFinding) {
+      showToast('Target finding section no longer exists.', true);
+      return;
+    }
+
+    if (sourceSubsectionId === CONTENT_LINK_CREATE_NEW_FINDING_VALUE) {
+      try {
+        var createdLink = await createLinkedFindingInSelectedStudy(sourceEntry, step, targetFinding);
+        targetFinding.linkMeta = {
+          mode: 'internal',
+          sourcePatternId: createdLink.sourcePatternId,
+          sourcePatternName: createdLink.sourcePatternName,
+          sourceStepId: createdLink.sourceStepId,
+          sourceStepTitle: createdLink.sourceStepTitle,
+          sourceSubsectionId: createdLink.sourceSubsectionId,
+          sourceSubsectionTitle: createdLink.sourceSubsectionTitle,
+          targetType: 'finding',
+          tokenVersion: 1
+        };
+        showToast('Created linked finding in selected step and linked both findings.');
+      } catch (err) {
+        showToast(String((err && err.message) || err || 'Failed to create linked finding.'), true);
+        return;
+      }
+
+      closeContentLinkModal();
+      renderStepList();
+      renderStepEditPanel();
+      return;
+    }
+
+    var sourceFinding = findSourceSubsectionById(sourceEntry, sourceSubsectionId);
+    if (!sourceFinding) {
+      showToast('Source finding section not found.', true);
+      return;
+    }
+
+    targetFinding.title = sourceFinding.title || targetFinding.title;
+    targetFinding.isRedFinding = Boolean(sourceFinding.isRedFinding);
+    targetFinding.content = normaliseRichContent(sourceFinding.content || []);
+    targetFinding.linkMeta = {
+      mode: 'internal',
+      sourcePatternId: sourceEntry.patternId,
+      sourcePatternName: sourceEntry.patternName,
+      sourceStepId: sourceEntry.stepId,
+      sourceStepTitle: sourceEntry.stepTitle,
+      sourceSubsectionId: sourceSubsectionId,
+      sourceSubsectionTitle: sourceFinding.title || 'Finding',
+      targetType: 'finding',
+      tokenVersion: 1
+    };
+    showToast('Linked finding section.');
+  }
+
+  closeContentLinkModal();
+  renderStepList();
+  renderStepEditPanel();
+}
+
+function unlinkContentLinkFromModal() {
+  if (!_contentLinkContext) return;
+  if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+
+  var step = editorSteps[activeStepIndex];
+  if (_contentLinkContext.type === 'searchPattern') {
+    if (step.sectionLinks && step.sectionLinks.searchPattern) {
+      delete step.sectionLinks.searchPattern;
+    }
+    showToast('Search Pattern link removed.');
+  } else {
+    var targetFinding = findStepSubsectionById(step, _contentLinkContext.subsectionId);
+    if (targetFinding) {
+      targetFinding.linkMeta = null;
+    }
+    showToast('Finding link removed.');
+  }
+
+  closeContentLinkModal();
+  renderStepList();
+  renderStepEditPanel();
 }
 
 function clearLinkedStep() {
@@ -1667,6 +2186,7 @@ async function prepareStepsForStorage(steps) {
       stepId: String((step && step.stepId) || '').trim() || makeStepId(),
       linkedStepId: (step && step.linkedStepId) || '',
       linkMeta: (step && step.linkMeta) ? JSON.parse(JSON.stringify(step.linkMeta)) : null,
+      sectionLinks: normaliseSectionLinksMeta(step && step.sectionLinks),
       sections: compressedSections,
       richContent: legacySearchPattern
     });
@@ -1699,8 +2219,10 @@ async function compressRichContentForStorage(richContent) {
     if (chunk.type === 'subsection') {
       out.push({
         type: 'subsection',
+        subsectionId: String(chunk.subsectionId || '').trim() || makeSubsectionId(),
         title: chunk.title || '',
         isRedFinding: Boolean(chunk.isRedFinding),
+        linkMeta: normaliseSectionLinkMeta(chunk.linkMeta),
         content: await compressRichContentForStorage(chunk.content || [])
       });
       continue;
@@ -2050,8 +2572,10 @@ function normaliseRichContent(richContent) {
     if (type === 'subsection') {
       return {
         type: 'subsection',
+        subsectionId: String(chunk?.subsectionId || chunk?.subsection_id || '').trim() || makeSubsectionId(),
         title: chunk?.title || chunk?.name || '',
         isRedFinding: Boolean(chunk?.isRedFinding || chunk?.is_red_finding || chunk?.findingRed),
+        linkMeta: normaliseSectionLinkMeta(chunk?.linkMeta || chunk?.link_meta || null),
         content: normaliseRichContent(chunk?.content || [])
       };
     }

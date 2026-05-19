@@ -11,6 +11,10 @@ function _makeStepId() {
   return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
+function _makeSubsectionId() {
+  return 'sub_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
 function _normaliseGoalSeconds(rawGoalSeconds, rawGoalMinutes) {
   var fromSeconds = Number(rawGoalSeconds);
   if (Number.isFinite(fromSeconds) && fromSeconds > 0) return Math.round(fromSeconds);
@@ -47,6 +51,31 @@ function _normaliseLinkMeta(raw) {
   return out;
 }
 
+function _normaliseSectionLinkMeta(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    mode: raw.mode === 'snapshot' ? 'snapshot' : 'internal',
+    sourcePatternId: String(raw.sourcePatternId || '').trim(),
+    sourcePatternName: String(raw.sourcePatternName || '').trim(),
+    sourceStepId: String(raw.sourceStepId || '').trim(),
+    sourceStepTitle: String(raw.sourceStepTitle || '').trim(),
+    sourceSubsectionId: String(raw.sourceSubsectionId || '').trim(),
+    sourceSubsectionTitle: String(raw.sourceSubsectionTitle || '').trim(),
+    targetType: String(raw.targetType || '').trim(),
+    tokenVersion: Number(raw.tokenVersion || 1)
+  };
+}
+
+function _normaliseSectionLinks(raw) {
+  var out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  if (raw.searchPattern) {
+    var link = _normaliseSectionLinkMeta(raw.searchPattern);
+    if (link && link.sourceStepId) out.searchPattern = link;
+  }
+  return out;
+}
+
 function _getStepLinkIds(step) {
   var ids = [];
   var primary = String((step && step.stepId) || '').trim();
@@ -60,8 +89,10 @@ function normaliseSubsectionChunk(chunk) {
   var content = Array.isArray(chunk && chunk.content) ? chunk.content : [];
   return {
     type: 'subsection',
+    subsectionId: String((chunk && (chunk.subsectionId || chunk.subsection_id)) || '').trim() || _makeSubsectionId(),
     title: (chunk && (chunk.title || chunk.name)) || '',
     isRedFinding: Boolean(chunk && (chunk.isRedFinding || chunk.is_red_finding || chunk.findingRed)),
+    linkMeta: _normaliseSectionLinkMeta(chunk && (chunk.linkMeta || chunk.link_meta)),
     content: cloneRichContentForStorage(content)
   };
 }
@@ -174,6 +205,7 @@ function _normalisePatternDoc(doc) {
       richContent: richContent,
       linkedStepId: (step && (step.linkedStepId || step.linked_step_id)) || '',
       linkMeta: _normaliseLinkMeta(step && (step.linkMeta || step.link_meta)),
+      sectionLinks: _normaliseSectionLinks(step && (step.sectionLinks || step.section_links)),
       sections: normaliseStepSections(step && step.sections, richContent)
     };
   });
@@ -263,18 +295,41 @@ function _areStepsEquivalent(a, b) {
 
 function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
   var linkedMap = {};
+  var sourceStepMap = {};
+  var sourceFindingMap = {};
+
   (sourceSteps || []).forEach(function(step) {
     var linkIds = _getStepLinkIds(step);
-    if (!linkIds.length) return;
+    var stepId = String((step && step.stepId) || '').trim() || _makeStepId();
 
     var sharedData = {
       stepTitle: (step && step.stepTitle) || '',
       isRedStep: Boolean(step && step.isRedStep),
-      stepId: String((step && step.stepId) || '').trim() || _makeStepId(),
+      stepId: stepId,
       richContent: cloneRichContentForStorage(step && step.richContent),
       sections: cloneStepSectionsForStorage(step && step.sections, step && step.richContent),
-      linkMeta: _normaliseLinkMeta(step && step.linkMeta)
+      linkMeta: _normaliseLinkMeta(step && step.linkMeta),
+      sectionLinks: _normaliseSectionLinks(step && step.sectionLinks)
     };
+
+    sourceStepMap[stepId] = sharedData;
+
+    var findings = (sharedData.sections && sharedData.sections.dontMissPathology) || [];
+    findings.forEach(function(item) {
+      if (!item || item.type !== 'subsection') return;
+      var subsectionId = String(item.subsectionId || '').trim();
+      if (!subsectionId) return;
+      sourceFindingMap[subsectionId] = {
+        subsectionId: subsectionId,
+        title: item.title || '',
+        isRedFinding: Boolean(item.isRedFinding),
+        content: cloneRichContentForStorage(item.content || []),
+        sourceStepId: stepId,
+        sourceStepTitle: sharedData.stepTitle || ''
+      };
+    });
+
+    if (!linkIds.length) return;
 
     linkIds.forEach(function(linkId) {
       linkedMap[linkId] = sharedData;
@@ -282,7 +337,9 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
   });
 
   var linkedIds = Object.keys(linkedMap);
-  if (!linkedIds.length) return Promise.resolve(0);
+  var sourceStepIds = Object.keys(sourceStepMap);
+  var sourceFindingIds = Object.keys(sourceFindingMap);
+  if (!linkedIds.length && !sourceStepIds.length && !sourceFindingIds.length) return Promise.resolve(0);
 
   var patternsToUpdate = [];
   (allPatterns || []).forEach(function(pattern) {
@@ -292,24 +349,64 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
     var changed = false;
     var newSteps = steps.map(function(step) {
       var currentKey = String((step && step.linkedStepId) || '').trim();
-      if (!currentKey || !linkedMap[currentKey]) return step;
-
-      var shared = linkedMap[currentKey];
+      var stepId = String((step && step.stepId) || '').trim();
       var nextStep = Object.assign({}, step, {
-        stepTitle: shared.stepTitle,
-        isRedStep: Boolean(shared.isRedStep),
-        stepId: String((step && step.stepId) || '').trim() || shared.stepId || _makeStepId(),
-        richContent: cloneRichContentForStorage(shared.richContent),
-        linkedStepId: String((step && step.linkedStepId) || '').trim() || currentKey,
-        linkMeta: _normaliseLinkMeta(step && step.linkMeta) || shared.linkMeta || null,
-        sections: cloneStepSectionsForStorage(shared.sections, shared.richContent)
+        stepId: stepId || _makeStepId(),
+        sectionLinks: _normaliseSectionLinks(step && step.sectionLinks)
       });
+
+      if (currentKey && linkedMap[currentKey]) {
+        var shared = linkedMap[currentKey];
+        nextStep = Object.assign({}, nextStep, {
+          stepTitle: shared.stepTitle,
+          isRedStep: Boolean(shared.isRedStep),
+          stepId: String((nextStep && nextStep.stepId) || '').trim() || shared.stepId || _makeStepId(),
+          richContent: cloneRichContentForStorage(shared.richContent),
+          linkedStepId: String((step && step.linkedStepId) || '').trim() || currentKey,
+          linkMeta: _normaliseLinkMeta(step && step.linkMeta) || shared.linkMeta || null,
+          sections: cloneStepSectionsForStorage(shared.sections, shared.richContent)
+        });
+      }
+
+      var nextSections = cloneStepSectionsForStorage(nextStep.sections, nextStep.richContent || []);
+      var nextSectionLinks = _normaliseSectionLinks(nextStep.sectionLinks);
+
+      var searchPatternLink = nextSectionLinks.searchPattern;
+      if (searchPatternLink && searchPatternLink.sourceStepId && sourceStepMap[searchPatternLink.sourceStepId]) {
+        var sourceStep = sourceStepMap[searchPatternLink.sourceStepId];
+        nextSections.searchPattern = cloneRichContentForStorage((sourceStep.sections && sourceStep.sections.searchPattern) || []);
+        nextStep.richContent = cloneRichContentForStorage(nextSections.searchPattern);
+      }
+
+      var findings = cloneRichContentForStorage(nextSections.dontMissPathology || []);
+      findings = findings.map(function(item) {
+        if (!item || item.type !== 'subsection') return item;
+        var linkMeta = _normaliseSectionLinkMeta(item.linkMeta);
+        if (!linkMeta || !linkMeta.sourceSubsectionId || !sourceFindingMap[linkMeta.sourceSubsectionId]) {
+          return item;
+        }
+        var sourceFinding = sourceFindingMap[linkMeta.sourceSubsectionId];
+        return Object.assign({}, item, {
+          title: sourceFinding.title || item.title,
+          isRedFinding: Boolean(sourceFinding.isRedFinding),
+          content: cloneRichContentForStorage(sourceFinding.content || []),
+          linkMeta: Object.assign({}, linkMeta, {
+            sourceStepId: sourceFinding.sourceStepId,
+            sourceStepTitle: sourceFinding.sourceStepTitle,
+            sourceSubsectionTitle: sourceFinding.title || linkMeta.sourceSubsectionTitle || ''
+          })
+        });
+      });
+      nextSections.dontMissPathology = findings;
+      nextStep.sections = nextSections;
+      nextStep.sectionLinks = nextSectionLinks;
 
       var sameTitle = (step.stepTitle || '') === nextStep.stepTitle;
       var sameRed = Boolean(step && step.isRedStep) === Boolean(nextStep && nextStep.isRedStep);
       var sameRich = JSON.stringify(step.richContent || []) === JSON.stringify(nextStep.richContent || []);
       var sameSections = JSON.stringify(normaliseStepSections(step.sections, step.richContent || [])) === JSON.stringify(nextStep.sections || {});
-      if (!sameTitle || !sameRed || !sameRich || !sameSections) changed = true;
+      var sameSectionLinks = JSON.stringify(_normaliseSectionLinks(step && step.sectionLinks)) === JSON.stringify(nextStep.sectionLinks || {});
+      if (!sameTitle || !sameRed || !sameRich || !sameSections || !sameSectionLinks) changed = true;
 
       return nextStep;
     });

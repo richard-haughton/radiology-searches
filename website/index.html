@@ -463,6 +463,32 @@
     </div>
   </div>
 
+  <!-- CONTENT LINK MODAL -->
+  <div id="modal-content-link" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-content-link-title">
+    <div class="modal-card">
+      <div class="editor-header" style="padding: 0 0 10px 0; border: none;">
+        <h3 id="modal-content-link-title">Link Section Content</h3>
+        <button id="btn-content-link-close" class="btn-icon" aria-label="Close">&#x2715;</button>
+      </div>
+      <p id="content-link-target-label" class="settings-subtitle" style="margin-bottom: 10px;"></p>
+      <label class="form-label">Source Pattern
+        <select id="content-link-pattern-select" class="form-input"></select>
+      </label>
+      <label class="form-label">Source Step
+        <select id="content-link-step-select" class="form-input"></select>
+      </label>
+      <label class="form-label" id="content-link-finding-wrap" style="display:none;">Source Finding
+        <select id="content-link-finding-select" class="form-input"></select>
+      </label>
+      <div class="section-link-current" id="content-link-current" style="margin-top: 4px; margin-bottom: 2px;"></div>
+      <div class="modal-actions">
+        <button id="btn-content-link-apply" class="btn btn-accent">Apply Link</button>
+        <button id="btn-content-link-unlink" class="btn btn-ghost">Unlink</button>
+        <button id="btn-content-link-cancel" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- IMAGE LIGHTBOX -->
   <div id="lightbox" class="lightbox" style="display:none" role="dialog" aria-modal="true" aria-label="Image preview">
     <button id="lightbox-close" class="lightbox-close" aria-label="Close">&#x2715;</button>

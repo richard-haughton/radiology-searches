@@ -356,18 +356,84 @@ function resolveLinkedStep(step) {
   }
 
   const linkedStepId = String(step.linkedStepId || '').trim();
-  if (!linkedStepId) return normaliseStepForViewer(step);
+  if (!linkedStepId) return resolveSectionLinksForViewer(normaliseStepForViewer(step));
 
   const shared = findLinkedStepData(linkedStepId);
-  if (!shared) return normaliseStepForViewer(step);
+  if (!shared) return resolveSectionLinksForViewer(normaliseStepForViewer(step));
 
-  return {
+  return resolveSectionLinksForViewer({
     stepTitle: shared.stepTitle,
     isRedStep: Boolean(shared.isRedStep),
     richContent: shared.richContent,
     linkedStepId,
+    sectionLinks: normaliseSectionLinksForViewer(step.sectionLinks),
     sections: shared.sections
+  });
+}
+
+function normaliseSectionLinkForViewer(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    mode: raw.mode === 'snapshot' ? 'snapshot' : 'internal',
+    sourcePatternId: String(raw.sourcePatternId || '').trim(),
+    sourcePatternName: String(raw.sourcePatternName || '').trim(),
+    sourceStepId: String(raw.sourceStepId || '').trim(),
+    sourceStepTitle: String(raw.sourceStepTitle || '').trim(),
+    sourceSubsectionId: String(raw.sourceSubsectionId || '').trim(),
+    sourceSubsectionTitle: String(raw.sourceSubsectionTitle || '').trim(),
+    targetType: String(raw.targetType || '').trim(),
+    tokenVersion: Number(raw.tokenVersion || 1)
   };
+}
+
+function normaliseSectionLinksForViewer(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  if (raw.searchPattern) {
+    const link = normaliseSectionLinkForViewer(raw.searchPattern);
+    if (link && link.sourceStepId) out.searchPattern = link;
+  }
+  return out;
+}
+
+function findSubsectionByIdForViewer(step, subsectionId) {
+  if (!step || !subsectionId) return null;
+  const sections = normaliseStepSectionsSafe(step.sections, step.richContent || []);
+  const findings = normaliseRichContent(sections.dontMissPathology || []);
+  for (const item of findings) {
+    if (!item || item.type !== 'subsection') continue;
+    if (String(item.subsectionId || '').trim() === String(subsectionId).trim()) return item;
+  }
+  return null;
+}
+
+function resolveSectionLinksForViewer(step) {
+  const resolved = normaliseStepForViewer(step);
+  resolved.sectionLinks = normaliseSectionLinksForViewer(resolved.sectionLinks);
+
+  const searchPatternLink = resolved.sectionLinks.searchPattern;
+  if (searchPatternLink && searchPatternLink.sourceStepId) {
+    const sourceStep = findLinkedStepData(searchPatternLink.sourceStepId);
+    if (sourceStep && sourceStep.sections) {
+      resolved.sections.searchPattern = normaliseRichContent(sourceStep.sections.searchPattern || []);
+      resolved.richContent = normaliseRichContent(resolved.sections.searchPattern || []);
+    }
+  }
+
+  const findings = normaliseRichContent(resolved.sections.dontMissPathology || []).map(item => {
+    if (!item || item.type !== 'subsection' || !item.linkMeta || !item.linkMeta.sourceSubsectionId) return item;
+    const sourceStep = findLinkedStepData(item.linkMeta.sourceStepId || '');
+    const sourceSub = findSubsectionByIdForViewer(sourceStep, item.linkMeta.sourceSubsectionId);
+    if (!sourceSub) return item;
+    return Object.assign({}, item, {
+      title: sourceSub.title || item.title,
+      isRedFinding: Boolean(sourceSub.isRedFinding),
+      content: normaliseRichContent(sourceSub.content || [])
+    });
+  });
+  resolved.sections.dontMissPathology = findings;
+
+  return resolved;
 }
 
 function getStepLinkKeyForViewer(step) {
@@ -480,6 +546,7 @@ function normaliseStepForViewer(step) {
     stepId: (step && step.stepId) || '',
     linkedStepId: (step && step.linkedStepId) || '',
     linkMeta: (step && step.linkMeta) || null,
+    sectionLinks: normaliseSectionLinksForViewer(step && step.sectionLinks),
     sections: normaliseStepSectionsSafe(step && step.sections, fallback)
   };
 }
@@ -581,6 +648,7 @@ function normaliseSubsectionEntries(content) {
       entries.push({
         title: (chunk.title || '').trim() || `Subsection ${entries.length + 1}`,
         isRedFinding: Boolean(chunk.isRedFinding),
+        linkMeta: normaliseSectionLinkForViewer(chunk.linkMeta || null),
         content: normaliseRichContent(chunk.content || [])
       });
       return;
@@ -589,6 +657,7 @@ function normaliseSubsectionEntries(content) {
       entries.push({
         title: `Subsection ${entries.length + 1}`,
         isRedFinding: false,
+        linkMeta: null,
         content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
       });
       return;
@@ -597,6 +666,7 @@ function normaliseSubsectionEntries(content) {
       entries.push({
         title: `Subsection ${entries.length + 1}`,
         isRedFinding: false,
+        linkMeta: null,
         content: [chunk]
       });
       return;
@@ -605,6 +675,7 @@ function normaliseSubsectionEntries(content) {
       entries.push({
         title: 'Subsection 1',
         isRedFinding: false,
+        linkMeta: null,
         content: []
       });
     }
@@ -650,8 +721,16 @@ function renderNestedSubsections(container, content) {
     btn.type = 'button';
     btn.className = 'step-subsection-toggle';
     btn.setAttribute('aria-expanded', 'false');
+    const hasFindingLink = Boolean(
+      entry.linkMeta
+      && (entry.linkMeta.sourceSubsectionId || entry.linkMeta.sourceStepId || entry.linkMeta.sourcePatternId)
+    );
+    const linkedMeta = hasFindingLink
+      ? ((entry.linkMeta.sourcePatternName || 'Pattern') + ' / ' + (entry.linkMeta.sourceStepTitle || 'Step'))
+      : '';
     btn.innerHTML = `
       <span>${entry.title || `Subsection ${idx + 1}`}</span>
+      ${hasFindingLink ? `<span class="step-subsection-linked-meta">Linked to: ${escapeHtml(linkedMeta)}</span>` : ''}
       <span class="step-subsection-chevron" aria-hidden="true">▸</span>
     `;
 
@@ -1288,8 +1367,10 @@ function normaliseRichContent(richContent) {
     if (type === 'subsection') {
       return {
         type: 'subsection',
+        subsectionId: String(chunk?.subsectionId || chunk?.subsection_id || '').trim(),
         title: chunk?.title || chunk?.name || '',
         isRedFinding: Boolean(chunk?.isRedFinding || chunk?.is_red_finding || chunk?.findingRed),
+        linkMeta: normaliseSectionLinkForViewer(chunk?.linkMeta || chunk?.link_meta || null),
         content: normaliseRichContent(chunk?.content || [])
       };
     }
