@@ -37,6 +37,7 @@ function bindReportGeneratorEvents() {
   var savePatternBtn = document.getElementById('btn-save-pattern-report-config');
   var generateBtn = document.getElementById('btn-generate-report');
   var copyBtn = document.getElementById('btn-copy-report');
+  var toggleTemplateBtn = document.getElementById('btn-toggle-template-section');
 
   if (importBtn && importInput) {
     importBtn.addEventListener('click', function() {
@@ -62,6 +63,29 @@ function bindReportGeneratorEvents() {
   if (savePatternBtn) savePatternBtn.addEventListener('click', handleSavePatternReportConfig);
   if (generateBtn) generateBtn.addEventListener('click', handleGenerateReport);
   if (copyBtn) copyBtn.addEventListener('click', handleCopyReportOutput);
+  if (toggleTemplateBtn) toggleTemplateBtn.addEventListener('click', handleToggleTemplateSection);
+
+  // Restore collapse state from localStorage
+  var card = document.querySelector('.report-sidebar-card');
+  if (card && localStorage.getItem('reportTemplateSectionCollapsed') === '1') {
+    card.classList.add('template-collapsed');
+    if (toggleTemplateBtn) {
+      toggleTemplateBtn.setAttribute('aria-expanded', 'false');
+      toggleTemplateBtn.title = 'Expand template section';
+    }
+  }
+}
+
+function handleToggleTemplateSection() {
+  var card = document.querySelector('.report-sidebar-card');
+  var btn = document.getElementById('btn-toggle-template-section');
+  if (!card) return;
+  var collapsed = card.classList.toggle('template-collapsed');
+  localStorage.setItem('reportTemplateSectionCollapsed', collapsed ? '1' : '0');
+  if (btn) {
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    btn.title = collapsed ? 'Expand template section' : 'Collapse template section';
+  }
 }
 
 function subscribeReportTemplateListForSelectedPattern() {
@@ -131,7 +155,11 @@ function refreshReportPatternContext() {
   var cfg = (pattern.reportConfig && typeof pattern.reportConfig === 'object') ? pattern.reportConfig : {};
 
   var templateId = String(cfg.selectedTemplateId || '').trim();
-  if (templateId) templateSelectEl.value = templateId;
+  // Only auto-select the configured template when the dropdown is currently blank.
+  // Do not override a template the user has already selected or is editing.
+  if (templateId && !templateSelectEl.value) {
+    templateSelectEl.value = templateId;
+  }
 }
 
 function getReportSettingsSnapshotSafe() {
@@ -202,6 +230,8 @@ function populateTemplateEditorFromSelection() {
 }
 
 function handleTemplateSelectionChange() {
+  var select = document.getElementById('report-template-select');
+  _pendingTemplateSelection = select ? String(select.value || '').trim() : '';
   populateTemplateEditorFromSelection();
 }
 

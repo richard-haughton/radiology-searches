@@ -220,7 +220,14 @@
       <div class="report-layout">
         <aside class="report-sidebar">
           <div class="report-sidebar-card">
-            <h3>Context</h3>
+            <div class="report-sidebar-card-header">
+              <h3>Templates</h3>
+              <button id="btn-toggle-template-section" class="btn-icon report-template-toggle" type="button" title="Collapse template section" aria-expanded="true" aria-controls="report-template-collapsible">
+                <span class="report-template-toggle-chevron">&#9650;</span>
+              </button>
+            </div>
+
+            <h4 class="report-context-label">Context</h4>
             <p id="report-pattern-context" class="report-muted">No search pattern selected.</p>
 
             <label class="form-label" for="report-template-select">Template</label>
@@ -228,23 +235,25 @@
               <option value="">No template</option>
             </select>
 
-            <label class="form-label" for="manual-template-name">Template name</label>
-            <input id="manual-template-name" class="form-input" type="text" placeholder="Template name">
+            <div id="report-template-collapsible" class="report-template-collapsible">
+              <label class="form-label" for="manual-template-name">Template name</label>
+              <input id="manual-template-name" class="form-input" type="text" placeholder="Template name">
 
-            <label class="form-label" for="manual-template-input">Template body</label>
-            <textarea id="manual-template-input" class="form-input" rows="5" placeholder="Paste or type template text..."></textarea>
+              <label class="form-label" for="manual-template-input">Template body</label>
+              <textarea id="manual-template-input" class="form-input" rows="5" placeholder="Paste or type template text..."></textarea>
 
-            <div class="report-template-actions">
-              <button id="btn-save-manual-template" class="btn btn-ghost btn-sm" type="button">Save / Update template</button>
-              <button id="btn-delete-manual-template" class="btn btn-danger btn-sm" type="button">Delete selected template</button>
+              <div class="report-template-actions">
+                <button id="btn-save-manual-template" class="btn btn-ghost btn-sm" type="button">Save / Update template</button>
+                <button id="btn-delete-manual-template" class="btn btn-danger btn-sm" type="button">Delete selected template</button>
+              </div>
+
+              <button id="btn-report-template-import" class="btn btn-ghost btn-sm" type="button">Import template</button>
+              <input id="report-template-import-input" type="file" accept=".rtf,.txt" style="display:none">
+
+              <hr class="settings-divider">
+
+              <button id="btn-save-pattern-report-config" class="btn btn-ghost btn-sm" type="button">Save pattern config</button>
             </div>
-
-            <button id="btn-report-template-import" class="btn btn-ghost btn-sm" type="button">Import template</button>
-            <input id="report-template-import-input" type="file" accept=".rtf,.txt" style="display:none">
-
-            <hr class="settings-divider">
-
-            <button id="btn-save-pattern-report-config" class="btn btn-ghost btn-sm" type="button">Save pattern config</button>
           </div>
         </aside>
 
