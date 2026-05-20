@@ -214,6 +214,7 @@ function buildStepPrompt(input) {
   var stepTitle = String(input.stepTitle || '').trim();
   var stepContent = String(input.stepContent || '').trim();
   var targetSection = String(input.targetSection || 'searchPattern').trim();
+  var targetLabel = String(input.targetLabel || targetSection || 'searchPattern').trim();
 
   return [
     'You are a radiology assistant refining one section of a search-pattern step.',
@@ -224,6 +225,7 @@ function buildStepPrompt(input) {
     '- Tone preset: ' + tone + '.',
     '- Mode: ' + mode + ' (rewrite = replace, append = add useful content).',
     '- Target section: ' + targetSection + ' (only modify this section\'s content).',
+    '- Target detail: ' + targetLabel + '.',
     taskPrompt ? ('- User instruction: ' + taskPrompt) : '- No extra user instruction provided.',
     '',
     'Current step title:',

@@ -16,7 +16,9 @@ var _draggingStepIndex = null;
 var _contentLinkContext = null;
 var CONTENT_LINK_CREATE_NEW_FINDING_VALUE = '__create_new_from_current__';
 var activeStepSectionKey = 'dontMissPathology';
-var _stepAiTargetSection = 'dontMissPathology';
+var _stepAiTargetType = 'searchPattern';
+var _stepAiTargetFindingId = '';
+var _stepAiNewFindingTitleDraft = '';
 var EDITOR_STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var EDITOR_STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
@@ -430,7 +432,9 @@ function closeEditor() {
   editorSteps = [];
   activeStepIndex = null;
   activeStepSectionKey = 'dontMissPathology';
-  _stepAiTargetSection = 'dontMissPathology';
+  _stepAiTargetType = 'searchPattern';
+  _stepAiTargetFindingId = '';
+  _stepAiNewFindingTitleDraft = '';
   _stepAiUndoSnapshot = null;
   _contentLinkContext = null;
 }
@@ -897,10 +901,22 @@ function renderStepEditPanel() {
     </div>
 
     <div class="step-ai-card">
-      <label class="form-label">AI Target Section
-        <select id="step-ai-section" class="form-input">
-          ${EDITOR_STEP_SECTION_ORDER.map(key => `<option value="${key}">${EDITOR_STEP_SECTION_LABELS[key] || key}</option>`).join('')}
+      <label class="form-label">AI Modify Target
+        <select id="step-ai-target" class="form-input">
+          <option value="searchPattern">Search Pattern Section</option>
+          <option value="existingFinding">Specific Finding</option>
+          <option value="newFinding">Create New Finding</option>
         </select>
+      </label>
+
+      <label class="form-label" id="step-ai-finding-wrap" style="display:none;">
+        <span>Finding To Modify</span>
+        <select id="step-ai-finding" class="form-input"></select>
+      </label>
+
+      <label class="form-label" id="step-ai-new-finding-title-wrap" style="display:none;">
+        <span>New Finding Title (optional)</span>
+        <input id="step-ai-new-finding-title" type="text" class="form-input" placeholder="Example: Pulmonary arteries">
       </label>
 
       <label class="form-label">AI Instruction
@@ -997,14 +1013,81 @@ function renderStepEditPanel() {
     }
   }
 
-  // AI section select and buttons are always rendered — wire them up here regardless of section tab
-  const aiSectionSelect = document.getElementById('step-ai-section');
-  if (aiSectionSelect) {
-    aiSectionSelect.value = _stepAiTargetSection;
-    aiSectionSelect.addEventListener('change', function() {
-      _stepAiTargetSection = this.value;
+  // AI target controls are always rendered regardless of section tab.
+  const aiTargetSelect = document.getElementById('step-ai-target');
+  const aiFindingWrap = document.getElementById('step-ai-finding-wrap');
+  const aiFindingSelect = document.getElementById('step-ai-finding');
+  const aiNewFindingTitleWrap = document.getElementById('step-ai-new-finding-title-wrap');
+  const aiNewFindingTitleInput = document.getElementById('step-ai-new-finding-title');
+
+  const allFindings = getFindingsForSourceEntry({ sections: step.sections, richContent: step.richContent });
+  const findingOptions = allFindings.map(function(item, idx) {
+    return {
+      id: String(item.subsectionId || '').trim(),
+      title: String(item.title || '').trim() || ('Findings Section ' + (idx + 1))
+    };
+  }).filter(function(item) { return item.id; });
+
+  if (_stepAiTargetType === 'existingFinding' && !findingOptions.length) {
+    _stepAiTargetType = 'newFinding';
+  }
+  if (_stepAiTargetType !== 'searchPattern' && _stepAiTargetType !== 'existingFinding' && _stepAiTargetType !== 'newFinding') {
+    _stepAiTargetType = 'searchPattern';
+  }
+
+  if (!findingOptions.some(function(option) { return option.id === _stepAiTargetFindingId; })) {
+    _stepAiTargetFindingId = findingOptions.length ? findingOptions[0].id : '';
+  }
+
+  function refreshAiTargetControls() {
+    var currentType = _stepAiTargetType || 'searchPattern';
+
+    if (aiTargetSelect) aiTargetSelect.value = currentType;
+
+    if (aiFindingWrap) {
+      aiFindingWrap.style.display = currentType === 'existingFinding' ? '' : 'none';
+    }
+    if (aiFindingSelect) {
+      aiFindingSelect.innerHTML = '';
+      findingOptions.forEach(function(option) {
+        var opt = document.createElement('option');
+        opt.value = option.id;
+        opt.textContent = option.title;
+        aiFindingSelect.appendChild(opt);
+      });
+      aiFindingSelect.disabled = !findingOptions.length;
+      if (_stepAiTargetFindingId) aiFindingSelect.value = _stepAiTargetFindingId;
+    }
+
+    if (aiNewFindingTitleWrap) {
+      aiNewFindingTitleWrap.style.display = currentType === 'newFinding' ? '' : 'none';
+    }
+    if (aiNewFindingTitleInput) {
+      aiNewFindingTitleInput.value = _stepAiNewFindingTitleDraft || '';
+    }
+  }
+
+  if (aiTargetSelect) {
+    aiTargetSelect.addEventListener('change', function() {
+      _stepAiTargetType = this.value;
+      if (_stepAiTargetType === 'existingFinding' && !findingOptions.length) {
+        _stepAiTargetType = 'newFinding';
+      }
+      refreshAiTargetControls();
     });
   }
+  if (aiFindingSelect) {
+    aiFindingSelect.addEventListener('change', function() {
+      _stepAiTargetFindingId = this.value;
+    });
+  }
+  if (aiNewFindingTitleInput) {
+    aiNewFindingTitleInput.addEventListener('input', function() {
+      _stepAiNewFindingTitleDraft = this.value;
+    });
+  }
+
+  refreshAiTargetControls();
 
   document.getElementById('btn-ai-rewrite-step').addEventListener('click', () => handleAiStepModify('rewrite'));
   document.getElementById('btn-ai-append-step').addEventListener('click', () => handleAiStepModify('append'));
@@ -1042,10 +1125,19 @@ async function handleAiStepModify(mode) {
   const step = editorSteps[activeStepIndex];
   const taskPrompt = ((document.getElementById('step-ai-prompt') || {}).value || '').trim();
   const tonePreset = (document.getElementById('step-ai-tone') || {}).value || 'concise';
-  const aiTargetSection = _stepAiTargetSection || 'dontMissPathology';
+  const aiTargetType = _stepAiTargetType || 'searchPattern';
+  const requestedFindingId = String(((document.getElementById('step-ai-finding') || {}).value || _stepAiTargetFindingId || '')).trim();
+  const newFindingTitleInput = ((document.getElementById('step-ai-new-finding-title') || {}).value || _stepAiNewFindingTitleDraft || '').trim();
+  _stepAiTargetFindingId = requestedFindingId;
+  _stepAiNewFindingTitleDraft = newFindingTitleInput;
 
   if (!taskPrompt && mode === 'append') {
     showToast('Add an AI instruction before append.', true);
+    return;
+  }
+
+  if (aiTargetType === 'newFinding' && !taskPrompt) {
+    showToast('Add an AI instruction to create a new finding.', true);
     return;
   }
 
@@ -1061,10 +1153,28 @@ async function handleAiStepModify(mode) {
   setStepAiButtonsBusy(true, mode);
 
   try {
-    // Get content from the target section, not the current display section
-    const targetSectionContent = step.sections && step.sections[aiTargetSection]
-      ? step.sections[aiTargetSection]
-      : (aiTargetSection === 'searchPattern' ? step.richContent : []);
+    if (!step.sections) {
+      step.sections = normaliseStepSectionsForEditor(null, step.richContent || []);
+    }
+
+    const resolvedTargetSection = aiTargetType === 'searchPattern' ? 'searchPattern' : 'dontMissPathology';
+    const findingToModify = aiTargetType === 'existingFinding'
+      ? findStepSubsectionById(step, requestedFindingId)
+      : null;
+
+    if (aiTargetType === 'existingFinding' && !findingToModify) {
+      throw new Error('Select a valid finding to modify.');
+    }
+
+    const targetSectionContent = aiTargetType === 'searchPattern'
+      ? (step.sections.searchPattern && step.sections.searchPattern.length ? step.sections.searchPattern : (step.richContent || []))
+      : (findingToModify ? (findingToModify.content || []) : []);
+
+    const targetLabel = aiTargetType === 'searchPattern'
+      ? 'Search Pattern Section'
+      : (aiTargetType === 'existingFinding'
+        ? ('Finding: ' + (findingToModify.title || 'Untitled Finding'))
+        : ('New Finding: ' + (newFindingTitleInput || 'Untitled Finding')));
 
     const response = await modifyStepWithAi({
       provider,
@@ -1074,7 +1184,8 @@ async function handleAiStepModify(mode) {
       taskPrompt,
       stepTitle: step.stepTitle || '',
       stepContent: richContentToPlainText(targetSectionContent),
-      targetSection: aiTargetSection
+      targetSection: resolvedTargetSection,
+      targetLabel: targetLabel
     });
 
     const nextStep = response && response.step ? response.step : null;
@@ -1092,7 +1203,7 @@ async function handleAiStepModify(mode) {
       step: originalSnapshot
     };
 
-    // Apply AI result to the target section, not the currently displayed section
+    // Apply AI result to the selected target.
     const updatedStep = editorSteps[activeStepIndex];
     updatedStep.stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
 
@@ -1100,23 +1211,30 @@ async function handleAiStepModify(mode) {
       updatedStep.sections = normaliseStepSectionsForEditor(null, updatedStep.richContent || []);
     }
 
-    if (mode === 'append' && isSubsectionSectionKey(aiTargetSection)) {
-      // For Findings (subsection-based sections), append AI result as a new subsection
-      const existingSubs = normaliseRichContent(updatedStep.sections[aiTargetSection] || []);
-      const subsectionTitle = (taskPrompt ? taskPrompt.slice(0, 60).trim() : '') || 'AI Addition';
-      const newSub = {
-        type: 'subsection',
-        title: subsectionTitle,
-        content: plainTextToRichContent(nextText)
-      };
-      updatedStep.sections[aiTargetSection] = existingSubs.concat([newSub]);
-    } else {
-      updatedStep.sections[aiTargetSection] = plainTextToRichContent(nextText);
-    }
-
-    // Also keep searchPattern in sync with richContent for compatibility
-    if (aiTargetSection === 'searchPattern') {
+    if (aiTargetType === 'searchPattern') {
+      updatedStep.sections.searchPattern = plainTextToRichContent(nextText);
       updatedStep.richContent = plainTextToRichContent(nextText).slice();
+    } else if (aiTargetType === 'existingFinding') {
+      var findingInUpdatedStep = findStepSubsectionById(updatedStep, requestedFindingId);
+      if (!findingInUpdatedStep) {
+        throw new Error('Selected finding could not be found while applying AI update.');
+      }
+      findingInUpdatedStep.content = plainTextToRichContent(nextText);
+    } else {
+      const existingSubs = ensureSubsectionMetadata(updatedStep.sections.dontMissPathology || []);
+      const fromAiTitle = String(nextStep.stepTitle || '').trim();
+      const fallbackTitle = (taskPrompt ? taskPrompt.slice(0, 60).trim() : '') || 'New Finding';
+      const subsectionTitle = newFindingTitleInput || fromAiTitle || fallbackTitle;
+      existingSubs.push({
+        type: 'subsection',
+        subsectionId: makeSubsectionId(),
+        title: subsectionTitle,
+        isRedFinding: false,
+        linkMeta: null,
+        content: plainTextToRichContent(nextText)
+      });
+      updatedStep.sections.dontMissPathology = existingSubs;
+      _stepAiTargetFindingId = String(existingSubs[existingSubs.length - 1].subsectionId || '').trim();
     }
 
     renderStepList();
