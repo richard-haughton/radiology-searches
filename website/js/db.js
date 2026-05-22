@@ -489,6 +489,24 @@ function subscribeReportTemplates(uid, patternId, callback) {
     });
 }
 
+function subscribeAllReportTemplates(uid, callback) {
+  if (!uid) { callback([]); return function() {}; }
+  return _reportTemplatesRef(uid)
+    .onSnapshot(function(snap) {
+      var templates = snap.docs.map(function(d) {
+        return Object.assign({ id: d.id }, _normaliseReportTemplateDoc(d.data() || {}));
+      });
+      templates.sort(function(a, b) {
+        var aMs = (a && a.updatedAt && typeof a.updatedAt.toMillis === 'function') ? a.updatedAt.toMillis() : 0;
+        var bMs = (b && b.updatedAt && typeof b.updatedAt.toMillis === 'function') ? b.updatedAt.toMillis() : 0;
+        return bMs - aMs;
+      });
+      callback(templates);
+    }, function(err) {
+      console.error('subscribeAllReportTemplates error:', err);
+    });
+}
+
 function upsertReportTemplate(uid, templateId, data) {
   var payload = {
     name: String(data && data.name || '').trim(),

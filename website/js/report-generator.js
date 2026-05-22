@@ -34,7 +34,8 @@ function bindReportGeneratorEvents() {
   var templateBodyInput = document.getElementById('manual-template-input');
   var saveManualTemplateBtn = document.getElementById('btn-save-manual-template');
   var deleteManualTemplateBtn = document.getElementById('btn-delete-manual-template');
-  var savePatternBtn = document.getElementById('btn-save-pattern-report-config');
+  var newManualTemplateBtn = document.getElementById('btn-new-manual-template');
+  var appendTemplateBtn = document.getElementById('btn-append-template-to-body');
   var generateBtn = document.getElementById('btn-generate-report');
   var copyBtn = document.getElementById('btn-copy-report');
   var toggleTemplateBtn = document.getElementById('btn-toggle-template-section');
@@ -60,7 +61,8 @@ function bindReportGeneratorEvents() {
 
   if (saveManualTemplateBtn) saveManualTemplateBtn.addEventListener('click', handleSaveManualTemplate);
   if (deleteManualTemplateBtn) deleteManualTemplateBtn.addEventListener('click', handleDeleteManualTemplate);
-  if (savePatternBtn) savePatternBtn.addEventListener('click', handleSavePatternReportConfig);
+  if (newManualTemplateBtn) newManualTemplateBtn.addEventListener('click', handleNewManualTemplate);
+  if (appendTemplateBtn) appendTemplateBtn.addEventListener('click', handleAppendTemplateToBody);
   if (generateBtn) generateBtn.addEventListener('click', handleGenerateReport);
   if (copyBtn) copyBtn.addEventListener('click', handleCopyReportOutput);
   if (toggleTemplateBtn) toggleTemplateBtn.addEventListener('click', handleToggleTemplateSection);
@@ -89,24 +91,22 @@ function handleToggleTemplateSection() {
 }
 
 function subscribeReportTemplateListForSelectedPattern() {
-  if (!_reportUid || typeof subscribeReportTemplates !== 'function') return;
+  if (!_reportUid) return;
 
   var pattern = getSelectedPatternForReport();
   var patternId = String((pattern && pattern.id) || '').trim();
   _reportSelectedPatternId = patternId;
 
+  // If already subscribed to all templates, just re-render with new pattern context
   if (_unsubscribeReportTemplates) {
-    _unsubscribeReportTemplates();
-    _unsubscribeReportTemplates = null;
-  }
-
-  if (!patternId) {
-    _reportTemplates = [];
     renderReportTemplateOptions();
+    refreshReportPatternContext();
     return;
   }
 
-  _unsubscribeReportTemplates = subscribeReportTemplates(_reportUid, patternId, function(templates) {
+  if (typeof subscribeAllReportTemplates !== 'function') return;
+
+  _unsubscribeReportTemplates = subscribeAllReportTemplates(_reportUid, function(templates) {
     _reportTemplates = Array.isArray(templates) ? templates : [];
     renderReportTemplateOptions();
     refreshReportPatternContext();
@@ -118,11 +118,33 @@ function renderReportTemplateOptions() {
   if (!select) return;
 
   var selected = String(_pendingTemplateSelection || select.value || '').trim();
-  var options = ['<option value="">No template</option>'];
-  _reportTemplates.forEach(function(template) {
-    options.push('<option value="' + escapeHtmlAttr(template.id) + '">' + escapeHtmlText(template.name) + '</option>');
-  });
-  select.innerHTML = options.join('');
+
+  var patternTemplates = _reportTemplates.filter(function(t) {
+    return t.patternId === _reportSelectedPatternId && _reportSelectedPatternId;
+  }).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+  var otherTemplates = _reportTemplates.filter(function(t) {
+    return t.patternId !== _reportSelectedPatternId || !_reportSelectedPatternId;
+  }).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+  function makeOption(template) {
+    return '<option value="' + escapeHtmlAttr(template.id) + '">' + escapeHtmlText(template.name) + '</option>';
+  }
+
+  var html = '<option value="">No template</option>';
+
+  if (patternTemplates.length) {
+    html += '<optgroup label="This pattern">';
+    patternTemplates.forEach(function(t) { html += makeOption(t); });
+    html += '</optgroup>';
+  }
+
+  if (otherTemplates.length) {
+    html += '<optgroup label="All templates">';
+    otherTemplates.forEach(function(t) { html += makeOption(t); });
+    html += '</optgroup>';
+  }
+
+  select.innerHTML = html;
 
   var hasSelected = selected && _reportTemplates.some(function(item) { return item.id === selected; });
   if (hasSelected) {
@@ -566,11 +588,47 @@ function handleSaveManualTemplate() {
       if (savedTemplateId) setSelectedTemplateById(savedTemplateId);
       setReportStatus(templateId ? 'Template updated.' : 'Template saved.');
       if (typeof showToast === 'function') showToast('Manual template saved.');
+      // Also persist the selected template on the pattern
+      if (typeof updatePatternReportConfig === 'function') {
+        var pattern = getSelectedPatternForReport();
+        if (pattern) {
+          updatePatternReportConfig(_reportUid, pattern.id, {
+            selectedTemplateId: savedTemplateId || templateId,
+            selectedTemplateName: templateName,
+            sectionOrder: REPORT_OUTPUT_SECTIONS
+          }).catch(function() {});
+        }
+      }
     })
     .catch(function(err) {
       setReportStatus((err && err.message) || 'Failed to save manual template.', true);
       if (typeof showToast === 'function') showToast((err && err.message) || 'Failed to save manual template.', true);
     });
+}
+
+function handleAppendTemplateToBody() {
+  var selected = getSelectedTemplate();
+  if (!selected || !selected.body) {
+    setReportStatus('Select a template to append.', true);
+    return;
+  }
+  var bodyEl = document.getElementById('manual-template-input');
+  if (!bodyEl) return;
+  var current = String(bodyEl.value || '');
+  bodyEl.value = current ? current.trimEnd() + '\n\n' + selected.body : selected.body;
+  handleTemplateEditorChange();
+}
+
+function handleNewManualTemplate() {
+  var select = document.getElementById('report-template-select');
+  var nameInput = document.getElementById('manual-template-name');
+  var bodyInput = document.getElementById('manual-template-input');
+  if (select) select.value = '';
+  if (nameInput) nameInput.value = '';
+  if (bodyInput) bodyInput.value = '';
+  _pendingTemplateSelection = '';
+  handleTemplateEditorChange();
+  if (nameInput) nameInput.focus();
 }
 
 async function handleDeleteManualTemplate() {

@@ -8,6 +8,7 @@ var selectedPatternId = null;
 var currentStepIndex = 0;
 var timerInterval = null;
 var timerSeconds = 0;
+var timerStartWallTime = null;
 var timerRunning = false;
 var timerGoalSeconds = null;
 var activeModality = 'All';
@@ -949,10 +950,11 @@ function startTimer(pattern) {
   timerGoalSeconds = normaliseGoalSeconds(pattern && pattern.goalSeconds);
   syncGoalInputFromState();
   timerSeconds = 0;
+  timerStartWallTime = Date.now();
   timerRunning = true;
   updateTimerDisplay();
   timerInterval = setInterval(() => {
-    timerSeconds++;
+    timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
     updateTimerDisplay();
   }, 1000);
 }

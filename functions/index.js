@@ -12,9 +12,9 @@ const MAX_PROMPT_LENGTH = 24000;
 const MAX_REQUEST_BYTES = 80 * 1024;
 const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
 const MODEL_LIST_TIMEOUT_MS = 12000;
-const RESPONSES_CREATE_TIMEOUT_MS = 20000;
-const RESPONSES_POLL_TIMEOUT_MS = 10000;
-const RESPONSES_MAX_WAIT_MS = 50000;
+const RESPONSES_CREATE_TIMEOUT_MS = 45000;
+const RESPONSES_POLL_TIMEOUT_MS = 20000;
+const RESPONSES_MAX_WAIT_MS = 240000;
 
 let openAiModelCache = {
   expiresAt: 0,
@@ -298,7 +298,7 @@ async function completeWithOpenAi(apiKey, model, prompt, opts) {
 exports.aiProxy = onRequest(
   {
     region: 'us-central1',
-    timeoutSeconds: 60,
+    timeoutSeconds: 300,
     memory: '256MiB',
     invoker: 'public',
     secrets: [OPENAI_API_KEY]
