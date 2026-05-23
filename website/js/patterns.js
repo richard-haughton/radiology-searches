@@ -742,7 +742,7 @@ function renderStepSections(container, step) {
     panelInner.className = 'step-section-content';
     const content = sections[key] || [];
     if (key === 'searchPattern') {
-      renderSearchPatternContent(panelInner, content);
+      renderSearchPatternContent(panelInner, content, Boolean(step.isRedStep));
     } else if (content.length) {
       if (SECTION_WITH_SUBSECTIONS_KEYS.indexOf(key) !== -1) {
         renderNestedSubsections(panelInner, content);
@@ -903,14 +903,15 @@ function isInlineEditActive(sectionKey, findingId) {
   return _activeInlineEdit.key === getInlineEditKey(sectionKey, findingId);
 }
 
-function startInlineEdit(sectionKey, findingId, title, content) {
+function startInlineEdit(sectionKey, findingId, title, content, isMarkedRed) {
   _activeInlineEdit = {
     key: getInlineEditKey(sectionKey, findingId),
     stepIndex: currentStepIndex,
     sectionKey: sectionKey,
     findingId: String(findingId || '').trim(),
     title: String(title || ''),
-    content: normaliseRichContent(content || [])
+    content: normaliseRichContent(content || []),
+    isMarkedRed: Boolean(isMarkedRed)
   };
   _inlineEditSaving = false;
 
@@ -926,7 +927,7 @@ function cancelInlineEdit() {
   if (pattern) renderCurrentStep(pattern);
 }
 
-async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent) {
+async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nextIsMarkedRed) {
   const pattern = getSelectedPattern();
   const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
   if (!pattern || !_pUid || !steps[currentStepIndex]) return;
@@ -952,6 +953,7 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent) {
   if (sectionKey === 'searchPattern') {
     nextStep.sections.searchPattern = nextRichContent;
     nextStep.richContent = normaliseRichContent(nextStep.sections.searchPattern || []);
+    nextStep.isRedStep = Boolean(nextIsMarkedRed);
   } else {
     const findings = typeof ensureSubsectionMetadata === 'function'
       ? ensureSubsectionMetadata(nextStep.sections.dontMissPathology || [])
@@ -969,6 +971,7 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent) {
     }
 
     finding.title = String(nextTitle || '').trim();
+    finding.isRedFinding = Boolean(nextIsMarkedRed);
     finding.content = nextRichContent;
   }
 
@@ -1010,6 +1013,20 @@ function renderInlineEditForm(container, options) {
     titleInput.value = options.title || '';
     titleInput.placeholder = 'Finding title';
     wrap.appendChild(titleInput);
+  }
+
+  let redCheckbox = null;
+  if (options.redToggleLabel) {
+    const redToggle = document.createElement('label');
+    redToggle.className = options.includeTitle ? 'subsection-red-row' : 'step-red-checkbox-row';
+    redCheckbox = document.createElement('input');
+    redCheckbox.type = 'checkbox';
+    redCheckbox.checked = Boolean(options.isMarkedRed);
+    const redLabel = document.createElement('span');
+    redLabel.textContent = options.redToggleLabel;
+    redToggle.appendChild(redCheckbox);
+    redToggle.appendChild(redLabel);
+    wrap.appendChild(redToggle);
   }
 
   let textarea = null;
@@ -1075,7 +1092,8 @@ function renderInlineEditForm(container, options) {
       options.sectionKey,
       options.findingId,
       titleInput ? titleInput.value : '',
-      contentValue
+      contentValue,
+      redCheckbox ? redCheckbox.checked : false
     );
   });
 
@@ -1143,7 +1161,9 @@ function renderNestedSubsections(container, content) {
         findingId: entry.subsectionId || '',
         includeTitle: true,
         title: entry.title || '',
-        content: entry.content || []
+        content: entry.content || [],
+        isMarkedRed: Boolean(entry.isRedFinding),
+        redToggleLabel: 'Show this finding in red in main display'
       });
     } else if ((entry.content || []).length) {
       renderRichContent(panelInner, entry.content);
@@ -1172,7 +1192,7 @@ function renderNestedSubsections(container, content) {
       modifyBtn.disabled = _inlineEditSaving;
       modifyBtn.addEventListener('click', () => {
         if (isEditing) return;
-        startInlineEdit('dontMissPathology', entry.subsectionId || '', entry.title || '', entry.content || []);
+        startInlineEdit('dontMissPathology', entry.subsectionId || '', entry.title || '', entry.content || [], Boolean(entry.isRedFinding));
       });
       header.appendChild(modifyBtn);
     }
@@ -1244,7 +1264,7 @@ function renderRichContent(container, richContent) {
   }
 }
 
-function renderSearchPatternContent(container, richContent) {
+function renderSearchPatternContent(container, richContent, isRedStep) {
   if (!_patternViewerEditMode) {
     const chunks = normaliseRichContent(richContent);
     if (chunks.length) {
@@ -1269,7 +1289,7 @@ function renderSearchPatternContent(container, richContent) {
   modifyBtn.disabled = _inlineEditSaving;
   modifyBtn.addEventListener('click', () => {
     if (isEditing) return;
-    startInlineEdit('searchPattern', '', '', richContent || []);
+    startInlineEdit('searchPattern', '', '', richContent || [], Boolean(isRedStep));
   });
 
   const body = document.createElement('div');
@@ -1282,7 +1302,9 @@ function renderSearchPatternContent(container, richContent) {
       findingId: '',
       includeTitle: false,
       title: '',
-      content: richContent || []
+      content: richContent || [],
+      isMarkedRed: Boolean(isRedStep),
+      redToggleLabel: 'Change color of this step to red in main search pattern display'
     });
   } else if (chunks.length) {
     renderRichContent(body, chunks);

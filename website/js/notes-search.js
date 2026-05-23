@@ -760,7 +760,7 @@ function populateFindingsAddStepSelect() {
     stepSelect.value = String((pattern.steps[currentStepIndex] && pattern.steps[currentStepIndex].stepId) || '');
   }
 
-  statusEl.textContent = 'The finding will be appended to the selected step\'s Search Pattern section.';
+  statusEl.textContent = 'The finding will be added to the selected step\'s Findings section.';
 }
 
 function bindFindingsCreateModal() {
@@ -1016,27 +1016,13 @@ async function applyFindingToSelectedStep() {
   try {
     var targetStep = targetSteps[targetIndex] || {};
     targetStep.sections = buildSearchSections(targetStep.sections, normaliseRichContent(targetStep.richContent || targetStep.rich_content || []));
-
-    if (targetStep.sectionLinks && targetStep.sectionLinks.searchPattern && String(targetStep.sectionLinks.searchPattern.sourceStepId || '').trim()) {
-      var ok = true;
-      if (typeof showConfirm === 'function') {
-        ok = await showConfirm(
-          'Unlink Search Pattern Section',
-          'This step currently has a linked Search Pattern section. Adding this finding will unlink that section so the new content is preserved.'
-        );
-      }
-      if (!ok) {
-        statusEl.textContent = 'Add cancelled.';
-        return;
-      }
-      delete targetStep.sectionLinks.searchPattern;
-    }
-
-    targetStep.sections.searchPattern = appendTextToRichContent(
-      normaliseRichContent(targetStep.sections.searchPattern || []),
-      nextText,
-      _findingsAddContext.isRedFinding
-    );
+    targetStep.sections.dontMissPathology = normaliseRichContent(targetStep.sections.dontMissPathology || []);
+    targetStep.sections.dontMissPathology.push({
+      type: 'subsection',
+      title: String(_findingsAddContext.subsectionTitle || _findingsAddContext.stepTitle || 'Finding').trim() || 'Finding',
+      isRedFinding: Boolean(_findingsAddContext.isRedFinding),
+      content: buildFindingContentFromText(nextText, _findingsAddContext.isRedFinding)
+    });
     targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
     targetSteps[targetIndex] = targetStep;
 
