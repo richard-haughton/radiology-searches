@@ -506,9 +506,19 @@
       <label class="form-label" for="findings-create-title">Finding Title
         <input id="findings-create-title" type="text" class="form-input" placeholder="Example: Pulmonary embolism">
       </label>
-      <label class="form-label" for="findings-create-content">Finding Content
-        <textarea id="findings-create-content" class="form-input" rows="6" placeholder="Describe the finding..."></textarea>
-      </label>
+      <div class="form-label">
+        <span>Finding Content</span>
+        <div id="findings-create-toolbar" class="rich-toolbar" role="toolbar" aria-label="Create finding text formatting">
+          <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+          <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
+          <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
+          <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
+          <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
+          <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
+          <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>
+        </div>
+        <div id="findings-create-content" class="rich-editor" contenteditable="true" spellcheck="true" aria-label="Finding content editor"></div>
+      </div>
       <label class="notes-search-red-toggle findings-create-red-toggle" for="findings-create-red">
         <input id="findings-create-red" type="checkbox">
         <span>Mark as red finding</span>

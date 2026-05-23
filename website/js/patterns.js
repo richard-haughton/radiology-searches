@@ -910,9 +910,7 @@ function startInlineEdit(sectionKey, findingId, title, content) {
     sectionKey: sectionKey,
     findingId: String(findingId || '').trim(),
     title: String(title || ''),
-    content: typeof richContentToPlainText === 'function'
-      ? richContentToPlainText(content || [])
-      : ''
+    content: normaliseRichContent(content || [])
   };
   _inlineEditSaving = false;
 
@@ -945,14 +943,14 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent) {
   const nextStep = nextSteps[currentStepIndex] || {};
   nextStep.sections = normaliseStepSectionsSafe(nextStep.sections, nextStep.richContent || nextStep.rich_content || []);
 
-  const toRich = typeof plainTextToRichContent === 'function'
-    ? plainTextToRichContent
-    : function(text) {
-        return [{ type: 'text', text: String(text || ''), bold: false, color: null }];
-      };
+  const nextRichContent = Array.isArray(nextContent)
+    ? normaliseRichContent(nextContent)
+    : (typeof plainTextToRichContent === 'function'
+        ? plainTextToRichContent(nextContent)
+        : [{ type: 'text', text: String(nextContent || ''), bold: false, color: null }]);
 
   if (sectionKey === 'searchPattern') {
-    nextStep.sections.searchPattern = toRich(nextContent);
+    nextStep.sections.searchPattern = nextRichContent;
     nextStep.richContent = normaliseRichContent(nextStep.sections.searchPattern || []);
   } else {
     const findings = typeof ensureSubsectionMetadata === 'function'
@@ -971,7 +969,7 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent) {
     }
 
     finding.title = String(nextTitle || '').trim();
-    finding.content = toRich(nextContent);
+    finding.content = nextRichContent;
   }
 
   nextSteps[currentStepIndex] = nextStep;
@@ -1000,6 +998,9 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent) {
 function renderInlineEditForm(container, options) {
   const wrap = document.createElement('div');
   wrap.className = 'step-inline-edit';
+  const supportsRichInlineEdit = typeof populateRichEditor === 'function'
+    && typeof extractRichContent === 'function'
+    && typeof bindRichEditorToolbar === 'function';
 
   let titleInput = null;
   if (options.includeTitle) {
@@ -1011,12 +1012,52 @@ function renderInlineEditForm(container, options) {
     wrap.appendChild(titleInput);
   }
 
-  const textarea = document.createElement('textarea');
-  textarea.className = 'form-input step-inline-edit-content';
-  textarea.rows = options.includeTitle ? 5 : 8;
-  textarea.value = options.content || '';
-  textarea.placeholder = options.includeTitle ? 'Finding content' : 'Search pattern content';
-  wrap.appendChild(textarea);
+  let textarea = null;
+  let richEditor = null;
+
+  if (supportsRichInlineEdit) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'rich-toolbar';
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.setAttribute('aria-label', options.includeTitle ? 'Finding text formatting' : 'Search pattern text formatting');
+    toolbar.innerHTML = [
+      '<button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>',
+      '<button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>',
+      '<button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>',
+      '<button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>',
+      '<button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>',
+      '<button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>',
+      '<button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>'
+    ].join('');
+    wrap.appendChild(toolbar);
+
+    richEditor = document.createElement('div');
+    richEditor.className = 'rich-editor step-inline-rich-editor';
+    richEditor.contentEditable = 'true';
+    richEditor.setAttribute('spellcheck', 'true');
+    richEditor.setAttribute('aria-label', options.includeTitle ? 'Finding content editor' : 'Search pattern content editor');
+    populateRichEditor(richEditor, options.content || []);
+    bindRichEditorToolbar(toolbar, richEditor);
+    if (typeof attachRichEditorFocusHandlers === 'function') {
+      attachRichEditorFocusHandlers(richEditor);
+    }
+    if (typeof handleRichEditorKeydown === 'function') {
+      richEditor.addEventListener('keydown', handleRichEditorKeydown);
+    }
+    if (typeof handleEditorPaste === 'function') {
+      richEditor.addEventListener('paste', handleEditorPaste);
+    }
+    wrap.appendChild(richEditor);
+  } else {
+    textarea = document.createElement('textarea');
+    textarea.className = 'form-input step-inline-edit-content';
+    textarea.rows = options.includeTitle ? 5 : 8;
+    textarea.value = typeof richContentToPlainText === 'function'
+      ? richContentToPlainText(options.content || [])
+      : '';
+    textarea.placeholder = options.includeTitle ? 'Finding content' : 'Search pattern content';
+    wrap.appendChild(textarea);
+  }
 
   const actions = document.createElement('div');
   actions.className = 'step-inline-edit-actions';
@@ -1027,11 +1068,14 @@ function renderInlineEditForm(container, options) {
   saveBtn.textContent = _inlineEditSaving ? 'Saving...' : 'Save';
   saveBtn.disabled = _inlineEditSaving;
   saveBtn.addEventListener('click', function() {
+    const contentValue = richEditor && typeof extractRichContent === 'function'
+      ? extractRichContent(richEditor)
+      : (textarea ? textarea.value : '');
     saveInlineEdit(
       options.sectionKey,
       options.findingId,
       titleInput ? titleInput.value : '',
-      textarea.value
+      contentValue
     );
   });
 
@@ -1046,6 +1090,15 @@ function renderInlineEditForm(container, options) {
   actions.appendChild(cancelBtn);
   wrap.appendChild(actions);
   container.appendChild(wrap);
+
+  if (richEditor) {
+    if (typeof setActiveRichEditor === 'function') {
+      setActiveRichEditor(richEditor);
+    }
+    richEditor.focus();
+  } else if (textarea) {
+    textarea.focus();
+  }
 }
 
 function renderNestedSubsections(container, content) {
@@ -1090,7 +1143,7 @@ function renderNestedSubsections(container, content) {
         findingId: entry.subsectionId || '',
         includeTitle: true,
         title: entry.title || '',
-        content: typeof richContentToPlainText === 'function' ? richContentToPlainText(entry.content || []) : ''
+        content: entry.content || []
       });
     } else if ((entry.content || []).length) {
       renderRichContent(panelInner, entry.content);
@@ -1229,7 +1282,7 @@ function renderSearchPatternContent(container, richContent) {
       findingId: '',
       includeTitle: false,
       title: '',
-      content: typeof richContentToPlainText === 'function' ? richContentToPlainText(richContent || []) : ''
+      content: richContent || []
     });
   } else if (chunks.length) {
     renderRichContent(body, chunks);

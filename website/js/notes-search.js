@@ -769,10 +769,24 @@ function bindFindingsCreateModal() {
   var cancelBtn = document.getElementById('btn-findings-create-cancel');
   var applyBtn = document.getElementById('btn-findings-create-apply');
   var patternSelect = document.getElementById('findings-create-pattern-select');
+  var contentEl = document.getElementById('findings-create-content');
+  var toolbarEl = document.getElementById('findings-create-toolbar');
   if (closeBtn) closeBtn.addEventListener('click', closeCreateFindingModal);
   if (cancelBtn) cancelBtn.addEventListener('click', closeCreateFindingModal);
   if (applyBtn) applyBtn.addEventListener('click', applyCreatedFindingToSelectedStep);
   if (patternSelect) patternSelect.addEventListener('change', populateFindingsCreateStepSelect);
+  if (toolbarEl && contentEl && typeof bindRichEditorToolbar === 'function') {
+    bindRichEditorToolbar(toolbarEl, contentEl);
+  }
+  if (contentEl && typeof attachRichEditorFocusHandlers === 'function') {
+    attachRichEditorFocusHandlers(contentEl);
+  }
+  if (contentEl && typeof handleRichEditorKeydown === 'function') {
+    contentEl.addEventListener('keydown', handleRichEditorKeydown);
+  }
+  if (contentEl && typeof handleEditorPaste === 'function') {
+    contentEl.addEventListener('paste', handleEditorPaste);
+  }
   if (modal) {
     modal.addEventListener('click', function(e) {
       if (e.target === modal) closeCreateFindingModal();
@@ -799,7 +813,11 @@ function openCreateFindingModal() {
   });
 
   titleEl.value = '';
-  contentEl.value = '';
+  if (typeof populateRichEditor === 'function') {
+    populateRichEditor(contentEl, []);
+  } else {
+    contentEl.innerHTML = '';
+  }
   redEl.checked = false;
   statusEl.textContent = patternsWithSteps.length
     ? 'The finding will be created in the selected step\'s Findings section.'
@@ -811,6 +829,9 @@ function openCreateFindingModal() {
 
   populateFindingsCreateStepSelect();
   modal.style.display = '';
+  if (typeof setActiveRichEditor === 'function') {
+    setActiveRichEditor(contentEl);
+  }
   titleEl.focus();
 }
 
@@ -851,12 +872,18 @@ function populateFindingsCreateStepSelect() {
 function buildFindingContentFromText(text, isRedFinding) {
   var value = String(text || '').trim();
   if (!value) return [];
-  return [{
-    type: 'text',
-    text: value,
-    bold: false,
-    color: isRedFinding ? 'red' : null
-  }];
+  return buildFindingContentFromRichContent([{ type: 'text', text: value, bold: false, color: null }], isRedFinding);
+}
+
+function buildFindingContentFromRichContent(content, isRedFinding) {
+  var rich = normaliseRichContent(content || []);
+  if (!rich.length) return [];
+
+  return rich.map(function(chunk) {
+    if (!chunk || chunk.type !== 'text') return chunk;
+    if (!isRedFinding || chunk.color) return chunk;
+    return Object.assign({}, chunk, { color: 'red' });
+  });
 }
 
 async function applyCreatedFindingToSelectedStep() {
@@ -872,7 +899,12 @@ async function applyCreatedFindingToSelectedStep() {
   if (!titleEl || !contentEl || !redEl || !patternSelect || !stepSelect || !applyBtn || !statusEl) return;
 
   var title = String(titleEl.value || '').trim();
-  var content = String(contentEl.value || '').trim();
+  var content = typeof extractRichContent === 'function'
+    ? extractRichContent(contentEl)
+    : buildFindingContentFromText(String(contentEl.textContent || '').trim(), false);
+  var hasContent = typeof hasAnyRichContent === 'function'
+    ? hasAnyRichContent(content)
+    : Boolean(String(contentEl.textContent || '').trim());
   var isRedFinding = Boolean(redEl.checked);
   var targetPattern = getPatternById(patternSelect.value);
   if (!title) {
@@ -880,8 +912,9 @@ async function applyCreatedFindingToSelectedStep() {
     titleEl.focus();
     return;
   }
-  if (!content) {
+  if (!hasContent) {
     statusEl.textContent = 'Finding content is required.';
+    if (typeof setActiveRichEditor === 'function') setActiveRichEditor(contentEl);
     contentEl.focus();
     return;
   }
@@ -911,7 +944,7 @@ async function applyCreatedFindingToSelectedStep() {
       type: 'subsection',
       title: title,
       isRedFinding: isRedFinding,
-      content: buildFindingContentFromText(content, isRedFinding)
+      content: buildFindingContentFromRichContent(content, isRedFinding)
     });
     targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
     targetSteps[targetIndex] = targetStep;
