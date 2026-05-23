@@ -336,7 +336,36 @@ function normaliseReportSections(inputSections) {
   return cleaned.length ? cleaned : ['Findings', 'Impression'];
 }
 
-function coerceReportResponse(parsed, fallbackSections) {
+function normaliseImpressionMode(mode) {
+  var raw = String(mode || 'concise').trim();
+  if (raw === 'expound') return 'expound';
+  if (raw === 'omit') return 'omit';
+  return 'concise';
+}
+
+function formatImpressionAsNumberedList(text, impressionMode) {
+  var mode = normaliseImpressionMode(impressionMode);
+  var source = String(text || '').trim();
+  if (!source || mode === 'omit') return source;
+
+  var items = source
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(function(line) {
+      return String(line || '')
+        .replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, '')
+        .trim();
+    })
+    .filter(Boolean);
+
+  if (!items.length) return source;
+
+  return items.map(function(item, index) {
+    return String(index + 1) + '. ' + item;
+  }).join('\n');
+}
+
+function coerceReportResponse(parsed, fallbackSections, impressionMode) {
   if (!parsed || typeof parsed !== 'object') {
     throw new Error('AI returned invalid report JSON.');
   }
@@ -352,7 +381,10 @@ function coerceReportResponse(parsed, fallbackSections) {
   Object.keys(sections).forEach(function(key) {
     var sectionTitle = String(key || '').trim();
     if (!sectionTitle) return;
-    outputSections[sectionTitle] = String(sections[key] || '').trim();
+    var sectionText = String(sections[key] || '').trim();
+    outputSections[sectionTitle] = sectionTitle === 'Impression'
+      ? formatImpressionAsNumberedList(sectionText, impressionMode)
+      : sectionText;
   });
 
   ordered.forEach(function(sectionTitle) {
@@ -378,10 +410,7 @@ function buildReportGenerationPrompt(input) {
   var findingsLanguageMode = String(input.findingsLanguageMode || 'improve').trim() === 'keep'
     ? 'keep'
     : (String(input.findingsLanguageMode || 'improve').trim() === 'omit' ? 'omit' : 'improve');
-  var impressionModeRaw = String(input.impressionMode || 'concise').trim();
-  var impressionMode = impressionModeRaw === 'expound'
-    ? 'expound'
-    : (impressionModeRaw === 'omit' ? 'omit' : 'concise');
+  var impressionMode = normaliseImpressionMode(input.impressionMode);
   var templateText = String(input.templateText || '').trim();
   var templateRulesText = String(input.templateRulesText || '').trim();
   var globalRulesText = String(input.globalRulesText || '').trim();
@@ -406,10 +435,13 @@ function buildReportGenerationPrompt(input) {
       : (findingsLanguageMode === 'omit'
           ? '- Findings section mode: OMIT. Do not return a Findings section.'
           : '- Findings section mode: IMPROVE LANGUAGE. Rewrite the findings into clear, polished radiology language while preserving the exact clinical meaning. If the findings are empty or normal, generate standard normal section language.'),
+    impressionMode !== 'omit'
+      ? '- For the Impression section, return a numbered list ordered from most important to least important. Use one item per line with the format 1., 2., 3.'
+      : '- Impression section numbering rule: not applicable because Impression is omitted.',
     impressionMode === 'concise'
-      ? '- Impression section mode: CONCISE. Summarize the most important aspect of the findings. Include differential diagnosis and recommendations only when supported and clinically appropriate.'
+      ? '- Impression section mode: CONCISE. Summarize the most important aspects of the findings as a concise numbered list. Include differential diagnosis and recommendations only when supported and clinically appropriate.'
       : (impressionMode === 'expound'
-          ? '- Impression section mode: EXPOUND. Provide a fuller analytical impression with diagnostic reasoning and recommendations when supported by the findings.'
+          ? '- Impression section mode: EXPOUND. Provide a fuller analytical impression as a numbered list with diagnostic reasoning and recommendations when supported by the findings.'
           : '- Impression section mode: OMIT. Do not return an Impression section.'),
     '',
     'FINDINGS (provided by the radiologist):',
@@ -490,7 +522,7 @@ async function generateRadiologyReportWithAi(options) {
   if (!parsed) {
     throw new Error('AI did not return valid JSON for report generation.');
   }
-  return coerceReportResponse(parsed, input.sectionOrder);
+  return coerceReportResponse(parsed, input.sectionOrder, input.impressionMode);
 }
 
 async function refineRadiologyReportWithAi(options) {
@@ -504,5 +536,5 @@ async function refineRadiologyReportWithAi(options) {
   if (!parsed) {
     throw new Error('AI did not return valid JSON for report refinement.');
   }
-  return coerceReportResponse(parsed, input.sectionOrder);
+  return coerceReportResponse(parsed, input.sectionOrder, input.impressionMode);
 }

@@ -28,15 +28,17 @@ function initNotesSearch(userId) {
 
 function bindNotesSearchUi() {
   var input = document.getElementById('notes-search-input');
-  var clearBtn = document.getElementById('btn-notes-search-clear');
+  var createBtn = document.getElementById('btn-notes-search-create');
   var redOnly = document.getElementById('notes-search-red-only');
-  if (!input || !clearBtn) return;
+  if (!input) return;
 
   input.removeEventListener('input', handleNotesSearchInput);
   input.addEventListener('input', handleNotesSearchInput);
 
-  clearBtn.removeEventListener('click', clearNotesSearch);
-  clearBtn.addEventListener('click', clearNotesSearch);
+  if (createBtn) {
+    createBtn.removeEventListener('click', openCreateFindingModal);
+    createBtn.addEventListener('click', openCreateFindingModal);
+  }
 
   if (redOnly) {
     redOnly.checked = false;
@@ -57,6 +59,7 @@ function bindNotesSearchUi() {
 
   bindSearchPreviewModal();
   bindFindingsAddModal();
+  bindFindingsCreateModal();
 }
 
 function startNotesSearchSubscription() {
@@ -640,6 +643,16 @@ function renderNotesSearchResults(results, query) {
       openSearchResultPreview(result);
     });
 
+    var deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-danger btn-sm';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.disabled = !result.findingId;
+    deleteBtn.addEventListener('click', function() {
+      handleDeleteFinding(result);
+    });
+
+    actions.appendChild(deleteBtn);
     actions.appendChild(addBtn);
     actions.appendChild(openBtn);
 
@@ -650,6 +663,18 @@ function renderNotesSearchResults(results, query) {
 
     wrap.appendChild(row);
   });
+}
+
+function getPatternsWithSteps() {
+  return (typeof allPatterns !== 'undefined' ? allPatterns : []).filter(function(pattern) {
+    return pattern && Array.isArray(pattern.steps) && pattern.steps.length;
+  });
+}
+
+function getPatternById(patternId) {
+  return (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(pattern) {
+    return String((pattern && pattern.id) || '') === String(patternId || '');
+  }) || null;
 }
 
 function bindFindingsAddModal() {
@@ -681,9 +706,7 @@ function openFindingsAddModal(result) {
   sourceEl.textContent = 'Finding: ' + (result.subsectionTitle || result.stepTitle) + '\n' + describeFindingLinks(result);
   statusEl.textContent = '';
 
-  var patternsWithSteps = (typeof allPatterns !== 'undefined' ? allPatterns : []).filter(function(pattern) {
-    return pattern && Array.isArray(pattern.steps) && pattern.steps.length;
-  });
+  var patternsWithSteps = getPatternsWithSteps();
 
   patternSelect.innerHTML = '';
   patternsWithSteps.forEach(function(pattern) {
@@ -738,6 +761,187 @@ function populateFindingsAddStepSelect() {
   }
 
   statusEl.textContent = 'The finding will be appended to the selected step\'s Search Pattern section.';
+}
+
+function bindFindingsCreateModal() {
+  var modal = document.getElementById('modal-findings-create');
+  var closeBtn = document.getElementById('btn-findings-create-close');
+  var cancelBtn = document.getElementById('btn-findings-create-cancel');
+  var applyBtn = document.getElementById('btn-findings-create-apply');
+  var patternSelect = document.getElementById('findings-create-pattern-select');
+  if (closeBtn) closeBtn.addEventListener('click', closeCreateFindingModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeCreateFindingModal);
+  if (applyBtn) applyBtn.addEventListener('click', applyCreatedFindingToSelectedStep);
+  if (patternSelect) patternSelect.addEventListener('change', populateFindingsCreateStepSelect);
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeCreateFindingModal();
+    });
+  }
+}
+
+function openCreateFindingModal() {
+  var modal = document.getElementById('modal-findings-create');
+  var titleEl = document.getElementById('findings-create-title');
+  var contentEl = document.getElementById('findings-create-content');
+  var redEl = document.getElementById('findings-create-red');
+  var patternSelect = document.getElementById('findings-create-pattern-select');
+  var statusEl = document.getElementById('findings-create-status');
+  if (!modal || !titleEl || !contentEl || !redEl || !patternSelect || !statusEl) return;
+
+  var patternsWithSteps = getPatternsWithSteps();
+  patternSelect.innerHTML = '';
+  patternsWithSteps.forEach(function(pattern) {
+    var option = document.createElement('option');
+    option.value = String(pattern.id || '');
+    option.textContent = pattern.name || 'Untitled Pattern';
+    patternSelect.appendChild(option);
+  });
+
+  titleEl.value = '';
+  contentEl.value = '';
+  redEl.checked = false;
+  statusEl.textContent = patternsWithSteps.length
+    ? 'The finding will be created in the selected step\'s Findings section.'
+    : 'No target patterns with steps are available yet.';
+
+  if (patternsWithSteps.length && typeof selectedPatternId !== 'undefined' && selectedPatternId) {
+    patternSelect.value = String(selectedPatternId);
+  }
+
+  populateFindingsCreateStepSelect();
+  modal.style.display = '';
+  titleEl.focus();
+}
+
+function closeCreateFindingModal() {
+  var modal = document.getElementById('modal-findings-create');
+  if (modal) modal.style.display = 'none';
+}
+
+function populateFindingsCreateStepSelect() {
+  var patternSelect = document.getElementById('findings-create-pattern-select');
+  var stepSelect = document.getElementById('findings-create-step-select');
+  var statusEl = document.getElementById('findings-create-status');
+  if (!patternSelect || !stepSelect || !statusEl) return;
+
+  var pattern = getPatternById(patternSelect.value);
+
+  stepSelect.innerHTML = '';
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) {
+    stepSelect.innerHTML = '<option value="">No target steps available</option>';
+    statusEl.textContent = 'Select a pattern with at least one step.';
+    return;
+  }
+
+  (pattern.steps || []).forEach(function(step, index) {
+    var option = document.createElement('option');
+    option.value = String((step && step.stepId) || '');
+    option.textContent = 'Step ' + (index + 1) + ': ' + (String((step && step.stepTitle) || '').trim() || 'Untitled Step');
+    stepSelect.appendChild(option);
+  });
+
+  if (typeof selectedPatternId !== 'undefined' && String(selectedPatternId || '') === String(pattern.id || '') && typeof currentStepIndex === 'number' && pattern.steps[currentStepIndex]) {
+    stepSelect.value = String((pattern.steps[currentStepIndex] && pattern.steps[currentStepIndex].stepId) || '');
+  }
+
+  statusEl.textContent = 'The finding will be created in the selected step\'s Findings section.';
+}
+
+function buildFindingContentFromText(text, isRedFinding) {
+  var value = String(text || '').trim();
+  if (!value) return [];
+  return [{
+    type: 'text',
+    text: value,
+    bold: false,
+    color: isRedFinding ? 'red' : null
+  }];
+}
+
+async function applyCreatedFindingToSelectedStep() {
+  if (!_notesSearchUid) return;
+
+  var titleEl = document.getElementById('findings-create-title');
+  var contentEl = document.getElementById('findings-create-content');
+  var redEl = document.getElementById('findings-create-red');
+  var patternSelect = document.getElementById('findings-create-pattern-select');
+  var stepSelect = document.getElementById('findings-create-step-select');
+  var applyBtn = document.getElementById('btn-findings-create-apply');
+  var statusEl = document.getElementById('findings-create-status');
+  if (!titleEl || !contentEl || !redEl || !patternSelect || !stepSelect || !applyBtn || !statusEl) return;
+
+  var title = String(titleEl.value || '').trim();
+  var content = String(contentEl.value || '').trim();
+  var isRedFinding = Boolean(redEl.checked);
+  var targetPattern = getPatternById(patternSelect.value);
+  if (!title) {
+    statusEl.textContent = 'Finding title is required.';
+    titleEl.focus();
+    return;
+  }
+  if (!content) {
+    statusEl.textContent = 'Finding content is required.';
+    contentEl.focus();
+    return;
+  }
+  if (!targetPattern) {
+    statusEl.textContent = 'Select a valid target pattern.';
+    return;
+  }
+
+  var targetSteps = JSON.parse(JSON.stringify(targetPattern.steps || []));
+  var targetIndex = targetSteps.findIndex(function(step) {
+    return String((step && step.stepId) || '') === String(stepSelect.value || '');
+  });
+  if (targetIndex < 0) {
+    statusEl.textContent = 'Select a valid target step.';
+    return;
+  }
+
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Creating...';
+  statusEl.textContent = 'Saving finding...';
+
+  try {
+    var targetStep = targetSteps[targetIndex] || {};
+    targetStep.sections = buildSearchSections(targetStep.sections, normaliseRichContent(targetStep.richContent || targetStep.rich_content || []));
+    targetStep.sections.dontMissPathology = normaliseRichContent(targetStep.sections.dontMissPathology || []);
+    targetStep.sections.dontMissPathology.push({
+      type: 'subsection',
+      title: title,
+      isRedFinding: isRedFinding,
+      content: buildFindingContentFromText(content, isRedFinding)
+    });
+    targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
+    targetSteps[targetIndex] = targetStep;
+
+    var preparedSteps = typeof prepareStepsForStorage === 'function'
+      ? await prepareStepsForStorage(targetSteps)
+      : targetSteps;
+
+    await updatePattern(_notesSearchUid, targetPattern.id, {
+      name: targetPattern.name || 'Untitled Pattern',
+      modality: targetPattern.modality || 'Other',
+      goalSeconds: targetPattern.goalSeconds,
+      reportConfig: targetPattern.reportConfig || null,
+      steps: preparedSteps
+    });
+
+    targetPattern.steps = preparedSteps;
+    if (typeof setAllPatternsRef === 'function' && typeof allPatterns !== 'undefined') {
+      setAllPatternsRef(allPatterns);
+    }
+
+    showToast('Finding created in ' + (targetPattern.name || 'pattern') + '.');
+    closeCreateFindingModal();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = String((err && err.message) || err || 'Failed to create finding.');
+  } finally {
+    applyBtn.disabled = false;
+    applyBtn.textContent = 'Create Finding';
+  }
 }
 
 async function applyFindingToSelectedStep() {
@@ -827,6 +1031,25 @@ async function applyFindingToSelectedStep() {
   } finally {
     applyBtn.disabled = false;
     applyBtn.textContent = 'Add Finding';
+  }
+}
+
+async function handleDeleteFinding(result) {
+  if (!_notesSearchUid || !result || !result.findingId) return;
+
+  var title = String(result.subsectionTitle || result.stepTitle || 'this finding').trim() || 'this finding';
+  var confirmed = true;
+  if (typeof showConfirm === 'function') {
+    confirmed = await showConfirm('Delete Finding', 'Delete "' + title + '" from all linked studies? This cannot be undone.');
+  }
+  if (!confirmed) return;
+
+  try {
+    await deleteFinding(_notesSearchUid, result.findingId);
+    showToast('Finding deleted.');
+  } catch (err) {
+    console.error(err);
+    showToast(String((err && err.message) || err || 'Failed to delete finding.'), true);
   }
 }
 

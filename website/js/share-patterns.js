@@ -77,6 +77,19 @@ function updateSharePatternSelect() {
   select.value = currentValue;
 }
 
+function buildSharedPatternData(pattern) {
+  const safePattern = pattern && typeof pattern === 'object' ? pattern : {};
+  return {
+    name: String(safePattern.name || '').trim(),
+    modality: String(safePattern.modality || 'Other').trim() || 'Other',
+    goalSeconds: Number.isFinite(Number(safePattern.goalSeconds)) ? Number(safePattern.goalSeconds) : null,
+    reportConfig: safePattern.reportConfig && typeof safePattern.reportConfig === 'object'
+      ? JSON.parse(JSON.stringify(safePattern.reportConfig))
+      : null,
+    steps: JSON.parse(JSON.stringify(Array.isArray(safePattern.steps) ? safePattern.steps : []))
+  };
+}
+
 // ── Share Pattern ────────────────────────────────────────────
 function sharePattern(patternId) {
   const pattern = userPatterns.find(p => p.id === patternId);
@@ -98,6 +111,7 @@ function sharePattern(patternId) {
     modality: pattern.modality,
     authorId: _shareUid,
     authorName: document.getElementById('user-name').textContent || 'Anonymous',
+    patternData: buildSharedPatternData(pattern),
     sharedAt: firebase.firestore.FieldValue.serverTimestamp(),
     importCount: 0
   };
@@ -223,20 +237,29 @@ function importSharedPattern(patternId, patternName) {
     return;
   }
 
-  // Get the original pattern from the author's collection
-  appDb.collection('users').doc(sharedPattern.authorId)
-    .collection('patterns').doc(patternId).get()
-    .then(doc => {
-      if (!doc.exists) {
-        showToast('Original pattern not found.', true);
-        return;
+  var sharedData = sharedPattern.patternData && typeof sharedPattern.patternData === 'object'
+    ? buildSharedPatternData(sharedPattern.patternData)
+    : null;
+
+  var loadPatternPromise = sharedData
+    ? Promise.resolve(sharedData)
+    : appDb.collection('users').doc(sharedPattern.authorId)
+        .collection('patterns').doc(patternId).get()
+        .then(doc => {
+          if (!doc.exists) {
+            throw new Error('Original pattern not found. Ask the author to reshare it.');
+          }
+          return doc.data();
+        });
+
+  loadPatternPromise
+    .then(originalPattern => {
+      if (!originalPattern) {
+        throw new Error('Shared pattern data is unavailable.');
       }
 
-      const originalPattern = doc.data();
-      
-      // Copy pattern to current user's patterns
       return appDb.collection('users').doc(_shareUid)
-        .collection('patterns').doc(patternId).set(originalPattern);
+        .collection('patterns').doc(patternId).set(buildSharedPatternData(originalPattern));
     })
     .then(() => {
       // Increment import count

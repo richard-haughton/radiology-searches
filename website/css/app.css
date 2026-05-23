@@ -344,8 +344,28 @@ body {
   overflow: hidden;
   background: #eef6f0;
 }
+.step-item-header {
+  display: flex;
+  align-items: stretch;
+}
+.step-drag-handle {
+  width: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  background: #ddebe1;
+  color: var(--ink-muted);
+  cursor: grab;
+  user-select: none;
+}
+.step-drag-handle:active {
+  cursor: grabbing;
+}
 .step-item-toggle {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: none;
   border-bottom: 1px solid transparent;
   background: #e6f1e9;
@@ -358,6 +378,15 @@ body {
   cursor: pointer;
   font-family: var(--font);
   text-align: left;
+}
+.step-item.is-dragging {
+  opacity: 0.55;
+}
+.step-item.drag-over-before {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.step-item.drag-over-after {
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 .step-item-toggle[aria-expanded="true"] {
   border-bottom-color: var(--line);
@@ -405,10 +434,25 @@ body {
 .step-item.step-item-red .step-item-toggle {
   background: #fbeceb;
 }
+.step-item.step-item-red .step-drag-handle {
+  background: #f7e3e1;
+  border-right-color: #d98d86;
+  color: #a52d24;
+}
 .step-item.step-item-red .step-item-number,
 .step-item.step-item-red .step-item-title,
 .step-item.step-item-red .step-item-chevron {
   color: #a52d24;
+}
+.step-section-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.step-section-action-btn {
+  min-width: 130px;
 }
 .step-content p {
   margin: 0 0 10px;
@@ -497,8 +541,13 @@ body {
   border-color: #d98d86;
   background: #fceeed;
 }
+.step-subsection-header {
+  display: flex;
+  align-items: stretch;
+}
 .step-subsection-toggle {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: none;
   border-bottom: 1px solid transparent;
   background: #f7fbf8;
@@ -513,8 +562,42 @@ body {
   text-align: left;
   cursor: pointer;
 }
+.step-inline-modify-btn {
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+.step-inline-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.step-inline-edit-title,
+.step-inline-edit-content {
+  width: 100%;
+}
+.step-inline-edit-content {
+  resize: vertical;
+  min-height: 120px;
+}
+.step-inline-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.step-subsection-header .step-inline-modify-btn {
+  min-width: 84px;
+  margin: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: #eef6f0;
+}
 .step-subsection.step-subsection-red .step-subsection-toggle {
   background: #fbe2e0;
+  color: #a52d24;
+}
+.step-subsection.step-subsection-red .step-inline-modify-btn {
+  background: #f6e5e3;
+  border-right-color: #d98d86;
   color: #a52d24;
 }
 .step-subsection-toggle[aria-expanded="true"] {
@@ -533,6 +616,15 @@ body {
 .step-subsection-content {
   line-height: 1.6;
   font-size: 0.9rem;
+}
+.step-section-inline-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.step-section-inline-body {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ============================================================
@@ -556,6 +648,11 @@ body {
   display: flex;
   gap: 10px;
   align-items: flex-end;
+}
+.notes-search-toolbar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 .notes-search-filters {
   display: flex;
@@ -710,6 +807,13 @@ body {
 }
 
 @media (max-width: 700px) {
+  .notes-search-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .notes-search-toolbar-actions {
+    justify-content: flex-end;
+  }
   .notes-search-filters {
     align-items: stretch;
   }
@@ -734,8 +838,14 @@ body {
   gap: 8px;
   margin-top: 4px;
 }
+.notes-result-actions .btn-danger {
+  margin-right: auto;
+}
 .findings-add-source {
   white-space: pre-line;
+}
+.findings-create-red-toggle {
+  width: fit-content;
 }
 .findings-add-status {
   margin-top: 4px;
@@ -1802,6 +1912,7 @@ html.dark .editor-step-item         { color: #8ab594; }
 html.dark .editor-step-item:hover   { background: #192b1e; color: #d8ead9; }
 html.dark .editor-step-item.active   { background: #1a2e22; color: #9fd2b6; }
 html.dark .step-item-toggle         { background: #193025; border-bottom-color: #2b4337; }
+html.dark .step-drag-handle         { background: #173026; border-right-color: #2b4337; color: #8ab89d; }
 html.dark .step-item-panel          { background: #14241b; }
 html.dark .step-item-panel-inner    { background: #14241b; }
 html.dark .step-item-number         { color: #86b59a; }
@@ -1809,18 +1920,22 @@ html.dark .step-item-title          { color: #d6ead8; }
 html.dark .step-item-chevron        { color: #8ab89d; }
 html.dark .step-item.step-item-red  { border-color: #7a3f39; }
 html.dark .step-item.step-item-red .step-item-toggle { background: #3a211f; }
+html.dark .step-item.step-item-red .step-drag-handle { background: #3a211f; border-right-color: #7a3f39; color: #f1a8a0; }
 html.dark .step-item.step-item-red .step-item-number,
 html.dark .step-item.step-item-red .step-item-title,
 html.dark .step-item.step-item-red .step-item-chevron { color: #f1a8a0; }
+html.dark .step-section-actions      { border-top-color: #2b4337; }
 html.dark .step-section             { background: #17291f; border-color: #2b4337; }
 html.dark .step-section-toggle      { background: #1d3226; border-bottom-color: #2b4337; }
 html.dark .step-section-panel       { background: #17291f; }
 html.dark .step-section-content     { background: #17291f; }
 html.dark .step-subsection          { background: #1a2d22; border-color: #2b4337; }
+html.dark .step-subsection-header .step-inline-modify-btn { background: #203528; border-right-color: #2b4337; color: #8ab89d; }
 html.dark .step-subsection-toggle   { background: #21382a; border-bottom-color: #2b4337; }
 html.dark .step-subsection-panel    { background: #1a2d22; }
 html.dark .step-subsection-content  { background: #1a2d22; }
 html.dark .step-subsection.step-subsection-red { background: #3a211f; border-color: #7a3f39; }
+html.dark .step-subsection.step-subsection-red .step-inline-modify-btn { background: #472826; border-right-color: #7a3f39; color: #f1a8a0; }
 html.dark .step-subsection.step-subsection-red .step-subsection-toggle { background: #472826; color: #f1a8a0; border-bottom-color: #7a3f39; }
 html.dark .subsection-row           { background: #14241b; border-color: #2b4337; }
 html.dark .subsection-row-toggle    { background: #1a2d22; color: #d8ead9; border-bottom-color: #2b4337; }

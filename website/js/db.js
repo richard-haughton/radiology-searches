@@ -44,6 +44,21 @@ function _makeFindingLinkKey(link) {
   return [safe.patternId, safe.stepId, safe.subsectionId].join('::');
 }
 
+function _isFindingStudyLink(link) {
+  var safe = _normaliseFindingLink(link);
+  return Boolean(safe && safe.patternId && safe.stepId && safe.subsectionId);
+}
+
+function _filterFindingStudyLinks(links) {
+  return (links || []).map(_normaliseFindingLink).filter(function(link) {
+    return _isFindingStudyLink(link);
+  });
+}
+
+function _hasFindingStudyLinks(links) {
+  return _filterFindingStudyLinks(links).length > 0;
+}
+
 function _normaliseContentSignature(chunk) {
   if (!chunk || typeof chunk !== 'object') return '';
   if (chunk.type === 'image') {
@@ -117,13 +132,14 @@ function _modalitiesFromFindingLinks(links) {
 }
 
 function _normaliseFindingDoc(doc) {
+  var links = _filterFindingStudyLinks(doc && doc.links);
   return {
     name: String((doc && doc.name) || '').trim(),
     nameKey: _normaliseFindingName(doc && doc.nameKey ? doc.nameKey : (doc && doc.name)),
     content: cloneRichContentForStorage((doc && doc.content) || []),
     isRedFinding: Boolean(doc && doc.isRedFinding),
-    modalities: Array.isArray(doc && doc.modalities) ? doc.modalities.map(function(item) { return String(item || '').trim() || 'Other'; }).filter(Boolean) : [],
-    links: Array.isArray(doc && doc.links) ? doc.links.map(_normaliseFindingLink).filter(Boolean) : [],
+    modalities: _modalitiesFromFindingLinks(links),
+    links: links,
     createdAt: doc && doc.createdAt ? doc.createdAt : null,
     updatedAt: doc && doc.updatedAt ? doc.updatedAt : null
   };
@@ -306,9 +322,15 @@ function _commitPatternAndFindingMutations(uid, patternRef, patternPayload, find
   var ops = (findingMutations || []).slice();
   ops.push({ type: isCreate ? 'createPattern' : 'updatePattern', ref: patternRef, data: patternPayload });
 
+  return _commitFindingOps(uid, ops);
+}
+
+function _commitFindingOps(uid, ops) {
+  var queuedOps = (ops || []).slice();
+
   function commitChunk(index) {
-    if (index >= ops.length) return Promise.resolve();
-    var slice = ops.slice(index, index + FINDINGS_BATCH_SIZE);
+    if (index >= queuedOps.length) return Promise.resolve();
+    var slice = queuedOps.slice(index, index + FINDINGS_BATCH_SIZE);
     var batch = appDb.batch();
 
     slice.forEach(function(op) {
@@ -326,6 +348,10 @@ function _commitPatternAndFindingMutations(uid, patternRef, patternPayload, find
       }
       if (op.type === 'updatePattern') {
         batch.update(op.ref, op.data);
+        return;
+      }
+      if (op.type === 'deletePattern') {
+        batch.delete(op.ref);
       }
     });
 
@@ -335,6 +361,19 @@ function _commitPatternAndFindingMutations(uid, patternRef, patternPayload, find
   }
 
   return commitChunk(0);
+}
+
+function _deleteFindingDocs(uid, findingIds) {
+  var uniqueIds = (findingIds || []).filter(function(id, index, list) {
+    return id && list.indexOf(id) === index;
+  });
+  if (!uniqueIds.length) return Promise.resolve();
+
+  var ops = uniqueIds.map(function(id) {
+    return { type: 'delete', id: id };
+  });
+
+  return _commitFindingOps(uid, ops);
 }
 
 function _hydratePatternsWithFindings(patterns, findingsById) {
@@ -631,10 +670,22 @@ function subscribePatterns(uid, callback) {
 function subscribeFindings(uid, callback) {
   if (!uid) { callback([]); return function() {}; }
   return _findingsRef(uid).orderBy('nameKey').onSnapshot(function(snap) {
-    var findings = snap.docs.map(function(d) {
-      return Object.assign({ id: d.id }, _normaliseFindingDoc(d.data() || {}));
+    var findings = [];
+    var orphanIds = [];
+    snap.docs.forEach(function(d) {
+      var finding = _normaliseFindingDoc(d.data() || {});
+      if (!_hasFindingStudyLinks(finding.links)) {
+        orphanIds.push(d.id);
+        return;
+      }
+      findings.push(Object.assign({ id: d.id }, finding));
     });
     callback(findings);
+    if (orphanIds.length) {
+      _deleteFindingDocs(uid, orphanIds).catch(function(err) {
+        console.error('delete orphan findings error:', err);
+      });
+    }
   }, function(err) {
     console.error('subscribeFindings error:', err);
   });
@@ -890,7 +941,85 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
 }
 
 function deletePattern(uid, patternId) {
-  return _patternsRef(uid).doc(patternId).delete();
+  var patternRef = _patternsRef(uid).doc(patternId);
+  return patternRef.get().then(function(existingDoc) {
+    if (!existingDoc.exists) return;
+    var existingPattern = _normalisePatternDoc(existingDoc.data() || {});
+    var previousFindingIds = _collectFindingIdsFromSteps(existingPattern.steps || []);
+    return _loadFindingsByIds(uid, previousFindingIds).then(function(existingFindings) {
+      var findingMutations = _buildFindingMutations(patternId, {}, existingFindings, previousFindingIds);
+      findingMutations.push({ type: 'deletePattern', ref: patternRef });
+      return _commitFindingOps(uid, findingMutations);
+    });
+  });
+}
+
+function deleteFinding(uid, findingId) {
+  var safeFindingId = String(findingId || '').trim();
+  if (!uid || !safeFindingId) return Promise.resolve(0);
+
+  var findingRef = _findingsRef(uid).doc(safeFindingId);
+  return findingRef.get().then(function(findingDoc) {
+    if (!findingDoc.exists) return 0;
+
+    var finding = _normaliseFindingDoc(findingDoc.data() || {});
+    var linkedPatternIds = (finding.links || []).map(function(link) {
+      return String((link && link.patternId) || '').trim();
+    }).filter(function(id, index, list) {
+      return id && list.indexOf(id) === index;
+    });
+
+    function removeFromPattern(index, deletedCount) {
+      if (index >= linkedPatternIds.length) return Promise.resolve(deletedCount);
+      var patternId = linkedPatternIds[index];
+      var patternRef = _patternsRef(uid).doc(patternId);
+      return patternRef.get().then(function(patternDoc) {
+        if (!patternDoc.exists) return removeFromPattern(index + 1, deletedCount);
+
+        var pattern = _normalisePatternDoc(patternDoc.data() || {});
+        var nextSteps = JSON.parse(JSON.stringify(pattern.steps || []));
+        var changed = false;
+
+        nextSteps.forEach(function(step) {
+          var sections = normaliseStepSections(step && step.sections, step && step.richContent || []);
+          var current = sections.dontMissPathology || [];
+          var filtered = current.filter(function(item) {
+            if (!item || item.type !== 'subsection') return true;
+            return String(item.findingId || '').trim() !== safeFindingId;
+          });
+          if (filtered.length !== current.length) {
+            sections.dontMissPathology = filtered;
+            step.sections = sections;
+            step.richContent = cloneRichContentForStorage(sections.searchPattern || []);
+            changed = true;
+          }
+        });
+
+        if (!changed) return removeFromPattern(index + 1, deletedCount);
+
+        return updatePattern(uid, patternId, {
+          name: pattern.name || 'Untitled Pattern',
+          modality: pattern.modality || 'Other',
+          goalSeconds: pattern.goalSeconds,
+          reportConfig: pattern.reportConfig || null,
+          steps: nextSteps
+        }).then(function() {
+          return removeFromPattern(index + 1, deletedCount + 1);
+        });
+      });
+    }
+
+    return removeFromPattern(0, 0).then(function(deletedCount) {
+      return findingRef.get().then(function(finalDoc) {
+        if (!finalDoc.exists) return deletedCount;
+        var finalFinding = _normaliseFindingDoc(finalDoc.data() || {});
+        if (_hasFindingStudyLinks(finalFinding.links)) return deletedCount;
+        return findingRef.delete().then(function() {
+          return deletedCount;
+        });
+      });
+    });
+  });
 }
 
 // ── Report Templates ─────────────────────────────────────────

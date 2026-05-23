@@ -153,7 +153,9 @@
             <label class="form-label notes-search-input-wrap" for="notes-search-input">Findings search
               <input id="notes-search-input" type="search" class="form-input" placeholder="e.g. disc extrusion" autocomplete="off" spellcheck="false">
             </label>
-            <button id="btn-notes-search-clear" class="btn btn-ghost">Clear</button>
+            <div class="notes-search-toolbar-actions">
+              <button id="btn-notes-search-create" class="btn btn-accent" type="button">Create Finding</button>
+            </div>
           </div>
           <div class="notes-search-filters" aria-label="Findings filters">
             <div class="modality-bar notes-search-modality-bar">
@@ -489,6 +491,38 @@
       <div class="modal-actions">
         <button id="btn-findings-add-apply" class="btn btn-accent">Add Finding</button>
         <button id="btn-findings-add-cancel" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE FINDING MODAL -->
+  <div id="modal-findings-create" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-findings-create-title">
+    <div class="modal-card">
+      <div class="editor-header" style="padding: 0 0 10px 0; border: none;">
+        <h3 id="modal-findings-create-title">Create Finding</h3>
+        <button id="btn-findings-create-close" class="btn-icon" aria-label="Close">&#x2715;</button>
+      </div>
+      <p class="settings-subtitle">Create a finding inside a selected study step so it stays linked to that study.</p>
+      <label class="form-label" for="findings-create-title">Finding Title
+        <input id="findings-create-title" type="text" class="form-input" placeholder="Example: Pulmonary embolism">
+      </label>
+      <label class="form-label" for="findings-create-content">Finding Content
+        <textarea id="findings-create-content" class="form-input" rows="6" placeholder="Describe the finding..."></textarea>
+      </label>
+      <label class="notes-search-red-toggle findings-create-red-toggle" for="findings-create-red">
+        <input id="findings-create-red" type="checkbox">
+        <span>Mark as red finding</span>
+      </label>
+      <label class="form-label">Target Pattern
+        <select id="findings-create-pattern-select" class="form-input"></select>
+      </label>
+      <label class="form-label">Target Step
+        <select id="findings-create-step-select" class="form-input"></select>
+      </label>
+      <div id="findings-create-status" class="section-link-current findings-add-status"></div>
+      <div class="modal-actions">
+        <button id="btn-findings-create-apply" class="btn btn-accent">Create Finding</button>
+        <button id="btn-findings-create-cancel" class="btn btn-ghost">Cancel</button>
       </div>
     </div>
   </div>
