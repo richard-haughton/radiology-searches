@@ -699,11 +699,13 @@ function openFindingsAddModal(result) {
   var modal = document.getElementById('modal-findings-add');
   var sourceEl = document.getElementById('findings-add-source');
   var patternSelect = document.getElementById('findings-add-pattern-select');
+  var redEl = document.getElementById('findings-add-red');
   var statusEl = document.getElementById('findings-add-status');
-  if (!modal || !sourceEl || !patternSelect || !statusEl) return;
+  if (!modal || !sourceEl || !patternSelect || !redEl || !statusEl) return;
 
   _findingsAddContext = result;
   sourceEl.textContent = 'Finding: ' + (result.subsectionTitle || result.stepTitle) + '\n' + describeFindingLinks(result);
+  redEl.checked = Boolean(result.isRedFinding);
   statusEl.textContent = '';
 
   var patternsWithSteps = getPatternsWithSteps();
@@ -982,9 +984,10 @@ async function applyFindingToSelectedStep() {
 
   var patternSelect = document.getElementById('findings-add-pattern-select');
   var stepSelect = document.getElementById('findings-add-step-select');
+  var redEl = document.getElementById('findings-add-red');
   var applyBtn = document.getElementById('btn-findings-add-apply');
   var statusEl = document.getElementById('findings-add-status');
-  if (!patternSelect || !stepSelect || !applyBtn || !statusEl) return;
+  if (!patternSelect || !stepSelect || !redEl || !applyBtn || !statusEl) return;
 
   var targetPattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(pattern) {
     return String((pattern && pattern.id) || '') === String(patternSelect.value || '');
@@ -1003,6 +1006,8 @@ async function applyFindingToSelectedStep() {
     return;
   }
 
+  var isRedFinding = Boolean(redEl.checked);
+
   var nextText = buildFindingInsertText(_findingsAddContext);
   if (!nextText) {
     statusEl.textContent = 'This finding has no text to add.';
@@ -1020,8 +1025,8 @@ async function applyFindingToSelectedStep() {
     targetStep.sections.dontMissPathology.push({
       type: 'subsection',
       title: String(_findingsAddContext.subsectionTitle || _findingsAddContext.stepTitle || 'Finding').trim() || 'Finding',
-      isRedFinding: Boolean(_findingsAddContext.isRedFinding),
-      content: buildFindingContentFromText(nextText, _findingsAddContext.isRedFinding)
+      isRedFinding: isRedFinding,
+      content: buildFindingContentFromText(nextText, isRedFinding)
     });
     targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
     targetSteps[targetIndex] = targetStep;
