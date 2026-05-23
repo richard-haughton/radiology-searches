@@ -374,9 +374,16 @@ function coerceReportResponse(parsed, fallbackSections) {
 
 function buildReportGenerationPrompt(input) {
   var findings = String(input.findings || '').trim();
-  var sections = ['Findings', 'Impression'];
-  var languageMode = String(input.languageMode || 'improve').trim() === 'keep' ? 'keep' : 'improve';
+  var sections = Array.isArray(input.sectionOrder) ? input.sectionOrder.slice() : ['Findings', 'Impression'];
+  var findingsLanguageMode = String(input.findingsLanguageMode || 'improve').trim() === 'keep'
+    ? 'keep'
+    : (String(input.findingsLanguageMode || 'improve').trim() === 'omit' ? 'omit' : 'improve');
+  var impressionModeRaw = String(input.impressionMode || 'concise').trim();
+  var impressionMode = impressionModeRaw === 'expound'
+    ? 'expound'
+    : (impressionModeRaw === 'omit' ? 'omit' : 'concise');
   var templateText = String(input.templateText || '').trim();
+  var templateRulesText = String(input.templateRulesText || '').trim();
   var globalRulesText = String(input.globalRulesText || '').trim();
 
   var lines = [
@@ -392,9 +399,18 @@ function buildReportGenerationPrompt(input) {
     '- Standard normal language is allowed when the findings indicate no abnormality or provide no actionable detail.',
     '- Do not include markdown code fences in your JSON response.',
     '- Set finalized=true and questions=[] in every response.',
-    languageMode === 'keep'
+    'Only include these section keys in the JSON response: ' + sections.join(', ') + '.',
+    'Do not return omitted sections even if they appear in the report template.',
+    findingsLanguageMode === 'keep'
       ? '- Language handling mode: KEEP EXACT LANGUAGE. Preserve the wording of the findings input as closely as possible. Do not paraphrase or polish the findings content. If the input contains only normal or minimal wording, you may use standard normal report language for the section while keeping the meaning unchanged.'
-      : '- Language handling mode: IMPROVE LANGUAGE. Rewrite the findings into clear, polished radiology language while preserving the exact clinical meaning. If the findings are empty or normal, generate standard normal section language.',
+      : (findingsLanguageMode === 'omit'
+          ? '- Findings section mode: OMIT. Do not return a Findings section.'
+          : '- Findings section mode: IMPROVE LANGUAGE. Rewrite the findings into clear, polished radiology language while preserving the exact clinical meaning. If the findings are empty or normal, generate standard normal section language.'),
+    impressionMode === 'concise'
+      ? '- Impression section mode: CONCISE. Summarize the most important aspect of the findings. Include differential diagnosis and recommendations only when supported and clinically appropriate.'
+      : (impressionMode === 'expound'
+          ? '- Impression section mode: EXPOUND. Provide a fuller analytical impression with diagnostic reasoning and recommendations when supported by the findings.'
+          : '- Impression section mode: OMIT. Do not return an Impression section.'),
     '',
     'FINDINGS (provided by the radiologist):',
     findings || '(no findings provided; generate standard normal language as appropriate)'
@@ -410,6 +426,7 @@ function buildReportGenerationPrompt(input) {
       'For each template section, first ask: does the findings input explicitly provide abnormal or specific content for this section?',
       'If YES: update only the specific text supported by the findings.',
       'If NO: use standard normal radiology language for that section rather than leaving it blank.',
+      'If a template contains a section that is not in the requested output sections, omit it from the response.',
       'Do not paraphrase unchanged template sections when the section already contains a normal boilerplate line that remains correct.',
       'Do not invent abnormalities, but do produce a normal statement when the section has nothing abnormal to report.',
       'If the template section already contains normal boilerplate that fits the findings, preserve it.',
@@ -424,6 +441,14 @@ function buildReportGenerationPrompt(input) {
 
   if (globalRulesText) {
     lines.push('', 'GLOBAL RULES (always apply):', globalRulesText);
+  }
+
+  if (templateRulesText) {
+    lines.push(
+      '',
+      'TEMPLATE-SPECIFIC RULES (apply these in addition to the template body and global rules):',
+      templateRulesText
+    );
   }
 
   return lines.join('\n');

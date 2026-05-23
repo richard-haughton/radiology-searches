@@ -30,16 +30,43 @@ In the Firestore Rules editor, replace the default rules with:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Each user can only read/write their own subtree
-    match /users/{userId}/{document=**} {
+    match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    match /sharedPatterns/{docId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.patternId is string
+        && request.resource.data.patternName is string
+        && request.resource.data.modality is string
+        && request.resource.data.sharedAt != null
+        && request.resource.data.importCount == 0;
+
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['importCount'])
+        && request.resource.data.importCount is int
+        && request.resource.data.importCount == resource.data.importCount + 1;
+
+      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
     }
   }
 }
 ```
 
 Click **Publish**.
+
+If you are deploying from this repo with the Firebase CLI, run:
+
+```bash
+firebase deploy --only firestore:rules
+```
 
 ---
 
@@ -172,6 +199,46 @@ users/{uid}/
 ```
 
 All data is private to the authenticated user — enforced by the Firestore security rules above.
+
+---
+
+## Database Backup And MRI Migration
+
+The repository now includes two operator scripts under `scripts/` for content migrations:
+
+```bash
+# Full app-data JSON backup (all users/{uid}/patterns, studyLog, reportTemplates, and sharedPatterns)
+node scripts/export_firestore_database.js --out-dir backups
+
+# Preview the MRI wording migration without writing to Firestore
+node scripts/migrate_mri_patterns_system_based.js --write-preview
+
+# Preview only one user library
+node scripts/migrate_mri_patterns_system_based.js \
+  --uid ZxtdD0jaGfUv5ni5k1B5XNMGlvG2 \
+  --write-preview
+
+# Apply the MRI migration after taking a fresh JSON backup first
+node scripts/migrate_mri_patterns_system_based.js --apply --backup-first
+
+# Preview the findings-entity consolidation without writing to Firestore
+node scripts/migrate_findings_to_entities.js --write-preview
+
+# Preview only one user library
+node scripts/migrate_findings_to_entities.js \
+  --uid ZxtdD0jaGfUv5ni5k1B5XNMGlvG2 \
+  --write-preview
+
+# Apply the findings-entity migration after taking a fresh JSON backup first
+node scripts/migrate_findings_to_entities.js --apply --backup-first
+```
+
+Notes:
+
+- The older `backups/firebase_export_*.json` files are user-scoped exports. The new `firebase_database_export_*.json` format is the database-wide backup for the app's live collections.
+- The MRI migration is preview-first. By default it writes a preview JSON into `backups/` and does not update Firestore.
+- The migration only targets MRI patterns. It rewrites sequence-led steps into system-led wording and adds explicit sequence guidance to MRI steps that are already system-based.
+- The scripts refresh an OAuth token from the local Firebase CLI login stored in `~/.config/configstore/firebase-tools.json`. If that login expires, re-run `firebase login`.
 
 ---
 

@@ -1,0 +1,1164 @@
+[
+  {
+    "name": "Acute Subdural Hematoma",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Altered mental status or focal neurologic deficit following head trauma, often with brief lucid interval.",
+    "imaging": "Crescent-shaped hyperdensity conforming to brain surface on CT; may cross suture lines.",
+    "report": "Acute subdural hematoma with mass effect and midline shift concerning for herniation.",
+    "treatment": "Neurosurgery consultation for possible emergent evacuation; manage increased ICP."
+  },
+  {
+    "name": "Epidural Hematoma",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Classic 'talk and die' presentation with brief loss of consciousness, lucidity, then rapid deterioration.",
+    "imaging": "Lens-shaped hyperdensity typically crossing midline; does not cross suture lines.",
+    "report": "Acute epidural hematoma with significant mass effect and herniation risk.",
+    "treatment": "Emergent neurosurgery consultation for craniotomy and hematoma evacuation."
+  },
+  {
+    "name": "Subarachnoid Hemorrhage",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden severe 'thunderclap' headache, neck stiffness, photophobia; may have aneurysmal or traumatic etiology.",
+    "imaging": "Hyperdensity within sulci and basal cisterns on non-contrast CT; may show aneurysm on CTA.",
+    "report": "Acute subarachnoid hemorrhage with hyperdensity in basal cisterns; CTA recommended to identify source.",
+    "treatment": "ICU admission, blood pressure control, nimodipine for vasospasm prevention; neurosurgery/interventional radiology consult."
+  },
+  {
+    "name": "Acute Ischemic Stroke",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute neurologic deficit (facial droop, arm weakness, speech difficulty) within critical thrombolytic window.",
+    "imaging": "CT may be normal early; MRI DWI shows acute ischemic territory; CTA/MRA reveals arterial occlusion.",
+    "report": "Acute ischemia in distribution of middle cerebral artery with proximal arterial occlusion.",
+    "treatment": "Neurology consultation for thrombolysis eligibility; consider thrombectomy if large vessel occlusion."
+  },
+  {
+    "name": "Hemorrhagic Stroke",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute focal neurologic deficit with headache and hypertension; higher risk of herniation than ischemic stroke.",
+    "imaging": "Hyperdensity within brain parenchyma on CT; may extend into ventricles or subarachnoid space.",
+    "report": "Acute intracerebral hemorrhage in basal ganglia/thalamic region with significant mass effect.",
+    "treatment": "ICU admission, aggressive BP control, coagulopathy reversal if indicated; neurosurgery consult for mass effect."
+  },
+  {
+    "name": "Acute Epidural Abscess/Meningitis",
+    "modalities": [
+      "MRI",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever, meningeal signs, altered mental status; may have recent spinal procedure or infection.",
+    "imaging": "MRI shows enhancement of dura or epidural space; restricted diffusion if abscess present.",
+    "report": "Epidural enhancement with restricted diffusion consistent with abscess versus inflammatory changes.",
+    "treatment": "Infectious disease and neurosurgery consultation; IV antibiotics; possible emergency drainage."
+  },
+  {
+    "name": "Tension Pneumocephalus",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Altered mental status and headache following head trauma or neurosurgery; progressive neurologic deterioration.",
+    "imaging": "Large air collection with mass effect and ventricular compression on CT.",
+    "report": "Tension pneumocephalus with significant mass effect and midline shift indicating elevated pressure.",
+    "treatment": "Neurosurgery consultation; may require needle aspiration or burr hole drainage."
+  },
+  {
+    "name": "Brainstem Stroke",
+    "modalities": [
+      "MRI",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Altered consciousness, cranial nerve palsies, bilateral motor/sensory findings; high mortality if basilar artery.",
+    "imaging": "MRI DWI shows restricted diffusion in brainstem; CTA may reveal basilar artery occlusion.",
+    "report": "Acute ischemia in brainstem distribution consistent with basilar artery territory infarction.",
+    "treatment": "Emergent thrombolysis or thrombectomy consideration; ICU-level supportive care."
+  },
+  {
+    "name": "Cerebellar Hemorrhage with Infarction",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Ataxia, headache, vomiting, altered consciousness; rapid deterioration from brainstem compression.",
+    "imaging": "Hemorrhage or infarction in cerebellar region with fourth ventricle compression and obstructive hydrocephalus.",
+    "report": "Acute cerebellar hemorrhage with mass effect on fourth ventricle and early hydrocephalus.",
+    "treatment": "Neurosurgery consultation for possible decompression; external ventricular drain consideration."
+  },
+  {
+    "name": "Acute Hydrocephalus",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Altered mental status, headache, upgaze paresis, ataxia; occurs with ventricular outflow obstruction.",
+    "imaging": "Ventricular enlargement disproportionate to sulcal effacement; transependymal CSF signal on MRI.",
+    "report": "Acute obstructive hydrocephalus with enlarged ventricles and transependymal CSF leak.",
+    "treatment": "Neurosurgery consultation for emergent ventriculostomy or external ventricular drain placement."
+  },
+  {
+    "name": "Herniation Syndrome",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Deteriorating consciousness with ipsilateral pupil dilation and contralateral motor weakness; imminent death without intervention.",
+    "imaging": "Midline shift with compression of lateral ventricles and transfalcine or transtentorial herniation on imaging.",
+    "report": "Significant mass effect with evidence of transtentorial herniation and brainstem compression.",
+    "treatment": "Emergent neurosurgery; ICU support; head-of-bed elevation and osmotic therapy temporizing measures."
+  },
+  {
+    "name": "Acute Tension Pneumothorax",
+    "modalities": [
+      "Plain Radiograph",
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute dyspnea, hypotension, JVD, tracheal deviation; life-threatening respiratory emergency.",
+    "imaging": "Complete lung collapse with mediastinal shift, absent lung markings on affected side.",
+    "report": "Tension pneumothorax with complete ipsilateral lung collapse and severe mediastinal shift.",
+    "treatment": "Emergent needle decompression followed by chest tube placement; no delay for imaging."
+  },
+  {
+    "name": "Hemothorax",
+    "modalities": [
+      "Plain Radiograph",
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Dyspnea and hypotension after trauma; may rapidly become hemodynamically unstable.",
+    "imaging": "Layering opacity in dependent lung with possible mediastinal shift; echogenic fluid on ultrasound.",
+    "report": "Large hemothorax with mass effect and significant hemodynamic impact.",
+    "treatment": "Chest tube placement; ICU monitoring for ongoing hemorrhage; surgical consultation if massive bleeding."
+  },
+  {
+    "name": "Flail Chest with Pulmonary Contusion",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Multiple rib fractures with paradoxical movement; high risk for respiratory failure from underlying lung injury.",
+    "imaging": "Multiple rib fractures on radiograph; ground-glass opacities indicating pulmonary contusion on CT.",
+    "report": "Flail chest with extensive pulmonary contusion and alveolar consolidation.",
+    "treatment": "Aggressive pain control, incentive spirometry, monitor for respiratory decompensation; ICU if severe."
+  },
+  {
+    "name": "Tension Pneumomediastinum",
+    "modalities": [
+      "CT",
+      "Plain Radiograph"
+    ],
+    "isRedFinding": true,
+    "clinical": "Chest pain, dyspnea, hypotension after trauma or with barotrauma; may result in cardiac tamponade.",
+    "imaging": "Air in mediastinal tissues with compression of great vessels and cardiac chambers on CT.",
+    "report": "Tension pneumomediastinum with significant vascular compression and hemodynamic compromise.",
+    "treatment": "Emergent needle or catheter decompression of mediastinum; tube thoracostomy if pneumothorax present."
+  },
+  {
+    "name": "Acute Aortic Dissection",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden severe chest or back pain radiating to interscapular region with hypertension; high mortality if untreated.",
+    "imaging": "Intimal flap in aorta with true and false lumens on CTA; confirms site and extent of dissection.",
+    "report": "Type A aortic dissection extending to ascending aorta with pericardial effusion concerning for rupture.",
+    "treatment": "Emergent cardiothoracic surgery consultation; immediate BP and heart rate control to reduce aortic stress."
+  },
+  {
+    "name": "Rupturing/Ruptured Abdominal Aortic Aneurysm",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Hypotension, pulsatile abdominal mass, flank pain; mortality exceeds 50% even with surgery.",
+    "imaging": "AAA >5.5 cm with contained rupture or free rupture with retroperitoneal/intraperitoneal blood.",
+    "report": "Large AAA with contained rupture and sentinel bleeding into retroperitoneal space.",
+    "treatment": "Emergent vascular surgery consult; type and cross; permissive hypotension; operating room immediately."
+  },
+  {
+    "name": "Acute Pulmonary Embolism",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute dyspnea and chest pain with acute cor pulmonale; risk of hemodynamic collapse and death.",
+    "imaging": "CTA shows filling defect in pulmonary arteries; may see right heart strain and elevated troponin.",
+    "report": "Massive bilateral pulmonary embolism with acute right heart strain and elevated RV/LV ratio.",
+    "treatment": "Anticoagulation; consider thrombolysis for massive PE; interventional radiology for embolectomy if indicated."
+  },
+  {
+    "name": "Acute Myocardial Infarction with Rupture",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden hypotension and shock in setting of acute MI; mechanical complication with high mortality.",
+    "imaging": "Free pericardial fluid with hemopericardium on CT or echocardiography.",
+    "report": "Large pericardial effusion consistent with ventricular rupture in setting of acute myocardial infarction.",
+    "treatment": "Emergent cardiothoracic surgery consult; supportive measures; operating room for repair."
+  },
+  {
+    "name": "Tension Cardiac Tamponade",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Hypotension, JVD, muffled heart sounds; life-threatening compression of cardiac function.",
+    "imaging": "Large pericardial effusion with diastolic collapse of right atrium on ultrasound.",
+    "report": "Massive pericardial effusion with right atrial and ventricular diastolic collapse indicating tamponade physiology.",
+    "treatment": "Emergent pericardiocentesis for relief; search for underlying etiology; ICU monitoring."
+  },
+  {
+    "name": "Acute Mesenteric Ischemia",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe abdominal pain disproportionate to exam findings; high mortality if diagnosis delayed.",
+    "imaging": "CT shows bowel wall thinning, lack of enhancement, and mesenteric arterial occlusion or severe stenosis.",
+    "report": "Acute superior mesenteric artery occlusion with non-enhancing small bowel and pneumatosis intestinalis.",
+    "treatment": "Emergent vascular surgery/interventional radiology consult; consider angiography and revascularization."
+  },
+  {
+    "name": "Boerhaave Syndrome (Esophageal Rupture)",
+    "modalities": [
+      "CT",
+      "Plain Radiograph"
+    ],
+    "isRedFinding": true,
+    "clinical": "Chest or abdominal pain after forceful vomiting; rapid progression to sepsis and death without treatment.",
+    "imaging": "Pneumomediastinum, mediastinal widening, and pleural effusion on radiograph; CT shows esophageal defect.",
+    "report": "Pneumomediastinum with mediastinal gas and cervical subcutaneous emphysema consistent with esophageal rupture.",
+    "treatment": "Emergent surgical consultation; avoid oral intake; broad-spectrum antibiotics; operative repair needed."
+  },
+  {
+    "name": "Acute Pancreatitis with Necrosis",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe epigastric pain radiating to back with elevated amylase; risk of multiorgan failure and death.",
+    "imaging": "Pancreatic enlargement with heterogeneous enhancement, fluid collections, and peripancreatic stranding.",
+    "report": "Severe acute pancreatitis with extensive pancreatic necrosis and retroperitoneal fluid collections.",
+    "treatment": "ICU admission, aggressive hydration, NPO status; monitor for infected necrosis requiring drainage."
+  },
+  {
+    "name": "Perforated Peptic Ulcer",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute severe epigastric pain with free air under diaphragm; requires emergent surgery.",
+    "imaging": "Pneumoperitoneum on upright chest radiograph or CT; may visualize ulcer crater.",
+    "report": "Pneumoperitoneum indicating hollow viscus perforation; likely perforated gastric ulcer.",
+    "treatment": "Emergent surgical consultation; NPO status; IV fluids; antibiotics; operating room for repair."
+  },
+  {
+    "name": "Bowel Obstruction (Strangulated)",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Abdominal pain and distension with vomiting; strangulation risk with rapid progression to perforation.",
+    "imaging": "Dilated bowel loops with transition point; CT shows closed-loop obstruction and ischemic changes.",
+    "report": "Strangulated small bowel obstruction with evidence of ischemia and pneumatosis.",
+    "treatment": "Emergent surgical consultation; NG tube; IV fluids; likely requires operative intervention."
+  },
+  {
+    "name": "Appendicitis with Perforation",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Right lower quadrant pain with fever and peritoneal signs; perforation leads to peritonitis.",
+    "imaging": "Non-compressible appendix >6 mm with periappendiceal fluid and free intraperitoneal air if perforated.",
+    "report": "Perforated appendicitis with appendicolith and loculated periappendiceal abscess.",
+    "treatment": "Surgical consultation; emergent appendectomy or percutaneous drainage if contained perforation."
+  },
+  {
+    "name": "Acute Diverticulitis with Perforation",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Left lower quadrant pain and fever; perforation results in fecal peritonitis.",
+    "imaging": "Diverticula with adjacent inflammation, fluid collection, and free air if perforated.",
+    "report": "Perforated acute diverticulitis with large abscess and free peritoneal air.",
+    "treatment": "Surgical consultation; NPO; antibiotics; possible emergency colostomy or primary repair."
+  },
+  {
+    "name": "Toxic Megacolon",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe colitis with toxic appearance and colonic dilation; risk of perforation and death.",
+    "imaging": "Colon >6 cm diameter on radiograph; CT shows severe colonic inflammation and markedly dilated segments.",
+    "report": "Toxic megacolon with colon diameter >8 cm and severe mucosal inflammation.",
+    "treatment": "Gastroenterology and surgery consultation; aggressive medical management; surgery if perforation or no improvement."
+  },
+  {
+    "name": "Acute Mesenteric Venous Thrombosis",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Abdominal pain with vomiting; insidious presentation with high mortality if missed.",
+    "imaging": "Thrombus in mesenteric veins with intestinal wall thickening and ascites.",
+    "report": "Mesenteric venous thrombosis with early ischemic changes in dependent bowel.",
+    "treatment": "Anticoagulation; monitor for progression; consider intervention if bowel viability questionable."
+  },
+  {
+    "name": "Ruptured Ectopic Pregnancy",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Hypotension, severe pelvic pain, positive pregnancy test; can be rapidly fatal without surgical intervention.",
+    "imaging": "Free pelvic/peritoneal blood with corpus luteum cyst and no intrauterine gestational sac on ultrasound.",
+    "report": "Large amount of free pelvic fluid consistent with ruptured ectopic pregnancy.",
+    "treatment": "Emergent OB/GYN consultation; type and cross; operating room for exploratory surgery and hemostasis."
+  },
+  {
+    "name": "Ovarian Torsion",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute pelvic pain and vomiting; risk of ovarian loss if not rapidly detorted.",
+    "imaging": "Enlarged ovary with peripheral follicles and echogenic stroma on ultrasound; venous flow absent.",
+    "report": "Markedly enlarged right ovary with peripheral cystic follicles and no venous Doppler flow indicating torsion.",
+    "treatment": "Emergent OB/GYN consultation; operative detorsion or oophorectomy if necrotic."
+  },
+  {
+    "name": "Ruptured Hemorrhagic Ovarian Cyst",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute pelvic pain and hemodynamic compromise; mimics ectopic pregnancy or surgical abdomen.",
+    "imaging": "Large cystic structure with internal hemorrhage and free fluid in pelvis.",
+    "report": "Ruptured hemorrhagic ovarian cyst with significant free intraperitoneal blood.",
+    "treatment": "Pelvic rest, analgesia, serial imaging; surgery if hemodynamic instability or continued bleeding."
+  },
+  {
+    "name": "Acute Pyelonephritis with Urosepsis",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Flank pain, fever, and shock; sepsis can rapidly progress to multiorgan failure.",
+    "imaging": "Wedge-shaped area of diminished enhancement in kidney; CT shows collecting system dilatation.",
+    "report": "Acute pyelonephritis with septal stranding and hydronephrosis from obstructing stone.",
+    "treatment": "Urologic consultation; antibiotics; percutaneous nephrostomy if obstructed and septic."
+  },
+  {
+    "name": "Perinephric Abscess",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever, flank pain, and sepsis; can result from complicated pyelonephritis or hematogenous spread.",
+    "imaging": "Fluid collection surrounding kidney with rim enhancement on CT.",
+    "report": "Large perinephric abscess with fluid locules and thick enhancing rim.",
+    "treatment": "Percutaneous drainage and antibiotics; address underlying urologic obstruction if present."
+  },
+  {
+    "name": "Spontaneous Renal Artery Dissection",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Flank pain and hematuria with elevated creatinine; can cause acute renal infarction.",
+    "imaging": "Intimal flap in renal artery with wedge-shaped area of non-enhancement in kidney.",
+    "report": "Renal artery dissection with acute infarction of dependent renal parenchyma.",
+    "treatment": "Anticoagulation consideration; monitor renal function; interventional radiology for endovascular repair if compromised."
+  },
+  {
+    "name": "Acute Renal Infarction",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Flank pain and hematuria; often missed because presentation mimics renal colic.",
+    "imaging": "Wedge-shaped area of non-enhancement in renal artery distribution; elevated LDH.",
+    "report": "Acute renal infarction in left upper pole kidney with minimal renal artery involvement.",
+    "treatment": "Anticoagulation; address underlying cause (dissection, thromboembolism, arrhythmia)."
+  },
+  {
+    "name": "Fournier Gangrene",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Rapidly progressive genital pain and systemic toxicity; high mortality without emergent surgical intervention.",
+    "imaging": "Gas in soft tissues of perineum and genital region with extensive inflammation on CT.",
+    "report": "Extensive subcutaneous emphysema in perineal and genital tissues consistent with necrotizing infection.",
+    "treatment": "Emergent surgical consultation for debridement; broad-spectrum antibiotics; likely multiple operations needed."
+  },
+  {
+    "name": "Testicular Torsion",
+    "modalities": [
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute testicular pain; testis viable only if treated within 6 hours; must rule out before ultrasound.",
+    "imaging": "Absent or reversed flow on color Doppler ultrasound; testis may appear heterogeneous.",
+    "report": "Right testis with absent venous Doppler flow and heterogeneous echotexture consistent with torsion.",
+    "treatment": "Emergent urology consultation for manual detorsion; operative bilateral fixation required."
+  },
+  {
+    "name": "Ischemic Colitis",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Bloody diarrhea and abdominal pain in elderly; can progress rapidly to transmural necrosis.",
+    "imaging": "Segmental colonic wall thickening and pericolonic fat stranding; may show thumbprinting.",
+    "report": "Acute ischemic colitis with watershed zone involvement and early transmural changes.",
+    "treatment": "NPO, IV fluids, antibiotics; serial abdominal exams; surgery if signs of perforation or necrosis."
+  },
+  {
+    "name": "Internal Hernia (Post-Bariatric)",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Intermittent or acute bowel obstruction in post-bariatric patient; high risk of strangulation.",
+    "imaging": "Clustered small bowel loops in abnormal location with mesenteric vessel torsion.",
+    "report": "Internal hernia with strangulated small bowel loops and compromised vascular perfusion.",
+    "treatment": "Emergent surgical consultation; operative reduction or repair of hernia defect."
+  },
+  {
+    "name": "Abdominal Wall Hematoma (Rectus Sheath)",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Pulsatile mass and pain on exam; can rapidly expand and cause hypovolemic shock.",
+    "imaging": "Heterogeneous fluid collection within rectus muscle on ultrasound; CT shows arterial bleeding source.",
+    "report": "Large expanding hematoma within right rectus abdominis with active arterial bleeding.",
+    "treatment": "Vascular/surgical consultation; observe if stable; percutaneous drainage or embolization if bleeding."
+  },
+  {
+    "name": "Acute Arterial Mesenteric Occlusion (Embolic)",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden severe abdominal pain out of proportion to exam in patient with atrial fibrillation.",
+    "imaging": "Abrupt cutoff of superior mesenteric artery with non-enhancing bowel segments.",
+    "report": "Superior mesenteric artery embolism with acute non-enhancing ischemic bowel.",
+    "treatment": "Emergent vascular surgery/interventional radiology; catheter thrombectomy or surgical embolectomy."
+  },
+  {
+    "name": "Acute Arterial Mesenteric Occlusion (Thrombotic)",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Gradual abdominal pain in patient with atherosclerotic disease; prodromal symptoms common.",
+    "imaging": "Severe stenosis or occlusion of mesenteric vessels with proximal collateral development.",
+    "report": "Chronic mesenteric ischemia with acute thrombotic occlusion and non-perfusing bowel.",
+    "treatment": "Vascular surgery consultation; emergent revascularization or bypass; monitor for viability."
+  },
+  {
+    "name": "Superior Vena Cava Syndrome",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Facial swelling, upper extremity edema, venous distension; acute presentation suggests thrombosis or PE.",
+    "imaging": "SVC occlusion with collateral venous development and mediastinal mass on CT.",
+    "report": "Complete SVC obstruction from mediastinal malignancy with extensive collateral circulation.",
+    "treatment": "Oncology/vascular consultation; stent placement or chemotherapy depending on etiology."
+  },
+  {
+    "name": "Acute Adrenal Crisis",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Hypotension, altered mental status, and shock in steroid-dependent patient or with adrenal pathology.",
+    "imaging": "Enlarged bilateral adrenal glands with acute hemorrhage or infarction on CT.",
+    "report": "Bilateral adrenal hemorrhage consistent with acute adrenal crisis.",
+    "treatment": "High-dose IV glucocorticoids and mineralocorticoids immediately; ICU support; address underlying cause."
+  },
+  {
+    "name": "Nephrotic Syndrome with Renal Vein Thrombosis",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Massive proteinuria and acute kidney injury; thrombosis can rapidly lead to renal loss.",
+    "imaging": "Thrombus in renal vein with lack of enhancement on Doppler ultrasound or CT.",
+    "report": "Acute renal vein thrombosis with enlarged swollen kidney and diminished perfusion.",
+    "treatment": "Anticoagulation; thrombolysis consideration; address underlying nephrotic syndrome."
+  },
+  {
+    "name": "Cauda Equina Syndrome",
+    "modalities": [
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Bilateral leg pain, saddle anesthesia, bowel/bladder dysfunction; neurosurgical emergency.",
+    "imaging": "Large central disc herniation compressing cauda equina on lumbar MRI.",
+    "report": "Large central lumbar disc herniation with severe compression of cauda equina nerve roots.",
+    "treatment": "Emergent neurosurgery consultation; MRI confirmation; urgent decompressive laminectomy."
+  },
+  {
+    "name": "Spinal Epidural Hematoma",
+    "modalities": [
+      "MRI",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute back pain and rapidly progressive neurologic deficit; can cause permanent paralysis if not decompressed.",
+    "imaging": "Hyperdense collection in epidural space compressing spinal cord on MRI or CT.",
+    "report": "Large spinal epidural hematoma from T3-T6 with significant spinal cord compression.",
+    "treatment": "Emergent neurosurgery consultation; emergent MRI; urgent laminectomy and hematoma evacuation."
+  },
+  {
+    "name": "Spinal Cord Compression from Metastasis",
+    "modalities": [
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Back pain progressing to neurologic deficit in cancer patient; delays in treatment lead to permanent paralysis.",
+    "imaging": "Vertebral body metastasis with epidural extension compressing spinal cord on MRI.",
+    "report": "Metastatic disease at L2 with significant epidural involvement and spinal cord compression.",
+    "treatment": "Emergent oncology/neurosurgery/radiation oncology consultation; consider emergent decompression or XRT."
+  },
+  {
+    "name": "Acute Myelitis",
+    "modalities": [
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute spinal pain and progressive paralysis; can be viral, post-infectious, or MS-related.",
+    "imaging": "T2 hyperintensity within spinal cord over multiple levels with T1 enhancement.",
+    "report": "Longitudinally extensive transverse myelitis with extensive spinal cord signal abnormality.",
+    "treatment": "High-dose IV methylprednisolone; neuro/infectious disease consultation; search for etiology."
+  },
+  {
+    "name": "Anterior Spinal Artery Infarction",
+    "modalities": [
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute motor deficit and loss of pain/temperature sensation below level of lesion; prognosis poor.",
+    "imaging": "T2 hyperintensity in ventral spinal cord in ASAD distribution.",
+    "report": "Acute infarction in anterior spinal artery territory with ventral cord signal change.",
+    "treatment": "Supportive care; investigate vascular cause; neuro consultation."
+  },
+  {
+    "name": "Vertebral Artery Dissection",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Neck pain and subsequent stroke; can present with lateral medullary syndrome.",
+    "imaging": "Intimal flap in vertebral artery on CTA or MRA with possible downstream ischemia.",
+    "report": "Vertebral artery dissection with intimal flap and posterolateral medullary ischemia.",
+    "treatment": "Anticoagulation or antiplatelet therapy; neurology consultation; monitor for thromboembolic events."
+  },
+  {
+    "name": "Pneumatosis Intestinalis with Portal Venous Gas",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sign of bowel necrosis and perforation; indicates critical ischemic disease with high mortality.",
+    "imaging": "Gas within bowel wall and portal vein branches on CT.",
+    "report": "Pneumatosis intestinalis with portal venous gas indicating transmural bowel necrosis.",
+    "treatment": "Emergent surgical consultation; operative exploration for extent of necrosis and resection."
+  },
+  {
+    "name": "Aspiration Pneumonia with Acute Respiratory Distress",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Recent aspiration event with acute hypoxia and respiratory failure.",
+    "imaging": "Bilateral infiltrates in dependent areas on radiograph; CT may show focal consolidation.",
+    "report": "Aspiration pneumonia with bilateral pulmonary infiltrates and acute hypoxic respiratory failure.",
+    "treatment": "Broad-spectrum antibiotics; ICU support; intubation if severe; avoid antiemetics that worsen aspiration."
+  },
+  {
+    "name": "Acute Epiglottitis",
+    "modalities": [
+      "CT",
+      "Plain Radiograph"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sore throat, dysphagia, drooling with acute upper airway emergency; risk of complete airway obstruction.",
+    "imaging": "Enlarged epiglottis on lateral neck radiograph or CT; thumbprint sign on radiograph.",
+    "report": "Markedly thickened epiglottis with edema concerning for acute epiglottitis.",
+    "treatment": "Avoid aggravating airway; airway team at bedside; intubation if stridor or respiratory distress."
+  },
+  {
+    "name": "Acute Subdural Empyema",
+    "modalities": [
+      "MRI",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever, headache, altered mental status following head injury or infection; rapid neurologic deterioration.",
+    "imaging": "Crescent-shaped collection between dura and brain with restricted diffusion on MRI.",
+    "report": "Subdural collection with restricted diffusion and enhancement indicating empyema.",
+    "treatment": "Neurosurgery consultation; emergent drainage; IV antibiotics after cultures."
+  },
+  {
+    "name": "Necrotizing Fasciitis",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Rapidly spreading skin infection with disproportionate pain and systemic toxicity; high mortality.",
+    "imaging": "Gas tracking in soft tissue planes with minimal skin findings on CT.",
+    "report": "Extensive subcutaneous gas in thigh consistent with necrotizing fasciitis.",
+    "treatment": "Emergent surgical consultation for bedside debridement; broad-spectrum antibiotics; likely multiple operations."
+  },
+  {
+    "name": "Traumatic Diaphragmatic Rupture",
+    "modalities": [
+      "CT",
+      "Plain Radiograph"
+    ],
+    "isRedFinding": true,
+    "clinical": "Blunt trauma with respiratory compromise; may present acutely or with delayed presentation.",
+    "imaging": "Bowel loops in thorax on radiograph; CT shows diaphragmatic defect.",
+    "report": "Left diaphragmatic rupture with herniation of abdominal viscera into chest.",
+    "treatment": "Thoracic/surgical consultation; operative repair of diaphragmatic defect."
+  },
+  {
+    "name": "Acute Angle-Closure Glaucoma",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute eye pain, blurred vision, halo around lights; can cause permanent blindness if untreated.",
+    "imaging": "CT shows shallow anterior chamber and lens displacement.",
+    "report": "Bilateral shallow anterior chambers with lens-corneal contact suggesting angle-closure risk.",
+    "treatment": "Emergent ophthalmology consultation; topical and systemic glaucoma medications; laser peripheral iridotomy."
+  },
+  {
+    "name": "Central Retinal Artery Occlusion",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden monocular vision loss; treatment window is narrow for visual recovery.",
+    "imaging": "CTA head shows arterial occlusion; may need immediate catheter intervention.",
+    "report": "Central retinal artery occlusion with visualization of thrombus on CTA.",
+    "treatment": "Ophthalmology consultation; ocular massage and paracentesis temporizing; consider intra-arterial thrombolysis."
+  },
+  {
+    "name": "Retrobulbar Hematoma",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Blunt orbital trauma with vision loss and proptosis; risk of compartment syndrome and blindness.",
+    "imaging": "Blood collection in retrobulbar space with proptosis and increased intraocular pressure.",
+    "report": "Large retrobulbar hematoma with significant proptosis and optic nerve compression.",
+    "treatment": "Ophthalmology consultation; lateral canthotomy/cantholysis if compartment syndrome; urgent drainage if needed."
+  },
+  {
+    "name": "Orbital Cellulitis",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Painful proptosis, ophthalmoplegia, fever; risk of cavernous sinus thrombosis and death.",
+    "imaging": "Orbital inflammation and enlargement on CT; may show abscess formation.",
+    "report": "Diffuse orbital inflammation with enlargement and fat stranding consistent with cellulitis.",
+    "treatment": "Emergent ophthalmology consultation; broad-spectrum antibiotics; CT to rule out abscess; possible drainage."
+  },
+  {
+    "name": "Acute Compartment Syndrome (Extremity)",
+    "modalities": [
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Pain out of proportion, pain with passive stretch; leads to permanent disability if not emergently decompressed.",
+    "imaging": "MRI shows muscle edema and signal change in affected compartment.",
+    "report": "Increased T2 signal in anterior tibial compartment consistent with compartment syndrome.",
+    "treatment": "Orthopedic/surgical emergency consultation; emergent fasciotomy required."
+  },
+  {
+    "name": "Crush Syndrome with Acute Kidney Injury",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Massive crush injury with rhabdomyolysis and renal failure; hyperkalemia and cardiac arrhythmias risk.",
+    "imaging": "Muscle edema and heterogeneous enhancement in involved compartments on CT.",
+    "report": "Extensive muscle injury and rhabdomyolysis with hyperenhancing inflamed muscles.",
+    "treatment": "Aggressive IV hydration, urine alkalinization, dialysis if needed; monitor for hyperkalemia."
+  },
+  {
+    "name": "Fat Embolism Syndrome",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Confusion, dyspnea, petechiae following long bone fracture; can rapidly progress to respiratory failure.",
+    "imaging": "Bilateral pulmonary infiltrates on chest radiograph; CT shows ground-glass opacities.",
+    "report": "Bilateral pulmonary infiltrates consistent with fat embolism syndrome.",
+    "treatment": "Supportive care with ICU admission; oxygen; consider steroids; monitor for multiorgan involvement."
+  },
+  {
+    "name": "Tension Fracture (Long Bone)",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe long bone fracture with potential for compartment syndrome and vascular injury.",
+    "imaging": "Displaced fracture with significant soft tissue swelling and deformity.",
+    "report": "Displaced comminuted femur fracture with severe soft tissue injury and vascular compromise risk.",
+    "treatment": "Orthopedic/vascular consultation; traction; likely operative fixation needed."
+  },
+  {
+    "name": "Vascular Injury with Pseudoaneurysm",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Expanding hematoma or pulsatile mass following trauma or procedure; risk of rupture.",
+    "imaging": "Pseudoaneurysm with arterial flow on Doppler or CTA.",
+    "report": "Femoral artery pseudoaneurysm with active arterial bleeding and expanding hematoma.",
+    "treatment": "Vascular surgery/interventional radiology consultation; embolization or operative repair."
+  },
+  {
+    "name": "Acute Arterial Thrombosis",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute limb pain and pallor; if untreated leads to tissue necrosis and amputation.",
+    "imaging": "CTA shows arterial cutoff with distal ischemia; high-grade stenosis or occlusion.",
+    "report": "Acute thrombotic occlusion of popliteal artery with distal lower leg ischemia.",
+    "treatment": "Emergent vascular surgery/interventional radiology; catheter thrombectomy or bypass."
+  },
+  {
+    "name": "Acute Limb Ischemia from Embolism",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden-onset limb pain and sensory loss in patient with atrial fibrillation; window for salvage is hours.",
+    "imaging": "CTA shows arterial cutoff with abrupt cessation of flow.",
+    "report": "Acute embolic occlusion of superficial femoral artery with acute lower leg ischemia.",
+    "treatment": "Emergent vascular surgery/interventional radiology; mechanical thrombectomy or surgical embolectomy."
+  },
+  {
+    "name": "Acute Arterial Dissection (Peripheral)",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden limb pain and ischemia; may follow trauma or have spontaneous etiology.",
+    "imaging": "Intimal flap in peripheral artery with true and false lumens on CTA.",
+    "report": "Iliac artery dissection with severe stenosis of true lumen and distal ischemia.",
+    "treatment": "Vascular surgery/interventional radiology consultation; endovascular stent or open repair."
+  },
+  {
+    "name": "Ruptured Artery (Femoral/Brachial)",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Pulsatile expanding hematoma and shock; requires emergent surgical or endovascular intervention.",
+    "imaging": "Expanding hematoma with arterial bleeding on contrast CT or active flow on ultrasound.",
+    "report": "Ruptured femoral artery with massive expanding hemorrhage.",
+    "treatment": "Vascular surgery emergency; operative repair or endovascular intervention; massive transfusion protocol."
+  },
+  {
+    "name": "Acute Pulmonary Hypertension Crisis",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute dyspnea and hypoxia in patient with known pulmonary hypertension; risk of cardiogenic shock.",
+    "imaging": "Massively dilated right ventricle and pulmonary arteries on CT.",
+    "report": "Acute right heart strain with marked RV/LV ratio indicating acute decompensation.",
+    "treatment": "ICU admission; inhaled pulmonary vasodilators; IV inotropic support; cardiology consultation."
+  },
+  {
+    "name": "Peritoneal Dialysis Catheter Perforation",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Abdominal pain and peritonitis during dialysis; can result in bowel perforation and sepsis.",
+    "imaging": "Free air and perforation of viscus in pelvis on CT.",
+    "report": "Peritoneal dialysis catheter perforation of small bowel with pneumoperitoneum.",
+    "treatment": "Urgent surgical consultation; operative exploration and repair of perforation."
+  },
+  {
+    "name": "Massive Transfusion-Related Complications",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute coagulopathy and shock during massive transfusion; multi-organ failure risk.",
+    "imaging": "Multiple injuries requiring massive transfusion; complications develop rapidly.",
+    "report": "Severe polytrauma with ongoing hemorrhage requiring massive transfusion protocol.",
+    "treatment": "Damage control surgery; balanced resuscitation; FFP and platelets; monitor for TRALI and TACO."
+  },
+  {
+    "name": "Hyperammonemia with Hepatic Encephalopathy",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Altered mental status and confusion in cirrhotic patient; can rapidly progress to coma.",
+    "imaging": "MRI shows T1 hyperintensity in basal ganglia consistent with chronic hepatic encephalopathy.",
+    "report": "T1 signal abnormality in globus pallidus and substantia nigra indicating hyperammonemia.",
+    "treatment": "Lactulose and rifaxomicin; identify precipitant; ICU support if severe; may need intubation."
+  },
+  {
+    "name": "Fulminant Hepatic Failure",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Coagulopathy and encephalopathy without prior liver disease; mortality high without transplant.",
+    "imaging": "CT shows small liver and ascites; hepatology ultrasound shows reversal of portal flow.",
+    "report": "Shrunken liver with portal vein flow reversal and ascites consistent with fulminant hepatic failure.",
+    "treatment": "ICU admission; transplant hepatology consultation; listed for emergent transplant; supportive care."
+  },
+  {
+    "name": "Pylephlebitis (Portal Vein Thrombosis with Sepsis)",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever and abdominal pain in patient with intra-abdominal infection; high mortality if missed.",
+    "imaging": "Portal vein thrombosis with gas in portal system on CT.",
+    "report": "Portal vein thrombosis with pneumoporvia and septic appearance consistent with pylephlebitis.",
+    "treatment": "Broad-spectrum antibiotics; identify source of infection; consider anticoagulation; surgical drainage if needed."
+  },
+  {
+    "name": "Budd-Chiari Syndrome (Acute)",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Right upper quadrant pain and ascites; can present acutely with fulminant hepatic failure.",
+    "imaging": "Hepatic vein occlusion with echogenic thrombus on ultrasound; CT shows enlarged congested liver.",
+    "report": "Acute hepatic vein thrombosis with severe hepatic congestion and massive ascites.",
+    "treatment": "Anticoagulation; interventional radiology for thrombolysis or stent; transplant evaluation if severe."
+  },
+  {
+    "name": "Retroperitoneal Hemorrhage",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Flank pain and hypotension after anticoagulation or trauma; can be rapidly fatal.",
+    "imaging": "Large heterogeneous fluid collection in retroperitoneal space.",
+    "report": "Large retroperitoneal hematoma with mass effect on adjacent structures.",
+    "treatment": "Reverse anticoagulation if appropriate; vascular/surgical consultation; massive transfusion if unstable."
+  },
+  {
+    "name": "Splenic Rupture/Infarction",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Left upper quadrant pain after trauma; risk of hemorrhagic shock.",
+    "imaging": "Splenic laceration with active bleeding and splenic infarction on CT.",
+    "report": "Splenic laceration with active arterial bleeding and extensive infarction.",
+    "treatment": "Surgical or interventional radiology consultation; splenic artery embolization vs operative splenectomy."
+  },
+  {
+    "name": "Liver Injury with Massive Hemorrhage",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Blunt abdominal trauma with rapid hemodynamic deterioration.",
+    "imaging": "Large hepatic laceration with active arterial bleeding and massive hemoperitoneum.",
+    "report": "Complex right hepatic lobe laceration with active bleeding and free intraperitoneal blood.",
+    "treatment": "Massive transfusion protocol; trauma surgery consultation; consider angiographic embolization vs operative repair."
+  },
+  {
+    "name": "Acute Compartment Syndrome (Abdomen)",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe abdominal distension and pain after massive transfusion or bowel edema; organ failure risk.",
+    "imaging": "Marked abdominal distension with bowel wall thickening and ischemic changes.",
+    "report": "Abdominal compartment syndrome with severe bowel wall edema and ischemic changes.",
+    "treatment": "Emergent surgical consultation; likely requires decompressive laparotomy."
+  },
+  {
+    "name": "Tension Hemopericardium",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Hypotension and shock after thoracic trauma or percutaneous procedure.",
+    "imaging": "Large pericardial effusion with right atrial collapse on ultrasound.",
+    "report": "Massive hemopericardium with diastolic collapse of right atrium indicating tamponade.",
+    "treatment": "Emergent pericardiocentesis; cardiothoracic surgery consultation; operating room for definitive repair."
+  },
+  {
+    "name": "Tension Hemothorax",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Hypotension and respiratory distress after thoracic trauma; life-threatening emergency.",
+    "imaging": "Complete opacification of hemithorax with mediastinal shift and lung collapse.",
+    "report": "Massive tension hemothorax with severe mediastinal shift and complete lung collapse.",
+    "treatment": "Emergent chest tube placement; massive transfusion; cardiothoracic surgery for source control."
+  },
+  {
+    "name": "Acute Coronary Syndrome with Cardiogenic Shock",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Chest pain with hypotension and pulmonary edema; high mortality without urgent intervention.",
+    "imaging": "Cardiology ultrasound shows global hypokinesis; CTA shows left main or three-vessel disease.",
+    "report": "Large anterior myocardial infarction with reduced ejection fraction and cardiogenic shock.",
+    "treatment": "Cardiology/interventional cardiology consultation; emergent cardiac catheterization for intervention."
+  },
+  {
+    "name": "Acute Ventricular Septal Rupture",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "New systolic murmur and shock after myocardial infarction; mortality high if not surgically repaired.",
+    "imaging": "Cardiac ultrasound shows left-to-right shunt at ventricular level.",
+    "report": "Acute VSD with left-to-right shunting evident on echocardiography in post-MI period.",
+    "treatment": "Emergent cardiothoracic surgery consultation; inotropic support; operating room for VSD repair."
+  },
+  {
+    "name": "Septic Shock from Meningococcemia",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever, petechial rash, hypotension, altered mental status; rapidly progressive with high mortality.",
+    "imaging": "CT shows meningeal enhancement; may show adrenal hemorrhage (Waterhouse-Friderichsen).",
+    "report": "Meningitis with adrenal hemorrhage consistent with Waterhouse-Friderichsen syndrome.",
+    "treatment": "Emergent antibiotics; ICU admission; vasopressor support; early recognition critical for survival."
+  },
+  {
+    "name": "Acute Epiglottitis in Adult",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe throat pain, dysphagia, drooling with rapidly progressive upper airway obstruction.",
+    "imaging": "Marked epiglottic enlargement and aryepiglottic fold thickening on CT.",
+    "report": "Severely enlarged epiglottis with aryepiglottic fold thickening concerning for acute epiglottitis.",
+    "treatment": "Airway team at bedside; secure airway before imaging if suspected; antibiotics; avoid agitation."
+  },
+  {
+    "name": "Retropharyngeal Abscess",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Throat pain, dysphagia, fever with progressive airway compromise; risk of mediastinitis.",
+    "imaging": "Fluid collection in retropharyngeal space with rim enhancement on CT.",
+    "report": "Large retropharyngeal abscess with airway displacement and mediastinal extension.",
+    "treatment": "ENT and surgical consultation; IV antibiotics; percutaneous or surgical drainage."
+  },
+  {
+    "name": "Esophageal Food Impaction",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Dysphagia and chest discomfort; if not relieved can progress to perforation.",
+    "imaging": "Radiopaque foreign body or bolus in esophagus; may show air-fluid level.",
+    "report": "Esophageal food impaction at gastroesophageal junction with proximal esophageal dilatation.",
+    "treatment": "GI consultation; attempt endoscopic removal; monitor for perforation; NPO status."
+  },
+  {
+    "name": "Acute Gastric Ulcer Perforation",
+    "modalities": [
+      "Plain Radiograph",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Acute severe epigastric pain with free air; requires emergent surgery.",
+    "imaging": "Pneumoperitoneum on upright radiograph; CT shows ulcer crater and free air.",
+    "report": "Perforated gastric ulcer with pneumoperitoneum and peritoneal contamination.",
+    "treatment": "Emergent surgical consultation; NPO; IV fluids; antibiotics; operative repair."
+  },
+  {
+    "name": "Acute Infectious Endocarditis with Septic Emboli",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever and new murmur in IVDU or immunocompromised patient; high mortality without treatment.",
+    "imaging": "CT shows septic pulmonary emboli and vegetation on cardiac ultrasound.",
+    "report": "Multiple septic pulmonary emboli consistent with hematogenous spread from endocarditis.",
+    "treatment": "Blood cultures before antibiotics; cardiology/infectious disease consultation; echo for vegetation."
+  },
+  {
+    "name": "Acute Empyema",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Fever and dyspnea in patient with pneumonia; fails to respond to antibiotics.",
+    "imaging": "Loculated pleural effusion with pus on ultrasound or CT showing fluid locules.",
+    "report": "Complex loculated pleural effusion consistent with empyema.",
+    "treatment": "Pulmonology/thoracic surgery consultation; tube thoracostomy or VATS drainage."
+  },
+  {
+    "name": "Tension Pneumothorax (Occult)",
+    "modalities": [
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Respiratory distress in ICU patient on mechanical ventilation; clinical diagnosis before imaging.",
+    "imaging": "CT shows large pneumothorax with mediastinal shift and vascular compression.",
+    "report": "Large tension pneumothorax with severe mediastinal shift and vascular compression.",
+    "treatment": "Emergent needle decompression; chest tube placement; do not delay for imaging."
+  },
+  {
+    "name": "Acute Pericarditis with Tamponade",
+    "modalities": [
+      "US",
+      "CT"
+    ],
+    "isRedFinding": true,
+    "clinical": "Pleuritic chest pain and dyspnea with hypotension; can rapidly progress to cardiovascular collapse.",
+    "imaging": "Large pericardial effusion with diastolic RA collapse on ultrasound.",
+    "report": "Massive pericardial effusion with right atrial diastolic collapse indicating tamponade physiology.",
+    "treatment": "Emergent pericardiocentesis; cardiology consultation; identify underlying etiology."
+  },
+  {
+    "name": "Myocardial Rupture Post-MI",
+    "modalities": [
+      "CT",
+      "US"
+    ],
+    "isRedFinding": true,
+    "clinical": "Sudden hemodynamic collapse and cardiogenic shock in acute MI period.",
+    "imaging": "Cardiac ultrasound shows pseudoaneurysm or free wall rupture with pericardial effusion.",
+    "report": "Left ventricular free wall rupture with pseudoaneurysm and hemopericardium.",
+    "treatment": "Emergent cardiothoracic surgery consultation; inotropic support; operating room for repair."
+  },
+  {
+    "name": "Acute Myocarditis with Cardiogenic Shock",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Chest pain and dyspnea with hypotension and pulmonary edema; often viral prodrome.",
+    "imaging": "Global wall motion abnormality and reduced ejection fraction on cardiac imaging.",
+    "report": "Global myocardial edema on MRI consistent with acute myocarditis.",
+    "treatment": "Cardiology consultation; supportive care; consider IABP or ECMO if cardiogenic shock."
+  },
+  {
+    "name": "Diffuse Axonal Injury",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Severe traumatic brain injury with prolonged coma out of proportion to initial CT findings.",
+    "imaging": "Small hemorrhagic foci at the gray-white junction, corpus callosum, or brainstem; MRI is more sensitive than CT.",
+    "report": "Findings are concerning for diffuse axonal injury involving deep white matter and corpus callosum.",
+    "treatment": "ICU-level neurocritical care and ICP management; neurosurgery consultation as indicated by associated injuries."
+  },
+  {
+    "name": "Cerebral Venous Sinus Thrombosis",
+    "modalities": [
+      "CT",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Headache, seizure, focal deficit, or altered mental status, especially in hypercoagulable or postpartum patients.",
+    "imaging": "Hyperdense dural sinus on noncontrast CT or absent venous flow/filling defect on CTV or MRV with possible venous infarct.",
+    "report": "Dural venous sinus thrombosis involving the transverse/sigmoid sinus with associated venous edema or hemorrhagic infarction.",
+    "treatment": "Urgent anticoagulation unless contraindicated; neurology consultation and escalation for endovascular therapy if deteriorating."
+  },
+  {
+    "name": "Placental Abruption",
+    "modalities": [
+      "US",
+      "MRI"
+    ],
+    "isRedFinding": true,
+    "clinical": "Pregnant patient with abdominal pain, vaginal bleeding, uterine tenderness, or fetal distress after trauma or spontaneously.",
+    "imaging": "Retroplacental hematoma or placental thickening on ultrasound; MRI can better define concealed hemorrhage.",
+    "report": "Placental abruption with retroplacental hematoma and imaging concern for ongoing maternal-fetal compromise.",
+    "treatment": "Immediate obstetric evaluation, maternal stabilization, and urgent delivery planning based on fetal and maternal status."
+  }
+]

@@ -874,7 +874,7 @@ function renderStepEditPanel() {
       </div>
       ${isSubsectionSectionKey(activeStepSectionKey) ? `
       <div class="subsection-manager">
-        <p class="section-link-help">Use Link Finding on each findings section to link only that finding across studies.</p>
+        <p class="section-link-help">Use Include in Other Search Pattern to reuse a finding in another study while keeping it shared.</p>
         <div id="subsection-rows" class="subsection-rows"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-subsection-row">+ Add Findings Section</button>
       </div>
@@ -1394,11 +1394,13 @@ function saveActiveStepToState() {
       const content = rowEditor ? extractRichContent(rowEditor) : [];
       if (!title && !hasAnyRichContent(content)) return;
       const subsectionId = String(row.dataset.subsectionId || '').trim() || makeSubsectionId();
+      const findingId = String(row.dataset.findingId || '').trim();
       row.dataset.subsectionId = subsectionId;
       const linkMeta = normaliseSectionLinkMeta(row._linkMeta || null);
       subsections.push({
         type: 'subsection',
         subsectionId: subsectionId,
+        findingId: findingId,
         title: title || `Subsection ${subsections.length + 1}`,
         isRedFinding: Boolean(redCheckbox && redCheckbox.checked),
         linkMeta: linkMeta,
@@ -1460,6 +1462,7 @@ function getSubsectionRowsFromContent(content) {
     if (chunk.type === 'subsection') {
       rows.push({
         subsectionId: String(chunk.subsectionId || '').trim() || makeSubsectionId(),
+        findingId: String(chunk.findingId || '').trim(),
         title: (chunk.title || '').trim(),
         isRedFinding: Boolean(chunk.isRedFinding),
         linkMeta: normaliseSectionLinkMeta(chunk.linkMeta),
@@ -1517,6 +1520,7 @@ function renderSubsectionRows(step) {
     container.appendChild(createSubsectionRow(item.title || '', item.content || [], Boolean(item.isRedFinding), {
       expanded: false,
       subsectionId: item.subsectionId,
+      findingId: item.findingId,
       linkMeta: item.linkMeta || null
     }));
   });
@@ -1532,12 +1536,10 @@ function createSubsectionRow(title, content, isRedFinding, options) {
   const redInputId = `subsection-red-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const opts = options || {};
   row.dataset.subsectionId = String(opts.subsectionId || '').trim() || makeSubsectionId();
+  row.dataset.findingId = String(opts.findingId || '').trim();
   row._linkMeta = normaliseSectionLinkMeta(opts.linkMeta || null);
   const expanded = opts.expanded !== false;
   const initialTitle = String(title || '').trim() || 'Findings Section';
-  const linkedLabel = row._linkMeta && row._linkMeta.sourceSubsectionId
-    ? ((row._linkMeta.sourcePatternName || 'Pattern') + ' / ' + (row._linkMeta.sourceStepTitle || 'Step') + ' / ' + (row._linkMeta.sourceSubsectionTitle || 'Finding'))
-    : 'No finding link set.';
   row.innerHTML = `
     <button type="button" class="subsection-row-toggle" aria-expanded="${expanded ? 'true' : 'false'}">
       <span class="subsection-row-title">${escapeHtml(initialTitle)}</span>
@@ -1546,8 +1548,7 @@ function createSubsectionRow(title, content, isRedFinding, options) {
     <div class="subsection-row-body" style="display:${expanded ? '' : 'none'};">
       <input type="text" class="form-input subsection-title-input" value="${escapeHtml(title)}" placeholder="Findings section title">
       <div class="section-link-inline">
-        <button type="button" class="btn btn-ghost btn-sm subsection-link-btn">Link Finding...</button>
-        <span class="section-link-current subsection-link-current">${escapeHtml(linkedLabel)}</span>
+        <button type="button" class="btn btn-ghost btn-sm subsection-link-btn">Include in Other Search Pattern...</button>
       </div>
       <label class="subsection-red-row" for="${redInputId}">
         <input type="checkbox" class="subsection-red-checkbox" id="${redInputId}" ${isRedFinding ? 'checked' : ''}>
@@ -1599,7 +1600,7 @@ function createSubsectionRow(title, content, isRedFinding, options) {
 
   row.querySelector('.subsection-del-btn').addEventListener('click', () => row.remove());
   row.querySelector('.subsection-link-btn').addEventListener('click', function() {
-    openContentLinkModal({ type: 'finding', subsectionId: row.dataset.subsectionId });
+    openContentLinkModal({ type: 'includeFinding', subsectionId: row.dataset.subsectionId });
   });
   return row;
 }
@@ -1648,6 +1649,10 @@ function getCurrentContentLinkLabel() {
   if (activeStepIndex === null || !editorSteps[activeStepIndex]) return 'No link set.';
   var step = editorSteps[activeStepIndex];
   if (!_contentLinkContext) return 'No link set.';
+
+  if (_contentLinkContext.type === 'includeFinding') {
+    return 'This will add a shared copy of the current finding to the selected step.';
+  }
 
   if (_contentLinkContext.type === 'searchPattern') {
     var link = step.sectionLinks && step.sectionLinks.searchPattern ? step.sectionLinks.searchPattern : null;
@@ -1785,6 +1790,7 @@ async function createLinkedFindingInSelectedStudy(sourceEntry, currentStep, targ
   sourceFindings.push({
     type: 'subsection',
     subsectionId: newSubsectionId,
+    findingId: String(targetFinding.findingId || '').trim(),
     title: newSubsectionTitle,
     isRedFinding: Boolean(targetFinding.isRedFinding),
     linkMeta: linkBackMeta,
@@ -1823,14 +1829,29 @@ function openContentLinkModal(context) {
   _contentLinkContext = context || null;
 
   var modal = document.getElementById('modal-content-link');
+  var titleEl = document.getElementById('modal-content-link-title');
   var targetLabel = document.getElementById('content-link-target-label');
   var currentLabel = document.getElementById('content-link-current');
+  var applyBtn = document.getElementById('btn-content-link-apply');
+  var unlinkBtn = document.getElementById('btn-content-link-unlink');
+  var patternLabel = document.getElementById('content-link-pattern-label');
+  var stepLabel = document.getElementById('content-link-step-label');
   var patternSelect = document.getElementById('content-link-pattern-select');
   var stepSelect = document.getElementById('content-link-step-select');
   var findingSelect = document.getElementById('content-link-finding-select');
-  if (!modal || !targetLabel || !currentLabel || !patternSelect || !stepSelect || !findingSelect) return;
+  if (!modal || !titleEl || !targetLabel || !currentLabel || !applyBtn || !unlinkBtn || !patternLabel || !stepLabel || !patternSelect || !stepSelect || !findingSelect) return;
 
-  targetLabel.textContent = context && context.type === 'finding'
+  var isIncludeFinding = context && context.type === 'includeFinding';
+
+  titleEl.textContent = isIncludeFinding ? 'Include Finding in Other Search Pattern' : 'Link Section Content';
+  patternLabel.firstChild.textContent = isIncludeFinding ? 'Target Pattern' : 'Source Pattern';
+  stepLabel.firstChild.textContent = isIncludeFinding ? 'Target Step' : 'Source Step';
+  applyBtn.textContent = isIncludeFinding ? 'Include Finding' : 'Apply Link';
+  unlinkBtn.style.display = isIncludeFinding ? 'none' : '';
+
+  targetLabel.textContent = isIncludeFinding
+    ? 'Select the pattern and step where this finding should also appear.'
+    : context && context.type === 'finding'
     ? 'Target: Findings section'
     : (context && context.type === 'fullStep'
       ? 'Target: Entire step'
@@ -1885,7 +1906,21 @@ async function applyContentLinkFromModal() {
   var step = editorSteps[activeStepIndex];
   if (!step.sectionLinks || typeof step.sectionLinks !== 'object') step.sectionLinks = {};
 
-  if (_contentLinkContext.type === 'fullStep') {
+  if (_contentLinkContext.type === 'includeFinding') {
+    var currentFinding = findStepSubsectionById(step, _contentLinkContext.subsectionId);
+    if (!currentFinding) {
+      showToast('Current finding section no longer exists.', true);
+      return;
+    }
+
+    try {
+      await createLinkedFindingInSelectedStudy(sourceEntry, step, currentFinding);
+      showToast('Included finding in ' + (sourceEntry.patternName || 'selected pattern') + '.');
+    } catch (err) {
+      showToast(String((err && err.message) || err || 'Failed to include finding.'), true);
+      return;
+    }
+  } else if (_contentLinkContext.type === 'fullStep') {
     var sourceStepId = String(sourceEntry.stepId || '').trim();
     if (!sourceStepId) {
       showToast('Selected source step is missing an ID.', true);
@@ -1969,6 +2004,7 @@ async function applyContentLinkFromModal() {
     }
 
     targetFinding.title = sourceFinding.title || targetFinding.title;
+    targetFinding.findingId = String(sourceFinding.findingId || '').trim();
     targetFinding.isRedFinding = Boolean(sourceFinding.isRedFinding);
     targetFinding.content = normaliseRichContent(sourceFinding.content || []);
     targetFinding.linkMeta = {
@@ -1993,6 +2029,7 @@ async function applyContentLinkFromModal() {
 function unlinkContentLinkFromModal() {
   if (!_contentLinkContext) return;
   if (activeStepIndex === null || !editorSteps[activeStepIndex]) return;
+  if (_contentLinkContext.type === 'includeFinding') return;
 
   var step = editorSteps[activeStepIndex];
   if (_contentLinkContext.type === 'fullStep') {
@@ -2281,6 +2318,19 @@ async function savePattern() {
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
+  function syncLinkedStepsInBackground(patternId, stepsForStorage, successMessage) {
+    return propagateLinkedSteps(editorUid, patternId, stepsForStorage, _allPatternsRef)
+      .then(function(updatedCount) {
+        if (updatedCount > 0) {
+          showToast(successMessage + ' Synced linked steps in ' + updatedCount + ' pattern(s).');
+        }
+      })
+      .catch(function(err) {
+        console.error(err);
+        showToast('Saved, but failed to sync linked steps: ' + (err && err.message ? err.message : err), true);
+      });
+  }
+
   try {
     const stepsForStorage = await prepareStepsForStorage(editorSteps);
 
@@ -2294,23 +2344,15 @@ async function savePattern() {
         goalSeconds: existingPattern ? existingPattern.goalSeconds : null,
         steps: stepsForStorage
       });
-      const updatedCount = await propagateLinkedSteps(editorUid, editingPatternId, stepsForStorage, _allPatternsRef);
-      if (updatedCount > 0) {
-        showToast(`Pattern updated. Synced linked steps in ${updatedCount} pattern(s).`);
-      } else {
-        showToast('Pattern updated.');
-      }
+      showToast('Pattern updated.');
       if (typeof rememberStepForPattern === 'function') {
         rememberStepForPattern(editingPatternId, activeStepIndex);
       }
+      syncLinkedStepsInBackground(editingPatternId, stepsForStorage, 'Pattern updated.');
     } else {
       const newPatternId = await createPattern(editorUid, { name, modality, steps: stepsForStorage });
-      const updatedCount = await propagateLinkedSteps(editorUid, newPatternId, stepsForStorage, _allPatternsRef);
-      if (updatedCount > 0) {
-        showToast(`Pattern created. Synced linked steps in ${updatedCount} pattern(s).`);
-      } else {
-        showToast('Pattern created.');
-      }
+      showToast('Pattern created.');
+      syncLinkedStepsInBackground(newPatternId, stepsForStorage, 'Pattern created.');
     }
     closeEditor();
   } catch (err) {

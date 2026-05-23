@@ -242,7 +242,7 @@ function importSharedPattern(patternId, patternName) {
       // Increment import count
       return appDb.collection('sharedPatterns').doc(sharedPattern.docId)
         .update({
-          importCount: (sharedPattern.importCount || 0) + 1
+          importCount: firebase.firestore.FieldValue.increment(1)
         });
     })
     .then(() => {

@@ -2,11 +2,366 @@
 
 function _userRef(uid)       { return appDb.collection('users').doc(uid); }
 function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
+function _findingsRef(uid)   { return _userRef(uid).collection('findings'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _reportTemplatesRef(uid) { return _userRef(uid).collection('reportTemplates'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
 var STEP_SECTION_KEYS = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
+var FINDINGS_BATCH_SIZE = 400;
+
+function _normaliseFindingName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _makeFindingId(name) {
+  var key = _normaliseFindingName(name);
+  if (!key) return '';
+  return 'finding_' + key.replace(/\s+/g, '_').slice(0, 120);
+}
+
+function _normaliseFindingLink(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    patternId: String(raw.patternId || '').trim(),
+    patternName: String(raw.patternName || '').trim(),
+    modality: String(raw.modality || '').trim() || 'Other',
+    stepId: String(raw.stepId || '').trim(),
+    stepTitle: String(raw.stepTitle || '').trim(),
+    subsectionId: String(raw.subsectionId || '').trim()
+  };
+}
+
+function _makeFindingLinkKey(link) {
+  var safe = _normaliseFindingLink(link);
+  if (!safe) return '';
+  return [safe.patternId, safe.stepId, safe.subsectionId].join('::');
+}
+
+function _normaliseContentSignature(chunk) {
+  if (!chunk || typeof chunk !== 'object') return '';
+  if (chunk.type === 'image') {
+    return JSON.stringify({ type: 'image', format: chunk.format || 'png', data: chunk.data || '' });
+  }
+  if (chunk.type === 'link') {
+    return JSON.stringify({ type: 'link', text: chunk.text || '', url: chunk.url || '' });
+  }
+  if (chunk.type === 'subsection') {
+    return JSON.stringify({
+      type: 'subsection',
+      title: chunk.title || '',
+      content: cloneRichContentForStorage(chunk.content || [])
+    });
+  }
+  return JSON.stringify({ type: 'text', text: chunk.text || '', bold: Boolean(chunk.bold), color: chunk.color || null });
+}
+
+function _mergeRichContentLists(baseContent, incomingContent) {
+  var merged = cloneRichContentForStorage(baseContent || []);
+  var seen = {};
+  merged.forEach(function(chunk) {
+    seen[_normaliseContentSignature(chunk)] = 1;
+  });
+
+  cloneRichContentForStorage(incomingContent || []).forEach(function(chunk) {
+    var signature = _normaliseContentSignature(chunk);
+    if (!signature || seen[signature]) return;
+    seen[signature] = 1;
+    merged.push(chunk);
+  });
+
+  return merged;
+}
+
+function _mergeFindingLinks(baseLinks, incomingLinks) {
+  var merged = [];
+  var seen = {};
+
+  function append(link) {
+    var safe = _normaliseFindingLink(link);
+    var key = _makeFindingLinkKey(safe);
+    if (!safe || !key || seen[key]) return;
+    seen[key] = 1;
+    merged.push(safe);
+  }
+
+  (baseLinks || []).forEach(append);
+  (incomingLinks || []).forEach(append);
+
+  merged.sort(function(a, b) {
+    if (a.patternName !== b.patternName) return a.patternName.localeCompare(b.patternName);
+    if (a.stepTitle !== b.stepTitle) return a.stepTitle.localeCompare(b.stepTitle);
+    return a.subsectionId.localeCompare(b.subsectionId);
+  });
+
+  return merged;
+}
+
+function _modalitiesFromFindingLinks(links) {
+  var seen = {};
+  var modalities = [];
+  (links || []).forEach(function(link) {
+    var modality = String((link && link.modality) || 'Other').trim() || 'Other';
+    if (seen[modality]) return;
+    seen[modality] = 1;
+    modalities.push(modality);
+  });
+  modalities.sort();
+  return modalities;
+}
+
+function _normaliseFindingDoc(doc) {
+  return {
+    name: String((doc && doc.name) || '').trim(),
+    nameKey: _normaliseFindingName(doc && doc.nameKey ? doc.nameKey : (doc && doc.name)),
+    content: cloneRichContentForStorage((doc && doc.content) || []),
+    isRedFinding: Boolean(doc && doc.isRedFinding),
+    modalities: Array.isArray(doc && doc.modalities) ? doc.modalities.map(function(item) { return String(item || '').trim() || 'Other'; }).filter(Boolean) : [],
+    links: Array.isArray(doc && doc.links) ? doc.links.map(_normaliseFindingLink).filter(Boolean) : [],
+    createdAt: doc && doc.createdAt ? doc.createdAt : null,
+    updatedAt: doc && doc.updatedAt ? doc.updatedAt : null
+  };
+}
+
+function _collectFindingIdsFromSteps(steps) {
+  var ids = {};
+  (steps || []).forEach(function(step) {
+    var sections = normaliseStepSections(step && step.sections, step && step.richContent || []);
+    (sections.dontMissPathology || []).forEach(function(item) {
+      if (!item || item.type !== 'subsection') return;
+      var title = String(item.title || '').trim();
+      var findingId = String(item.findingId || '').trim() || _makeFindingId(title);
+      if (!findingId) return;
+      ids[findingId] = 1;
+    });
+  });
+  return Object.keys(ids);
+}
+
+function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
+  var findingsById = {};
+
+  (steps || []).forEach(function(step, stepIndex) {
+    if (!step) return;
+    var stepId = String(step.stepId || '').trim() || _makeStepId();
+    step.stepId = stepId;
+    var stepTitle = String(step.stepTitle || '').trim() || ('Step ' + (stepIndex + 1));
+    var sections = normaliseStepSections(step.sections, step.richContent || []);
+
+    (sections.dontMissPathology || []).forEach(function(item, itemIndex) {
+      if (!item || item.type !== 'subsection') return;
+      var title = String(item.title || '').trim();
+      var findingId = String(item.findingId || '').trim() || _makeFindingId(title);
+      if (!findingId) return;
+
+      item.findingId = findingId;
+      item.title = title || ('Findings Section ' + (itemIndex + 1));
+
+      if (!findingsById[findingId]) {
+        findingsById[findingId] = {
+          id: findingId,
+          name: item.title,
+          nameKey: _normaliseFindingName(item.title),
+          content: cloneRichContentForStorage(item.content || []),
+          isRedFinding: Boolean(item.isRedFinding),
+          links: []
+        };
+      } else {
+        findingsById[findingId].content = _mergeRichContentLists(findingsById[findingId].content, item.content || []);
+        findingsById[findingId].isRedFinding = Boolean(findingsById[findingId].isRedFinding || item.isRedFinding);
+      }
+
+      findingsById[findingId].links.push({
+        patternId: patternId,
+        patternName: patternName,
+        modality: modality || 'Other',
+        stepId: stepId,
+        stepTitle: stepTitle,
+        subsectionId: String(item.subsectionId || '').trim() || _makeSubsectionId()
+      });
+    });
+
+    step.sections = sections;
+  });
+
+  return findingsById;
+}
+
+function _loadFindingsByIds(uid, ids) {
+  var uniqueIds = (ids || []).filter(function(id, index, list) {
+    return id && list.indexOf(id) === index;
+  });
+  if (!uniqueIds.length) return Promise.resolve({});
+
+  var refs = uniqueIds.map(function(id) {
+    return _findingsRef(uid).doc(id);
+  });
+
+  if (typeof appDb.getAll === 'function') {
+    return appDb.getAll.apply(appDb, refs).then(function() {
+      var snapshots = Array.prototype.slice.call(arguments);
+      return snapshots.map(function(doc, index) {
+        return {
+          id: uniqueIds[index],
+          exists: doc.exists,
+          data: doc.exists ? _normaliseFindingDoc(doc.data() || {}) : null
+        };
+      });
+    }).then(function(entries) {
+      var out = {};
+      entries.forEach(function(entry) {
+        if (entry.exists && entry.data) out[entry.id] = entry.data;
+      });
+      return out;
+    });
+  }
+
+  return Promise.all(refs.map(function(ref, index) {
+    return ref.get().then(function(doc) {
+      return { id: uniqueIds[index], exists: doc.exists, data: doc.exists ? _normaliseFindingDoc(doc.data() || {}) : null };
+    });
+  })).then(function(entries) {
+    var out = {};
+    entries.forEach(function(entry) {
+      if (entry.exists && entry.data) out[entry.id] = entry.data;
+    });
+    return out;
+  });
+}
+
+function _replaceArrayContents(target, next) {
+  if (!Array.isArray(target)) return;
+  target.length = 0;
+  (next || []).forEach(function(item) {
+    target.push(item);
+  });
+}
+
+function _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds) {
+  var nextIds = Object.keys(extractedFindings || {});
+  var allIds = (previousFindingIds || []).concat(nextIds).filter(function(id, index, list) {
+    return id && list.indexOf(id) === index;
+  });
+  var mutations = [];
+
+  allIds.forEach(function(findingId) {
+    var existing = existingFindings[findingId] || null;
+    var nextFinding = extractedFindings[findingId] || null;
+    var baseLinks = existing ? (existing.links || []).filter(function(link) {
+      return String((link && link.patternId) || '') !== String(patternId || '');
+    }) : [];
+
+    if (!nextFinding) {
+      if (!existing) return;
+      if (!baseLinks.length) {
+        mutations.push({ type: 'delete', id: findingId });
+        return;
+      }
+      mutations.push({
+        type: 'set',
+        id: findingId,
+        data: {
+          name: existing.name || '',
+          nameKey: existing.nameKey || _normaliseFindingName(existing.name || ''),
+          content: cloneRichContentForStorage(existing.content || []),
+          isRedFinding: Boolean(existing.isRedFinding),
+          modalities: _modalitiesFromFindingLinks(baseLinks),
+          links: baseLinks,
+          updatedAt: _now()
+        },
+        merge: true
+      });
+      return;
+    }
+
+    var mergedLinks = _mergeFindingLinks(baseLinks, nextFinding.links || []);
+    var mergedContent = _mergeRichContentLists(existing ? existing.content : [], nextFinding.content || []);
+    mutations.push({
+      type: 'set',
+      id: findingId,
+      data: {
+        name: nextFinding.name || (existing && existing.name) || '',
+        nameKey: nextFinding.nameKey || (existing && existing.nameKey) || _normaliseFindingName(nextFinding.name || ''),
+        content: mergedContent,
+        isRedFinding: Boolean((existing && existing.isRedFinding) || nextFinding.isRedFinding),
+        modalities: _modalitiesFromFindingLinks(mergedLinks),
+        links: mergedLinks,
+        updatedAt: _now(),
+        createdAt: existing && existing.createdAt ? existing.createdAt : _now()
+      },
+      merge: true
+    });
+  });
+
+  return mutations;
+}
+
+function _commitPatternAndFindingMutations(uid, patternRef, patternPayload, findingMutations, isCreate) {
+  var ops = (findingMutations || []).slice();
+  ops.push({ type: isCreate ? 'createPattern' : 'updatePattern', ref: patternRef, data: patternPayload });
+
+  function commitChunk(index) {
+    if (index >= ops.length) return Promise.resolve();
+    var slice = ops.slice(index, index + FINDINGS_BATCH_SIZE);
+    var batch = appDb.batch();
+
+    slice.forEach(function(op) {
+      if (op.type === 'delete') {
+        batch.delete(_findingsRef(uid).doc(op.id));
+        return;
+      }
+      if (op.type === 'set') {
+        batch.set(_findingsRef(uid).doc(op.id), op.data, { merge: op.merge !== false });
+        return;
+      }
+      if (op.type === 'createPattern') {
+        batch.set(op.ref, op.data);
+        return;
+      }
+      if (op.type === 'updatePattern') {
+        batch.update(op.ref, op.data);
+      }
+    });
+
+    return batch.commit().then(function() {
+      return commitChunk(index + FINDINGS_BATCH_SIZE);
+    });
+  }
+
+  return commitChunk(0);
+}
+
+function _hydratePatternsWithFindings(patterns, findingsById) {
+  return (patterns || []).map(function(pattern) {
+    var nextPattern = Object.assign({}, pattern);
+    nextPattern.steps = (pattern.steps || []).map(function(step) {
+      var nextStep = Object.assign({}, step);
+      var sections = cloneStepSectionsForStorage(step && step.sections, step && step.richContent || []);
+      sections.dontMissPathology = (sections.dontMissPathology || []).map(function(item) {
+        if (!item || item.type !== 'subsection') return item;
+        var findingId = String(item.findingId || '').trim();
+        var finding = findingId ? findingsById[findingId] : null;
+        if (!finding) return item;
+        return Object.assign({}, item, {
+          findingId: findingId,
+          title: finding.name || item.title,
+          isRedFinding: Boolean(finding.isRedFinding),
+          content: cloneRichContentForStorage(finding.content || [])
+        });
+      });
+      nextStep.sections = sections;
+      nextStep.richContent = cloneRichContentForStorage(sections.searchPattern || nextStep.richContent || []);
+      return nextStep;
+    });
+    return nextPattern;
+  });
+}
 
 function _makeStepId() {
   return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -91,6 +446,7 @@ function normaliseSubsectionChunk(chunk) {
   return {
     type: 'subsection',
     subsectionId: String((chunk && (chunk.subsectionId || chunk.subsection_id)) || '').trim() || _makeSubsectionId(),
+    findingId: String((chunk && (chunk.findingId || chunk.finding_id)) || '').trim(),
     title: (chunk && (chunk.title || chunk.name)) || '',
     isRedFinding: Boolean(chunk && (chunk.isRedFinding || chunk.is_red_finding || chunk.findingRed)),
     linkMeta: _normaliseSectionLinkMeta(chunk && (chunk.linkMeta || chunk.link_meta)),
@@ -153,6 +509,17 @@ function cloneStepSectionsForStorage(sections, fallbackRichContent) {
 
 function _normalisePatternDoc(doc) {
   var rawSteps = doc.steps;
+  var rawTemplateUsageCounts = (doc && doc.reportConfig && doc.reportConfig.templateUsageCounts && typeof doc.reportConfig.templateUsageCounts === 'object')
+    ? doc.reportConfig.templateUsageCounts
+    : {};
+  var templateUsageCounts = {};
+
+  Object.keys(rawTemplateUsageCounts).forEach(function(templateId) {
+    var safeTemplateId = String(templateId || '').trim();
+    var count = Number(rawTemplateUsageCounts[templateId]);
+    if (!safeTemplateId || !Number.isFinite(count) || count <= 0) return;
+    templateUsageCounts[safeTemplateId] = Math.floor(count);
+  });
 
   // Legacy imports may store steps in alternate fields or JSON strings.
   if (!rawSteps && doc.steps_json) rawSteps = doc.steps_json;
@@ -215,7 +582,8 @@ function _normalisePatternDoc(doc) {
     reportConfig: (doc && doc.reportConfig && typeof doc.reportConfig === 'object') ? {
       selectedTemplateId: String(doc.reportConfig.selectedTemplateId || '').trim(),
       selectedTemplateName: String(doc.reportConfig.selectedTemplateName || '').trim(),
-      sectionOrder: Array.isArray(doc.reportConfig.sectionOrder) ? doc.reportConfig.sectionOrder.slice() : []
+      sectionOrder: Array.isArray(doc.reportConfig.sectionOrder) ? doc.reportConfig.sectionOrder.slice() : [],
+      templateUsageCounts: templateUsageCounts
     } : null,
     name: doc.name || doc.pattern_name || '',
     modality: doc.modality || 'Other',
@@ -227,38 +595,109 @@ function _normalisePatternDoc(doc) {
 
 // ── Patterns ─────────────────────────────────────────────────
 function subscribePatterns(uid, callback) {
-  return _patternsRef(uid).orderBy('name').onSnapshot(function(snap) {
-    var patterns = snap.docs.map(function(d) {
+  var latestPatterns = [];
+  var latestFindings = {};
+  var patternsReady = false;
+  var findingsReady = false;
+
+  function emit() {
+    if (!patternsReady || !findingsReady) return;
+    callback(_hydratePatternsWithFindings(latestPatterns, latestFindings));
+  }
+
+  var unsubscribePatterns = _patternsRef(uid).orderBy('name').onSnapshot(function(snap) {
+    latestPatterns = snap.docs.map(function(d) {
       return Object.assign({ id: d.id }, _normalisePatternDoc(d.data() || {}));
     });
-    callback(patterns);
+    patternsReady = true;
+    emit();
   }, function(err) { console.error('subscribePatterns error:', err); });
+
+  var unsubscribeFindings = subscribeFindings(uid, function(findings) {
+    latestFindings = {};
+    (findings || []).forEach(function(finding) {
+      latestFindings[String((finding && finding.id) || '').trim()] = finding;
+    });
+    findingsReady = true;
+    emit();
+  });
+
+  return function() {
+    if (typeof unsubscribePatterns === 'function') unsubscribePatterns();
+    if (typeof unsubscribeFindings === 'function') unsubscribeFindings();
+  };
+}
+
+function subscribeFindings(uid, callback) {
+  if (!uid) { callback([]); return function() {}; }
+  return _findingsRef(uid).orderBy('nameKey').onSnapshot(function(snap) {
+    var findings = snap.docs.map(function(d) {
+      return Object.assign({ id: d.id }, _normaliseFindingDoc(d.data() || {}));
+    });
+    callback(findings);
+  }, function(err) {
+    console.error('subscribeFindings error:', err);
+  });
 }
 
 function createPattern(uid, data) {
   var goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
-  return _patternsRef(uid).add({
-    name: data.name,
-    modality: data.modality || 'Other',
-    steps: data.steps || [],
-    reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
-    goalSeconds: goalSeconds,
-    updatedAt: _now()
-  }).then(function(ref) { return ref.id; });
+  var ref = _patternsRef(uid).doc();
+  var patternId = ref.id;
+  var rawSteps = Array.isArray(data.steps) ? data.steps : [];
+  var workingSteps = JSON.parse(JSON.stringify(rawSteps));
+  var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
+  var findingIds = Object.keys(extractedFindings);
+
+  return _loadFindingsByIds(uid, findingIds).then(function(existingFindings) {
+    var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, []);
+    var payload = {
+      name: data.name,
+      modality: data.modality || 'Other',
+      steps: workingSteps,
+      reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
+      goalSeconds: goalSeconds,
+      updatedAt: _now()
+    };
+
+    _replaceArrayContents(rawSteps, workingSteps);
+    return _commitPatternAndFindingMutations(uid, ref, payload, findingMutations, true).then(function() {
+      return patternId;
+    });
+  });
 }
 
 function updatePattern(uid, patternId, data) {
-  var payload = {
-    name: data.name,
-    modality: data.modality || 'Other',
-    steps: data.steps || [],
-    reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
-    updatedAt: _now()
-  };
-  if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
-    payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
-  }
-  return _patternsRef(uid).doc(patternId).update(payload);
+  var rawSteps = Array.isArray(data.steps) ? data.steps : [];
+  var workingSteps = JSON.parse(JSON.stringify(rawSteps));
+  var patternRef = _patternsRef(uid).doc(patternId);
+
+  return patternRef.get().then(function(existingDoc) {
+    var existingPattern = existingDoc.exists ? _normalisePatternDoc(existingDoc.data() || {}) : { steps: [] };
+    var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
+    var previousFindingIds = _collectFindingIdsFromSteps(existingPattern.steps || []);
+    var nextFindingIds = Object.keys(extractedFindings || {});
+    var allFindingIds = previousFindingIds.concat(nextFindingIds).filter(function(id, index, list) {
+      return id && list.indexOf(id) === index;
+    });
+
+    return _loadFindingsByIds(uid, allFindingIds).then(function(existingFindings) {
+      var payload = {
+        name: data.name,
+        modality: data.modality || 'Other',
+        steps: workingSteps,
+        reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
+        updatedAt: _now()
+      };
+      if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
+        payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
+      }
+
+      var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds);
+      _replaceArrayContents(rawSteps, workingSteps);
+      return _commitPatternAndFindingMutations(uid, patternRef, payload, findingMutations, false);
+    });
+  });
 }
 
 function updatePatternGoalSeconds(uid, patternId, goalSeconds) {
@@ -459,6 +898,7 @@ function _normaliseReportTemplateDoc(doc) {
   return {
     name: String((doc && doc.name) || '').trim(),
     body: String((doc && doc.body) || ''),
+    rulesText: String((doc && doc.rulesText) || ''),
     patternId: String((doc && doc.patternId) || '').trim(),
     createdAt: doc && doc.createdAt ? doc.createdAt : null,
     updatedAt: doc && doc.updatedAt ? doc.updatedAt : null
@@ -511,6 +951,7 @@ function upsertReportTemplate(uid, templateId, data) {
   var payload = {
     name: String(data && data.name || '').trim(),
     body: String(data && data.body || ''),
+    rulesText: String(data && data.rulesText || ''),
     patternId: String(data && data.patternId || '').trim(),
     updatedAt: _now()
   };

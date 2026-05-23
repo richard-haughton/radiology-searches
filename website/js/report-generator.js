@@ -6,7 +6,8 @@ var _unsubscribeReportTemplates = null;
 var _reportLastDraftSections = {};
 var _pendingTemplateSelection = '';
 var _reportSelectedPatternId = '';
-var REPORT_OUTPUT_SECTIONS = ['Findings', 'Impression'];
+var REPORT_SECTION_FINDINGS = 'Findings';
+var REPORT_SECTION_IMPRESSION = 'Impression';
 
 function initReportGenerator(uid) {
   _reportUid = uid;
@@ -30,15 +31,19 @@ function bindReportGeneratorEvents() {
   var importBtn = document.getElementById('btn-report-template-import');
   var importInput = document.getElementById('report-template-import-input');
   var templateSelect = document.getElementById('report-template-select');
+  var rulesSourceSelect = document.getElementById('report-rules-source-template-select');
   var templateNameInput = document.getElementById('manual-template-name');
   var templateBodyInput = document.getElementById('manual-template-input');
+  var templateRulesInput = document.getElementById('report-template-rules-input');
   var saveManualTemplateBtn = document.getElementById('btn-save-manual-template');
   var deleteManualTemplateBtn = document.getElementById('btn-delete-manual-template');
   var newManualTemplateBtn = document.getElementById('btn-new-manual-template');
   var appendTemplateBtn = document.getElementById('btn-append-template-to-body');
+  var applyTemplateRulesBtn = document.getElementById('btn-apply-template-rules');
   var generateBtn = document.getElementById('btn-generate-report');
   var copyBtn = document.getElementById('btn-copy-report');
   var toggleTemplateBtn = document.getElementById('btn-toggle-template-section');
+  var toggleRulesBtn = document.getElementById('btn-toggle-rules-section');
 
   if (importBtn && importInput) {
     importBtn.addEventListener('click', function() {
@@ -59,21 +64,40 @@ function bindReportGeneratorEvents() {
     templateBodyInput.addEventListener('input', handleTemplateEditorChange);
   }
 
+  if (templateRulesInput) {
+    templateRulesInput.addEventListener('input', handleTemplateEditorChange);
+  }
+
+  if (rulesSourceSelect) {
+    rulesSourceSelect.addEventListener('change', handleRulesSourceSelectionChange);
+  }
+
   if (saveManualTemplateBtn) saveManualTemplateBtn.addEventListener('click', handleSaveManualTemplate);
   if (deleteManualTemplateBtn) deleteManualTemplateBtn.addEventListener('click', handleDeleteManualTemplate);
   if (newManualTemplateBtn) newManualTemplateBtn.addEventListener('click', handleNewManualTemplate);
   if (appendTemplateBtn) appendTemplateBtn.addEventListener('click', handleAppendTemplateToBody);
+  if (applyTemplateRulesBtn) applyTemplateRulesBtn.addEventListener('click', handleApplyTemplateRules);
   if (generateBtn) generateBtn.addEventListener('click', handleGenerateReport);
   if (copyBtn) copyBtn.addEventListener('click', handleCopyReportOutput);
   if (toggleTemplateBtn) toggleTemplateBtn.addEventListener('click', handleToggleTemplateSection);
+  if (toggleRulesBtn) toggleRulesBtn.addEventListener('click', handleToggleRulesSection);
 
-  // Restore collapse state from localStorage
-  var card = document.querySelector('.report-sidebar-card');
-  if (card && localStorage.getItem('reportTemplateSectionCollapsed') === '1') {
-    card.classList.add('template-collapsed');
+  // Restore collapse state from localStorage.
+  var templateCard = document.querySelector('.report-sidebar-card');
+  if (templateCard && localStorage.getItem('reportTemplateSectionCollapsed') === '1') {
+    templateCard.classList.add('template-collapsed');
     if (toggleTemplateBtn) {
       toggleTemplateBtn.setAttribute('aria-expanded', 'false');
       toggleTemplateBtn.title = 'Expand template section';
+    }
+  }
+
+  var rulesCard = document.querySelector('.report-rules-card');
+  if (rulesCard && localStorage.getItem('reportRulesSectionCollapsed') === '1') {
+    rulesCard.classList.add('template-collapsed');
+    if (toggleRulesBtn) {
+      toggleRulesBtn.setAttribute('aria-expanded', 'false');
+      toggleRulesBtn.title = 'Expand additional rules section';
     }
   }
 }
@@ -90,6 +114,18 @@ function handleToggleTemplateSection() {
   }
 }
 
+function handleToggleRulesSection() {
+  var card = document.querySelector('.report-rules-card');
+  var btn = document.getElementById('btn-toggle-rules-section');
+  if (!card) return;
+  var collapsed = card.classList.toggle('template-collapsed');
+  localStorage.setItem('reportRulesSectionCollapsed', collapsed ? '1' : '0');
+  if (btn) {
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    btn.title = collapsed ? 'Expand additional rules section' : 'Collapse additional rules section';
+  }
+}
+
 function subscribeReportTemplateListForSelectedPattern() {
   if (!_reportUid) return;
 
@@ -100,6 +136,7 @@ function subscribeReportTemplateListForSelectedPattern() {
   // If already subscribed to all templates, just re-render with new pattern context
   if (_unsubscribeReportTemplates) {
     renderReportTemplateOptions();
+    renderRulesSourceTemplateOptions();
     refreshReportPatternContext();
     return;
   }
@@ -109,6 +146,7 @@ function subscribeReportTemplateListForSelectedPattern() {
   _unsubscribeReportTemplates = subscribeAllReportTemplates(_reportUid, function(templates) {
     _reportTemplates = Array.isArray(templates) ? templates : [];
     renderReportTemplateOptions();
+    renderRulesSourceTemplateOptions();
     refreshReportPatternContext();
   });
 }
@@ -153,11 +191,154 @@ function renderReportTemplateOptions() {
   } else {
     select.value = '';
   }
+
+  populateTemplateEditorFromSelection();
+}
+
+function renderRulesSourceTemplateOptions() {
+  var select = document.getElementById('report-rules-source-template-select');
+  if (!select) return;
+
+  var selectedValue = String(select.value || '').trim();
+  var patternTemplates = _reportTemplates.filter(function(t) {
+    return t.patternId === _reportSelectedPatternId && _reportSelectedPatternId;
+  }).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+  var otherTemplates = _reportTemplates.filter(function(t) {
+    return t.patternId !== _reportSelectedPatternId || !_reportSelectedPatternId;
+  }).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+  function makeOption(template) {
+    var label = template.name;
+    if (!String(template.rulesText || '').trim()) label += ' (no rules)';
+    return '<option value="' + escapeHtmlAttr(template.id) + '">' + escapeHtmlText(label) + '</option>';
+  }
+
+  var html = '<option value="">Select a template with saved rules</option>';
+  if (patternTemplates.length) {
+    html += '<optgroup label="This pattern">';
+    patternTemplates.forEach(function(t) { html += makeOption(t); });
+    html += '</optgroup>';
+  }
+  if (otherTemplates.length) {
+    html += '<optgroup label="All templates">';
+    otherTemplates.forEach(function(t) { html += makeOption(t); });
+    html += '</optgroup>';
+  }
+
+  select.innerHTML = html;
+  if (selectedValue && _reportTemplates.some(function(item) { return item.id === selectedValue; })) {
+    select.value = selectedValue;
+  } else {
+    select.value = '';
+  }
+
+  updateCollapsedRulesPreview();
+}
+
+function getEffectiveTemplateRulesText() {
+  var rulesEl = document.getElementById('report-template-rules-input');
+  var editorRulesText = rulesEl ? String(rulesEl.value || '').trim() : '';
+  if (editorRulesText) return editorRulesText;
+
+  var selectedTemplate = getSelectedTemplate();
+  if (selectedTemplate && String(selectedTemplate.rulesText || '').trim()) {
+    return String(selectedTemplate.rulesText || '').trim();
+  }
+
+  return '';
+}
+
+function updateCollapsedRulesPreview() {
+  var previewEl = document.getElementById('report-rules-collapsed-preview');
+  if (!previewEl) return;
+
+  var rulesText = getEffectiveTemplateRulesText();
+  var summary = rulesText || 'No template-specific rules are currently applied.';
+  var singleLineSummary = summary.replace(/\s+/g, ' ').trim();
+
+  previewEl.textContent = singleLineSummary;
+  previewEl.title = summary;
 }
 
 function getSelectedPatternForReport() {
   if (typeof getSelectedPattern === 'function') return getSelectedPattern();
   return null;
+}
+
+function getPatternReportConfig(pattern) {
+  return (pattern && pattern.reportConfig && typeof pattern.reportConfig === 'object') ? pattern.reportConfig : {};
+}
+
+function getPatternTemplateUsageCounts(pattern) {
+  var cfg = getPatternReportConfig(pattern);
+  var rawCounts = (cfg.templateUsageCounts && typeof cfg.templateUsageCounts === 'object') ? cfg.templateUsageCounts : {};
+  var counts = {};
+
+  Object.keys(rawCounts).forEach(function(templateId) {
+    var safeTemplateId = String(templateId || '').trim();
+    var count = Number(rawCounts[templateId]);
+    if (!safeTemplateId || !Number.isFinite(count) || count <= 0) return;
+    counts[safeTemplateId] = Math.floor(count);
+  });
+
+  return counts;
+}
+
+function getMostUsedTemplateIdForPattern(pattern) {
+  var patternId = String((pattern && pattern.id) || '').trim();
+  if (!patternId) return '';
+
+  var counts = getPatternTemplateUsageCounts(pattern);
+  var patternTemplates = _reportTemplates.filter(function(template) {
+    return template && template.patternId === patternId;
+  });
+  var bestTemplateId = '';
+  var bestTemplateName = '';
+  var bestCount = 0;
+
+  patternTemplates.forEach(function(template) {
+    var templateId = String((template && template.id) || '').trim();
+    var templateName = String((template && template.name) || '').trim();
+    var count = Number(counts[templateId] || 0);
+    if (count > bestCount) {
+      bestTemplateId = templateId;
+      bestTemplateName = templateName;
+      bestCount = count;
+      return;
+    }
+    if (count === bestCount && count > 0 && templateName.localeCompare(bestTemplateName) < 0) {
+      bestTemplateId = templateId;
+      bestTemplateName = templateName;
+    }
+  });
+
+  return bestTemplateId;
+}
+
+function buildPatternReportConfig(pattern, template, options) {
+  var cfg = getPatternReportConfig(pattern);
+  var counts = getPatternTemplateUsageCounts(pattern);
+  var selectedTemplateId = template ? String(template.id || '').trim() : '';
+  var selectedTemplateName = template ? String(template.name || '').trim() : '';
+  var sectionOrder = getRequestedReportSections();
+
+  if (options && options.incrementUsage && selectedTemplateId) {
+    counts[selectedTemplateId] = Number(counts[selectedTemplateId] || 0) + 1;
+  }
+
+  return {
+    selectedTemplateId: selectedTemplateId || String(cfg.selectedTemplateId || '').trim(),
+    selectedTemplateName: selectedTemplateName || String(cfg.selectedTemplateName || '').trim(),
+    sectionOrder: sectionOrder.length ? sectionOrder : (Array.isArray(cfg.sectionOrder) ? cfg.sectionOrder.slice() : []),
+    templateUsageCounts: counts
+  };
+}
+
+function persistPatternTemplateUsage(pattern, template, options) {
+  if (!pattern || !_reportUid || typeof updatePatternReportConfig !== 'function') {
+    return Promise.resolve();
+  }
+  return updatePatternReportConfig(_reportUid, pattern.id, buildPatternReportConfig(pattern, template, options));
 }
 
 function refreshReportPatternContext() {
@@ -174,13 +355,19 @@ function refreshReportPatternContext() {
 
   contextEl.textContent = pattern.name + ' (' + (pattern.modality || 'Other') + ')';
 
-  var cfg = (pattern.reportConfig && typeof pattern.reportConfig === 'object') ? pattern.reportConfig : {};
-
+  var cfg = getPatternReportConfig(pattern);
   var templateId = String(cfg.selectedTemplateId || '').trim();
+  var hasConfiguredTemplate = templateId && _reportTemplates.some(function(item) {
+    return item.id === templateId && item.patternId === pattern.id;
+  });
+  var preferredTemplateId = hasConfiguredTemplate ? templateId : getMostUsedTemplateIdForPattern(pattern);
+
   // Only auto-select the configured template when the dropdown is currently blank.
   // Do not override a template the user has already selected or is editing.
-  if (templateId && !templateSelectEl.value) {
-    templateSelectEl.value = templateId;
+  if (preferredTemplateId && !templateSelectEl.value) {
+    templateSelectEl.value = preferredTemplateId;
+    _pendingTemplateSelection = preferredTemplateId;
+    populateTemplateEditorFromSelection();
   }
 }
 
@@ -195,9 +382,24 @@ function getReportSettingsSnapshotSafe() {
 }
 
 function getReportLanguageMode() {
-  var select = document.getElementById('report-language-mode');
+  var select = document.getElementById('report-findings-language-mode');
   var mode = select ? String(select.value || '').trim() : '';
-  return mode === 'keep' ? 'keep' : 'improve';
+  if (mode === 'keep' || mode === 'omit') return mode;
+  return 'improve';
+}
+
+function getReportImpressionMode() {
+  var select = document.getElementById('report-impression-mode');
+  var mode = select ? String(select.value || '').trim() : '';
+  if (mode === 'expound' || mode === 'omit') return mode;
+  return 'concise';
+}
+
+function getRequestedReportSections() {
+  var sections = [];
+  if (getReportLanguageMode() !== 'omit') sections.push(REPORT_SECTION_FINDINGS);
+  if (getReportImpressionMode() !== 'omit') sections.push(REPORT_SECTION_IMPRESSION);
+  return sections;
 }
 
 function escapeHtmlText(value) {
@@ -223,9 +425,11 @@ function getSelectedTemplate() {
 function getTemplateEditorState() {
   var nameEl = document.getElementById('manual-template-name');
   var bodyEl = document.getElementById('manual-template-input');
+  var rulesEl = document.getElementById('report-template-rules-input');
   return {
     name: nameEl ? String(nameEl.value || '').trim() : '',
-    body: bodyEl ? String(bodyEl.value || '').trim() : ''
+    body: bodyEl ? String(bodyEl.value || '').trim() : '',
+    rulesText: rulesEl ? String(rulesEl.value || '').trim() : ''
   };
 }
 
@@ -238,17 +442,22 @@ function populateTemplateEditorFromSelection() {
   var selected = getSelectedTemplate();
   var nameEl = document.getElementById('manual-template-name');
   var bodyEl = document.getElementById('manual-template-input');
+  var rulesEl = document.getElementById('report-template-rules-input');
 
-  if (!nameEl || !bodyEl) return;
+  if (!nameEl || !bodyEl || !rulesEl) return;
 
   if (!selected) {
     nameEl.value = '';
     bodyEl.value = '';
+    rulesEl.value = '';
+    updateCollapsedRulesPreview();
     return;
   }
 
   nameEl.value = selected.name || '';
   bodyEl.value = selected.body || '';
+  rulesEl.value = selected.rulesText || '';
+  updateCollapsedRulesPreview();
 }
 
 function handleTemplateSelectionChange() {
@@ -262,6 +471,13 @@ function handleTemplateEditorChange() {
   if (selected) {
     _pendingTemplateSelection = selected.id;
   }
+  updateCollapsedRulesPreview();
+}
+
+function handleRulesSourceSelectionChange() {
+  var select = document.getElementById('report-rules-source-template-select');
+  var selectedId = select ? String(select.value || '').trim() : '';
+  if (!selectedId) return;
 }
 
 function setSelectedTemplateById(templateId) {
@@ -440,7 +656,14 @@ async function handleGenerateReport() {
   var pattern = getSelectedPatternForReport();
   var template = getSelectedTemplate();
   var templateState = getTemplateEditorState();
-  var languageMode = getReportLanguageMode();
+  var findingsLanguageMode = getReportLanguageMode();
+  var impressionMode = getReportImpressionMode();
+  var requestedSections = getRequestedReportSections();
+
+  if (!requestedSections.length) {
+    setReportStatus('Enable at least one output section before generating a report.', true);
+    return;
+  }
 
   setReportStatus('Generating report...');
 
@@ -449,14 +672,17 @@ async function handleGenerateReport() {
       provider: typeof getSelectedAiProvider === 'function' ? getSelectedAiProvider() : 'openai',
       model: typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '',
       findings: findings,
-      sectionOrder: REPORT_OUTPUT_SECTIONS,
-      languageMode: languageMode,
+      sectionOrder: requestedSections,
+      findingsLanguageMode: findingsLanguageMode,
+      impressionMode: impressionMode,
       templateText: templateState.body || (template ? template.body : ''),
+      templateRulesText: templateState.rulesText || (template ? template.rulesText : ''),
       globalRulesText: String(settings.globalRulesText || '')
     });
 
     _reportLastDraftSections = result.sections || {};
     renderDraftSections(_reportLastDraftSections);
+    await persistPatternTemplateUsage(pattern, template, { incrementUsage: true });
     setReportStatus('Draft generated.');
     if (typeof showToast === 'function') showToast('Report draft generated.');
   } catch (err) {
@@ -517,11 +743,7 @@ async function handleSavePatternReportConfig() {
   }
 
   try {
-    await updatePatternReportConfig(_reportUid, pattern.id, {
-      selectedTemplateId: template ? template.id : '',
-      selectedTemplateName: template ? template.name : '',
-      sectionOrder: REPORT_OUTPUT_SECTIONS
-    });
+    await persistPatternTemplateUsage(pattern, template, { incrementUsage: false });
     setReportStatus('Pattern report config saved.');
     if (typeof showToast === 'function') showToast('Pattern report config saved.');
   } catch (err) {
@@ -582,6 +804,7 @@ function handleSaveManualTemplate() {
   upsertReportTemplate(_reportUid, templateId, {
     name: templateName,
     body: templateState.body,
+    rulesText: templateState.rulesText,
     patternId: _reportSelectedPatternId
   })
     .then(function(savedTemplateId) {
@@ -589,15 +812,16 @@ function handleSaveManualTemplate() {
       setReportStatus(templateId ? 'Template updated.' : 'Template saved.');
       if (typeof showToast === 'function') showToast('Manual template saved.');
       // Also persist the selected template on the pattern
-      if (typeof updatePatternReportConfig === 'function') {
-        var pattern = getSelectedPatternForReport();
-        if (pattern) {
-          updatePatternReportConfig(_reportUid, pattern.id, {
-            selectedTemplateId: savedTemplateId || templateId,
-            selectedTemplateName: templateName,
-            sectionOrder: REPORT_OUTPUT_SECTIONS
-          }).catch(function() {});
-        }
+      var pattern = getSelectedPatternForReport();
+      var effectiveTemplateId = String(savedTemplateId || templateId || '').trim();
+      var effectiveTemplate = effectiveTemplateId
+        ? (_reportTemplates.find(function(item) { return item.id === effectiveTemplateId; }) || {
+            id: effectiveTemplateId,
+            name: templateName
+          })
+        : null;
+      if (pattern) {
+        persistPatternTemplateUsage(pattern, effectiveTemplate, { incrementUsage: false }).catch(function() {});
       }
     })
     .catch(function(err) {
@@ -623,12 +847,34 @@ function handleNewManualTemplate() {
   var select = document.getElementById('report-template-select');
   var nameInput = document.getElementById('manual-template-name');
   var bodyInput = document.getElementById('manual-template-input');
+  var rulesInput = document.getElementById('report-template-rules-input');
   if (select) select.value = '';
   if (nameInput) nameInput.value = '';
   if (bodyInput) bodyInput.value = '';
+  if (rulesInput) rulesInput.value = '';
   _pendingTemplateSelection = '';
   handleTemplateEditorChange();
   if (nameInput) nameInput.focus();
+}
+
+function handleApplyTemplateRules() {
+  var sourceSelect = document.getElementById('report-rules-source-template-select');
+  var rulesInput = document.getElementById('report-template-rules-input');
+  var sourceId = sourceSelect ? String(sourceSelect.value || '').trim() : '';
+  if (!sourceId || !rulesInput) {
+    setReportStatus('Select a template with saved rules first.', true);
+    return;
+  }
+
+  var sourceTemplate = _reportTemplates.find(function(item) { return item.id === sourceId; }) || null;
+  if (!sourceTemplate || !String(sourceTemplate.rulesText || '').trim()) {
+    setReportStatus('The selected template does not have saved rules.', true);
+    return;
+  }
+
+  rulesInput.value = String(sourceTemplate.rulesText || '');
+  handleTemplateEditorChange();
+  setReportStatus('Rules copied from "' + sourceTemplate.name + '". Save this template to persist them.');
 }
 
 async function handleDeleteManualTemplate() {

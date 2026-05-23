@@ -5,6 +5,9 @@ var _notesSearchUnsubscribe = null;
 var _notesSearchRecords = [];
 var _notesSearchIndexReady = false;
 var _notesSearchLastResults = [];
+var _findingsAddContext = null;
+var _notesSearchActiveModality = 'All';
+var _notesSearchRedOnly = false;
 
 var NOTES_SEARCH_SECTION_LABELS = {
   searchPattern: 'Search Pattern',
@@ -26,6 +29,7 @@ function initNotesSearch(userId) {
 function bindNotesSearchUi() {
   var input = document.getElementById('notes-search-input');
   var clearBtn = document.getElementById('btn-notes-search-clear');
+  var redOnly = document.getElementById('notes-search-red-only');
   if (!input || !clearBtn) return;
 
   input.removeEventListener('input', handleNotesSearchInput);
@@ -34,28 +38,40 @@ function bindNotesSearchUi() {
   clearBtn.removeEventListener('click', clearNotesSearch);
   clearBtn.addEventListener('click', clearNotesSearch);
 
+  if (redOnly) {
+    redOnly.checked = false;
+    redOnly.removeEventListener('change', handleNotesSearchFiltersChange);
+    redOnly.addEventListener('change', handleNotesSearchFiltersChange);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.notes-mod-btn'), function(btn) {
+    btn.addEventListener('click', function() {
+      Array.prototype.forEach.call(document.querySelectorAll('.notes-mod-btn'), function(other) {
+        other.classList.remove('active');
+      });
+      btn.classList.add('active');
+      _notesSearchActiveModality = String(btn.dataset.mod || 'All');
+      applyNotesSearchFilters();
+    });
+  });
+
   bindSearchPreviewModal();
+  bindFindingsAddModal();
 }
 
 function startNotesSearchSubscription() {
   if (!_notesSearchUid) return;
-  setNotesSearchStatus('Loading notes index…');
+  setNotesSearchStatus('Loading findings index…');
 
   if (_notesSearchUnsubscribe) {
     _notesSearchUnsubscribe();
     _notesSearchUnsubscribe = null;
   }
 
-  _notesSearchUnsubscribe = subscribePatterns(_notesSearchUid, function(patterns) {
-    _notesSearchRecords = buildNotesSearchRecords(patterns || []);
+  _notesSearchUnsubscribe = subscribeFindings(_notesSearchUid, function(findings) {
+    _notesSearchRecords = buildNotesSearchRecords(findings || []);
     _notesSearchIndexReady = true;
-    var q = getNotesSearchQuery();
-    if (!q) {
-      setNotesSearchStatus('Indexed ' + _notesSearchRecords.length + ' note blocks across your patterns.');
-      renderNotesSearchResults([]);
-      return;
-    }
-    runNotesSearch(q);
+    applyNotesSearchFilters();
   });
 }
 
@@ -65,30 +81,78 @@ function getNotesSearchQuery() {
 }
 
 function handleNotesSearchInput() {
-  var q = getNotesSearchQuery();
-  if (!q) {
-    _notesSearchLastResults = [];
-    if (_notesSearchIndexReady) {
-      setNotesSearchStatus('Indexed ' + _notesSearchRecords.length + ' note blocks across your patterns.');
-    } else {
-      setNotesSearchStatus('Loading notes index…');
-    }
-    renderNotesSearchResults([]);
-    return;
-  }
-  runNotesSearch(q);
+  applyNotesSearchFilters();
+}
+
+function handleNotesSearchFiltersChange() {
+  var redOnly = document.getElementById('notes-search-red-only');
+  _notesSearchRedOnly = Boolean(redOnly && redOnly.checked);
+  applyNotesSearchFilters();
 }
 
 function clearNotesSearch() {
   var input = document.getElementById('notes-search-input');
   if (input) input.value = '';
-  handleNotesSearchInput();
+  var redOnly = document.getElementById('notes-search-red-only');
+  if (redOnly) redOnly.checked = false;
+  _notesSearchRedOnly = false;
+  _notesSearchActiveModality = 'All';
+  Array.prototype.forEach.call(document.querySelectorAll('.notes-mod-btn'), function(btn) {
+    btn.classList.toggle('active', String(btn.dataset.mod || '') === 'All');
+  });
+  applyNotesSearchFilters();
   if (input) input.focus();
+}
+
+function applyNotesSearchFilters() {
+  var q = getNotesSearchQuery();
+  if (!_notesSearchIndexReady) {
+    setNotesSearchStatus('Loading findings index…');
+    renderNotesSearchResults([], q);
+    return;
+  }
+
+  var results = q ? searchNotesRecords(q, _notesSearchRecords) : _notesSearchRecords.slice();
+  results = filterNotesSearchResults(results);
+  _notesSearchLastResults = results;
+
+  setNotesSearchStatus(buildNotesSearchStatus(results.length, _notesSearchRecords.length, q));
+  renderNotesSearchResults(results, q);
+}
+
+function filterNotesSearchResults(results) {
+  return (results || []).filter(function(record) {
+    var modalities = Array.isArray(record.modalities) ? record.modalities : [record.modality || 'Other'];
+    var matchModality = _notesSearchActiveModality === 'All' || modalities.indexOf(String(_notesSearchActiveModality)) !== -1;
+    var matchRed = !_notesSearchRedOnly || Boolean(record.isRedFinding);
+    return matchModality && matchRed;
+  });
+}
+
+function buildNotesSearchStatus(visibleCount, totalCount, query) {
+  var parts = [];
+  var hasQuery = Boolean(String(query || '').trim());
+
+  if (hasQuery) {
+    parts.push('Found ' + visibleCount + ' findings for "' + query + '"');
+  } else {
+    parts.push('Showing ' + visibleCount + ' findings');
+  }
+
+  var activeFilters = [];
+  if (_notesSearchActiveModality !== 'All') activeFilters.push(_notesSearchActiveModality);
+  if (_notesSearchRedOnly) activeFilters.push('red flagged only');
+  if (activeFilters.length) {
+    parts.push('with filters: ' + activeFilters.join(', '));
+  }
+
+  parts.push('(indexed ' + totalCount + ' total)');
+  return parts.join(' ');
 }
 
 function runNotesSearch(query) {
   if (!_notesSearchIndexReady) {
-    setNotesSearchStatus('Still indexing notes. Try again in a moment.');
+    setNotesSearchStatus('Still indexing findings. Try again in a moment.');
     return;
   }
 
@@ -96,9 +160,9 @@ function runNotesSearch(query) {
   _notesSearchLastResults = results;
 
   if (!results.length) {
-    setNotesSearchStatus('No note matches found for "' + query + '".');
+    setNotesSearchStatus('No findings matched "' + query + '".');
   } else {
-    setNotesSearchStatus('Found ' + results.length + ' note matches for "' + query + '".');
+    setNotesSearchStatus('Found ' + results.length + ' findings for "' + query + '".');
   }
 
   renderNotesSearchResults(results, query);
@@ -109,47 +173,36 @@ function setNotesSearchStatus(text) {
   if (status) status.textContent = text;
 }
 
-function buildNotesSearchRecords(patterns) {
+function buildNotesSearchRecords(findings) {
   var out = [];
-  (patterns || []).forEach(function(pattern) {
-    var patternId = String((pattern && pattern.id) || '').trim();
-    var patternName = (pattern && pattern.name) || 'Untitled Pattern';
-    var steps = (pattern && pattern.steps) || [];
-
-    steps.forEach(function(rawStep, stepIndex) {
-      var fallbackRich = normaliseRichContent((rawStep && rawStep.richContent) || (rawStep && rawStep.rich_content) || []);
-      var sections = buildSearchSections(rawStep && rawStep.sections, fallbackRich);
-      var stepTitle = String((rawStep && rawStep.stepTitle) || '').trim() || ('Step ' + (stepIndex + 1));
-
-      Object.keys(sections).forEach(function(sectionKey) {
-        var content = sections[sectionKey] || [];
-        var subsectionEntries = splitSubsectionEntries(content);
-        if (subsectionEntries.length) {
-          subsectionEntries.forEach(function(sub) {
-            var text = flattenRichContentToText(sub.content || [], true);
-            var title = String(sub.title || '').trim();
-            var joined = (title ? title + ' ' : '') + text;
-            if (!joined.trim()) return;
-            out.push(makeRecord(patternId, patternName, stepIndex, stepTitle, sectionKey, title, joined));
-          });
-          return;
-        }
-
-        var sectionText = flattenRichContentToText(content, true);
-        if (!sectionText.trim()) return;
-        out.push(makeRecord(patternId, patternName, stepIndex, stepTitle, sectionKey, '', sectionText));
-      });
+  (findings || []).forEach(function(finding) {
+    var title = String((finding && finding.name) || '').trim();
+    var content = normaliseRichContent((finding && finding.content) || []);
+    var contentText = flattenRichContentToText(content, true);
+    var links = Array.isArray(finding && finding.links) ? finding.links.slice() : [];
+    var modalities = Array.isArray(finding && finding.modalities) ? finding.modalities.slice() : [];
+    var searchParts = [title, contentText].concat(modalities);
+    links.forEach(function(link) {
+      searchParts.push(String((link && link.patternName) || ''));
+      searchParts.push(String((link && link.stepTitle) || ''));
+      searchParts.push(String((link && link.modality) || ''));
     });
+    var searchText = searchParts.filter(Boolean).join(' ');
+    if (!searchText.trim()) return;
+    out.push(makeRecord(String((finding && finding.id) || '').trim(), title, modalities, contentText, searchText, content, Boolean(finding && finding.isRedFinding), links));
   });
 
   return out;
 }
 
-function makeRecord(patternId, patternName, stepIndex, stepTitle, sectionKey, subsectionTitle, text) {
-  var normalText = normaliseSearchText(text);
+function makeRecord(findingId, title, modalities, contentText, searchText, content, isRedFinding, links) {
+  var normalText = normaliseSearchText(searchText);
   var tokens = tokeniseForSearch(normalText);
   var tokenSet = {};
   var stems = {};
+  var linkedPatternNamesText = buildLinkedPatternNamesText(links);
+  var linkedPatternTokens = {};
+  var linkedPatternStems = {};
 
   tokens.forEach(function(token) {
     tokenSet[token] = 1;
@@ -159,19 +212,55 @@ function makeRecord(patternId, patternName, stepIndex, stepTitle, sectionKey, su
     });
   });
 
+  tokeniseForSearch(linkedPatternNamesText).forEach(function(token) {
+    linkedPatternTokens[token] = 1;
+    getTokenVariants(token).forEach(function(v) {
+      linkedPatternStems[v] = 1;
+    });
+  });
+
+  var primaryLink = (links && links[0]) ? links[0] : null;
   return {
-    patternId: patternId,
-    patternName: patternName,
-    stepIndex: stepIndex,
-    stepTitle: stepTitle,
-    sectionKey: sectionKey,
-    sectionLabel: NOTES_SEARCH_SECTION_LABELS[sectionKey] || sectionKey,
-    subsectionTitle: subsectionTitle || '',
-    text: text,
+    findingId: findingId,
+    patternId: primaryLink ? String(primaryLink.patternId || '').trim() : '',
+    patternName: primaryLink ? (primaryLink.patternName || '') : '',
+    modality: primaryLink ? (primaryLink.modality || 'Other') : ((modalities && modalities[0]) || 'Other'),
+    modalities: modalities || [],
+    stepId: primaryLink ? String(primaryLink.stepId || '').trim() : '',
+    stepIndex: -1,
+    stepTitle: primaryLink ? (primaryLink.stepTitle || '') : '',
+    sectionKey: 'dontMissPathology',
+    sectionLabel: NOTES_SEARCH_SECTION_LABELS.dontMissPathology,
+    subsectionTitle: title || '',
+    subsectionId: primaryLink ? String(primaryLink.subsectionId || '').trim() : '',
+    isRedFinding: Boolean(isRedFinding),
+    content: normaliseRichContent(content || []),
+    contentText: contentText || '',
+    text: searchText || contentText || '',
+    links: links || [],
+    linkedPatternNamesText: linkedPatternNamesText,
+    linkedPatternTokens: linkedPatternTokens,
+    linkedPatternStems: linkedPatternStems,
     normalText: normalText,
     tokens: tokenSet,
     stems: stems
   };
+}
+
+function buildLinkedPatternNamesText(links) {
+  var names = [];
+  var seen = {};
+
+  (links || []).forEach(function(link) {
+    var name = String((link && link.patternName) || '').trim();
+    if (!name) return;
+    var key = normaliseSearchText(name);
+    if (!key || seen[key]) return;
+    seen[key] = 1;
+    names.push(name);
+  });
+
+  return normaliseSearchText(names.join(' '));
 }
 
 function buildSearchSections(sections, fallbackRich) {
@@ -239,6 +328,8 @@ function splitSubsectionEntries(content) {
     if (chunk.type === 'subsection') {
       entries.push({
         title: String(chunk.title || chunk.name || '').trim(),
+        subsectionId: String(chunk.subsectionId || '').trim(),
+        isRedFinding: Boolean(chunk.isRedFinding),
         content: normaliseRichContent(chunk.content || [])
       });
     }
@@ -373,10 +464,7 @@ function searchNotesRecords(query, records) {
 
   scored.sort(function(a, b) {
     if (b.score !== a.score) return b.score - a.score;
-    if (a.record.patternName !== b.record.patternName) {
-      return a.record.patternName.localeCompare(b.record.patternName);
-    }
-    return a.record.stepIndex - b.record.stepIndex;
+    return String(a.record.subsectionTitle || '').localeCompare(String(b.record.subsectionTitle || ''));
   });
 
   return scored.slice(0, 120).map(function(item) { return item.record; });
@@ -386,15 +474,23 @@ function scoreRecordMatch(record, normalQuery, queryTerms) {
   if (!record || !record.normalText) return 0;
 
   var text = record.normalText;
+  var patternText = String(record.linkedPatternNamesText || '');
   var matchedTerms = 0;
+  var patternMatchedTerms = 0;
   var score = 0;
+  var hasDirectPatternMatch = false;
 
   if (text.indexOf(normalQuery) !== -1) {
     score += 24;
   }
+  if (patternText && patternText.indexOf(normalQuery) !== -1) {
+    hasDirectPatternMatch = true;
+    score += 36;
+  }
 
   queryTerms.forEach(function(term) {
     var hasMatch = false;
+    var hasPatternMatch = false;
 
     term.variants.forEach(function(v) {
       if (!v) return;
@@ -410,21 +506,49 @@ function scoreRecordMatch(record, normalQuery, queryTerms) {
         return;
       }
 
+      if (record.linkedPatternTokens && record.linkedPatternTokens[v]) {
+        hasPatternMatch = true;
+        score += 12;
+        return;
+      }
+
+      if (record.linkedPatternStems && record.linkedPatternStems[v]) {
+        hasPatternMatch = true;
+        score += 10;
+        return;
+      }
+
       if (v.length >= 4 && text.indexOf(v) !== -1) {
         hasMatch = true;
         score += 4;
+        return;
+      }
+
+      if (v.length >= 4 && patternText.indexOf(v) !== -1) {
+        hasPatternMatch = true;
+        score += 6;
       }
     });
 
     if (hasMatch) matchedTerms++;
+    if (hasPatternMatch) patternMatchedTerms++;
   });
 
   // Require at least one meaningful term and strong coverage for multi-term queries.
-  if (!matchedTerms) return 0;
-  if (queryTerms.length > 1 && matchedTerms < Math.max(1, queryTerms.length - 1)) return 0;
+  if (!matchedTerms && !patternMatchedTerms && !hasDirectPatternMatch) return 0;
+  if (
+    queryTerms.length > 1 &&
+    matchedTerms < Math.max(1, queryTerms.length - 1) &&
+    patternMatchedTerms < queryTerms.length &&
+    !hasDirectPatternMatch
+  ) return 0;
 
   if (record.sectionKey === 'dontMissPathology') score += 2;
   if (record.subsectionTitle) score += 1;
+  if (record.isRedFinding) score += 1;
+  if (record.contentText && normaliseSearchText(record.contentText).indexOf(normalQuery) !== -1) score += 8;
+  if (record.links && record.links.length > 1) score += 1;
+  if (hasDirectPatternMatch) score += 8;
 
   return score;
 }
@@ -437,57 +561,301 @@ function renderNotesSearchResults(results, query) {
   if (!results || !results.length) {
     var empty = document.createElement('p');
     empty.className = 'notes-search-empty';
-    empty.textContent = query ? 'No matching notes yet.' : 'Type in the box above to search your notes.';
+    empty.textContent = query ? 'No matching findings yet.' : 'No findings available yet.';
     wrap.appendChild(empty);
     return;
   }
 
   results.forEach(function(result) {
     var row = document.createElement('article');
-    row.className = 'notes-result-card';
+    row.className = 'notes-result-card' + (result.isRedFinding ? ' finding-red' : '');
 
     var header = document.createElement('div');
     header.className = 'notes-result-head';
 
     var title = document.createElement('h3');
     title.className = 'notes-result-title';
-    title.textContent = result.patternName;
+    title.textContent = result.subsectionTitle || result.stepTitle;
 
     var badge = document.createElement('span');
-    badge.className = 'notes-result-badge';
-    badge.textContent = result.sectionLabel;
+    badge.className = 'notes-result-badge' + (result.isRedFinding ? ' finding-red' : '');
+    badge.textContent = result.isRedFinding ? 'Red finding' : 'Finding';
 
     header.appendChild(title);
     header.appendChild(badge);
 
+    var metaWrap = document.createElement('div');
+    metaWrap.className = 'notes-result-meta-wrap';
+
     var meta = document.createElement('p');
     meta.className = 'notes-result-meta';
-    var subsection = result.subsectionTitle ? (' | ' + result.subsectionTitle) : '';
-    meta.textContent = 'Step ' + (result.stepIndex + 1) + ': ' + result.stepTitle + subsection;
+    meta.textContent = describeFindingLinks(result);
+    metaWrap.appendChild(meta);
+
+    var linkDetails = buildFindingLinkDetails(result);
+    if (linkDetails.length) {
+      meta.classList.add('is-hoverable');
+      meta.setAttribute('tabindex', '0');
+      meta.setAttribute('title', linkDetails.join('\n'));
+
+      var popup = document.createElement('div');
+      popup.className = 'notes-result-links-popup';
+
+      var popupTitle = document.createElement('div');
+      popupTitle.className = 'notes-result-links-popup-title';
+      popupTitle.textContent = 'Linked studies';
+      popup.appendChild(popupTitle);
+
+      var popupList = document.createElement('ul');
+      popupList.className = 'notes-result-links-list';
+      linkDetails.forEach(function(detail) {
+        var item = document.createElement('li');
+        item.textContent = detail;
+        popupList.appendChild(item);
+      });
+      popup.appendChild(popupList);
+      metaWrap.appendChild(popup);
+    }
 
     var snippet = document.createElement('p');
     snippet.className = 'notes-result-snippet';
-    snippet.innerHTML = highlightSnippetForQuery(result.text, query);
+    snippet.innerHTML = highlightSnippetForQuery(result.contentText || result.text, query);
+
+    var actions = document.createElement('div');
+    actions.className = 'notes-result-actions';
+
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-accent btn-sm';
+    addBtn.textContent = 'Add to Search Pattern';
+    addBtn.addEventListener('click', function() {
+      openFindingsAddModal(result);
+    });
 
     var openBtn = document.createElement('button');
     openBtn.type = 'button';
-    openBtn.className = 'btn btn-accent btn-sm';
+    openBtn.className = 'btn btn-ghost btn-sm';
     openBtn.textContent = 'Preview';
     openBtn.addEventListener('click', function() {
       openSearchResultPreview(result);
     });
 
+    actions.appendChild(addBtn);
+    actions.appendChild(openBtn);
+
     row.appendChild(header);
-    row.appendChild(meta);
+    row.appendChild(metaWrap);
     row.appendChild(snippet);
-    row.appendChild(openBtn);
+    row.appendChild(actions);
 
     wrap.appendChild(row);
   });
 }
 
+function bindFindingsAddModal() {
+  var modal = document.getElementById('modal-findings-add');
+  var closeBtn = document.getElementById('btn-findings-add-close');
+  var cancelBtn = document.getElementById('btn-findings-add-cancel');
+  var applyBtn = document.getElementById('btn-findings-add-apply');
+  var patternSelect = document.getElementById('findings-add-pattern-select');
+  if (closeBtn) closeBtn.addEventListener('click', closeFindingsAddModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeFindingsAddModal);
+  if (applyBtn) applyBtn.addEventListener('click', applyFindingToSelectedStep);
+  if (patternSelect) patternSelect.addEventListener('change', populateFindingsAddStepSelect);
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeFindingsAddModal();
+    });
+  }
+}
+
+function openFindingsAddModal(result) {
+  if (!result) return;
+  var modal = document.getElementById('modal-findings-add');
+  var sourceEl = document.getElementById('findings-add-source');
+  var patternSelect = document.getElementById('findings-add-pattern-select');
+  var statusEl = document.getElementById('findings-add-status');
+  if (!modal || !sourceEl || !patternSelect || !statusEl) return;
+
+  _findingsAddContext = result;
+  sourceEl.textContent = 'Finding: ' + (result.subsectionTitle || result.stepTitle) + '\n' + describeFindingLinks(result);
+  statusEl.textContent = '';
+
+  var patternsWithSteps = (typeof allPatterns !== 'undefined' ? allPatterns : []).filter(function(pattern) {
+    return pattern && Array.isArray(pattern.steps) && pattern.steps.length;
+  });
+
+  patternSelect.innerHTML = '';
+  patternsWithSteps.forEach(function(pattern) {
+    var option = document.createElement('option');
+    option.value = String(pattern.id || '');
+    option.textContent = pattern.name || 'Untitled Pattern';
+    patternSelect.appendChild(option);
+  });
+
+  if (!patternsWithSteps.length) {
+    statusEl.textContent = 'No target patterns with steps are available yet.';
+  } else if (typeof selectedPatternId !== 'undefined' && selectedPatternId) {
+    patternSelect.value = String(selectedPatternId);
+  }
+
+  populateFindingsAddStepSelect();
+  modal.style.display = '';
+}
+
+function closeFindingsAddModal() {
+  _findingsAddContext = null;
+  var modal = document.getElementById('modal-findings-add');
+  if (modal) modal.style.display = 'none';
+}
+
+function populateFindingsAddStepSelect() {
+  var patternSelect = document.getElementById('findings-add-pattern-select');
+  var stepSelect = document.getElementById('findings-add-step-select');
+  var statusEl = document.getElementById('findings-add-status');
+  if (!patternSelect || !stepSelect || !statusEl) return;
+
+  var pattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(item) {
+    return String((item && item.id) || '') === String(patternSelect.value || '');
+  });
+
+  stepSelect.innerHTML = '';
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) {
+    stepSelect.innerHTML = '<option value="">No target steps available</option>';
+    statusEl.textContent = 'Select a pattern with at least one step.';
+    return;
+  }
+
+  (pattern.steps || []).forEach(function(step, index) {
+    var option = document.createElement('option');
+    option.value = String((step && step.stepId) || '');
+    option.textContent = 'Step ' + (index + 1) + ': ' + (String((step && step.stepTitle) || '').trim() || 'Untitled Step');
+    stepSelect.appendChild(option);
+  });
+
+  if (typeof selectedPatternId !== 'undefined' && String(selectedPatternId || '') === String(pattern.id || '') && typeof currentStepIndex === 'number' && pattern.steps[currentStepIndex]) {
+    stepSelect.value = String((pattern.steps[currentStepIndex] && pattern.steps[currentStepIndex].stepId) || '');
+  }
+
+  statusEl.textContent = 'The finding will be appended to the selected step\'s Search Pattern section.';
+}
+
+async function applyFindingToSelectedStep() {
+  if (!_findingsAddContext || !_notesSearchUid) return;
+
+  var patternSelect = document.getElementById('findings-add-pattern-select');
+  var stepSelect = document.getElementById('findings-add-step-select');
+  var applyBtn = document.getElementById('btn-findings-add-apply');
+  var statusEl = document.getElementById('findings-add-status');
+  if (!patternSelect || !stepSelect || !applyBtn || !statusEl) return;
+
+  var targetPattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(pattern) {
+    return String((pattern && pattern.id) || '') === String(patternSelect.value || '');
+  });
+  if (!targetPattern) {
+    statusEl.textContent = 'Select a valid target pattern.';
+    return;
+  }
+
+  var targetSteps = JSON.parse(JSON.stringify(targetPattern.steps || []));
+  var targetIndex = targetSteps.findIndex(function(step) {
+    return String((step && step.stepId) || '') === String(stepSelect.value || '');
+  });
+  if (targetIndex < 0) {
+    statusEl.textContent = 'Select a valid target step.';
+    return;
+  }
+
+  var nextText = buildFindingInsertText(_findingsAddContext);
+  if (!nextText) {
+    statusEl.textContent = 'This finding has no text to add.';
+    return;
+  }
+
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Adding...';
+  statusEl.textContent = 'Saving target step...';
+
+  try {
+    var targetStep = targetSteps[targetIndex] || {};
+    targetStep.sections = buildSearchSections(targetStep.sections, normaliseRichContent(targetStep.richContent || targetStep.rich_content || []));
+
+    if (targetStep.sectionLinks && targetStep.sectionLinks.searchPattern && String(targetStep.sectionLinks.searchPattern.sourceStepId || '').trim()) {
+      var ok = true;
+      if (typeof showConfirm === 'function') {
+        ok = await showConfirm(
+          'Unlink Search Pattern Section',
+          'This step currently has a linked Search Pattern section. Adding this finding will unlink that section so the new content is preserved.'
+        );
+      }
+      if (!ok) {
+        statusEl.textContent = 'Add cancelled.';
+        return;
+      }
+      delete targetStep.sectionLinks.searchPattern;
+    }
+
+    targetStep.sections.searchPattern = appendTextToRichContent(
+      normaliseRichContent(targetStep.sections.searchPattern || []),
+      nextText,
+      _findingsAddContext.isRedFinding
+    );
+    targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
+    targetSteps[targetIndex] = targetStep;
+
+    var preparedSteps = typeof prepareStepsForStorage === 'function'
+      ? await prepareStepsForStorage(targetSteps)
+      : targetSteps;
+
+    await updatePattern(_notesSearchUid, targetPattern.id, {
+      name: targetPattern.name || 'Untitled Pattern',
+      modality: targetPattern.modality || 'Other',
+      goalSeconds: targetPattern.goalSeconds,
+      steps: preparedSteps
+    });
+
+    targetPattern.steps = preparedSteps;
+    if (typeof setAllPatternsRef === 'function' && typeof allPatterns !== 'undefined') {
+      setAllPatternsRef(allPatterns);
+    }
+
+    showToast('Added finding to ' + (targetPattern.name || 'pattern') + '.');
+    closeFindingsAddModal();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = String((err && err.message) || err || 'Failed to add finding.');
+  } finally {
+    applyBtn.disabled = false;
+    applyBtn.textContent = 'Add Finding';
+  }
+}
+
+function buildFindingInsertText(result) {
+  if (!result) return '';
+  var title = String(result.subsectionTitle || '').trim();
+  var body = flattenRichContentToText(result.content || [], true).trim();
+  if (!body) body = String(result.text || '').trim();
+  if (title && body) return title + ': ' + body;
+  return title || body;
+}
+
+function appendTextToRichContent(existingContent, text, isRedFinding) {
+  var existing = normaliseRichContent(existingContent || []);
+  var prefix = flattenRichContentToText(existing, true).trim() ? '\n\n' : '';
+  existing.push({
+    type: 'text',
+    text: prefix + String(text || '').trim(),
+    bold: false,
+    color: isRedFinding ? 'red' : null
+  });
+  return existing;
+}
+
 function openSearchResultPreview(result) {
-  if (!result || !result.patternId) return;
+  if (!result) return;
+
+  var resolved = resolveFindingPreviewLink(result);
+  if (!resolved || !resolved.patternId) return;
 
   var modal = document.getElementById('modal-search-preview');
   var titleEl = document.getElementById('modal-search-preview-title');
@@ -496,18 +864,18 @@ function openSearchResultPreview(result) {
   if (!modal || !titleEl || !bodyEl) return;
 
   // Populate header
-  titleEl.textContent = result.patternName || 'Pattern';
+  titleEl.textContent = resolved.patternName || 'Pattern';
   if (metaEl) {
     var subsection = result.subsectionTitle ? (' — ' + result.subsectionTitle) : '';
-    metaEl.textContent = 'Step ' + (result.stepIndex + 1) + ': ' + result.stepTitle + subsection;
+    metaEl.textContent = 'Step ' + (resolved.stepIndex + 1) + ': ' + resolved.stepTitle + subsection;
   }
 
   // Render step content
   bodyEl.innerHTML = '';
   var pattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(p) {
-    return String((p && p.id) || '') === String(result.patternId);
+    return String((p && p.id) || '') === String(resolved.patternId);
   });
-  var step = pattern && (pattern.steps || [])[result.stepIndex];
+  var step = pattern && (pattern.steps || [])[resolved.stepIndex];
   if (step && typeof renderStepSections === 'function') {
     renderStepSections(bodyEl, step);
   } else {
@@ -523,9 +891,9 @@ function openSearchResultPreview(result) {
     openTabBtn.onclick = function() {
       closeSearchResultPreview();
       if (typeof openPatternAtStepFromSearch === 'function') {
-        openPatternAtStepFromSearch(result.patternId, result.stepIndex);
+        openPatternAtStepFromSearch(resolved.patternId, resolved.stepIndex);
       } else if (typeof loadPattern === 'function') {
-        loadPattern(result.patternId, result.stepIndex);
+        loadPattern(resolved.patternId, resolved.stepIndex);
       }
       var targetTab = document.querySelector('.tab-btn[data-tab="patterns"]');
       if (targetTab) targetTab.click();
@@ -554,6 +922,67 @@ function bindSearchPreviewModal() {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeSearchResultPreview();
   });
+}
+
+function describeFindingLinks(result) {
+  var links = Array.isArray(result && result.links) ? result.links : [];
+  if (!links.length) {
+    return 'Standalone finding';
+  }
+  if (links.length === 1) {
+    var only = links[0];
+    return (only.patternName || 'Pattern') + ' | ' + (only.modality || 'Other') + ' | ' + (only.stepTitle || 'Step');
+  }
+  var patternNames = {};
+  links.forEach(function(link) {
+    patternNames[String((link && link.patternName) || '').trim() || 'Pattern'] = 1;
+  });
+  return 'Linked in ' + links.length + ' steps across ' + Object.keys(patternNames).length + ' patterns';
+}
+
+function buildFindingLinkDetails(result) {
+  var links = Array.isArray(result && result.links) ? result.links : [];
+  var seen = {};
+  var details = [];
+
+  links.forEach(function(link) {
+    var patternName = String((link && link.patternName) || '').trim() || 'Pattern';
+    var modality = String((link && link.modality) || '').trim() || 'Other';
+    var stepTitle = String((link && link.stepTitle) || '').trim() || 'Step';
+    var detail = patternName + ' | ' + modality + ' | ' + stepTitle;
+    if (seen[detail]) return;
+    seen[detail] = 1;
+    details.push(detail);
+  });
+
+  return details;
+}
+
+function resolveFindingPreviewLink(result) {
+  var links = Array.isArray(result && result.links) ? result.links : [];
+  if (!links.length) return null;
+
+  for (var i = 0; i < links.length; i++) {
+    var link = links[i];
+    var pattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(item) {
+      return String((item && item.id) || '') === String((link && link.patternId) || '');
+    });
+    if (!pattern) continue;
+    var steps = pattern.steps || [];
+    for (var j = 0; j < steps.length; j++) {
+      if (String((steps[j] && steps[j].stepId) || '') === String((link && link.stepId) || '')) {
+        return {
+          patternId: String(link.patternId || ''),
+          patternName: link.patternName || pattern.name || 'Pattern',
+          stepId: String(link.stepId || ''),
+          stepIndex: j,
+          stepTitle: link.stepTitle || (steps[j] && steps[j].stepTitle) || 'Step'
+        };
+      }
+    }
+  }
+
+  return null;
 }
 
 function highlightSnippetForQuery(text, query) {

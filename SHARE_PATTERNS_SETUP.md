@@ -22,13 +22,8 @@ service cloud.firestore {
       // Users can read and write their own data
       allow read, write: if request.auth.uid == userId;
 
-      // Patterns collection within user document
-      match /patterns/{patternId} {
-        allow read, write: if request.auth.uid == userId;
-      }
-
-      // Study log collection within user document
-      match /studyLog/{entryId} {
+         // Any subcollection within the user's document subtree
+         match /{document=**} {
         allow read, write: if request.auth.uid == userId;
       }
     }
@@ -41,17 +36,18 @@ service cloud.firestore {
       // Only authenticated users can create shares
       allow create: if request.auth != null &&
                        request.resource.data.authorId == request.auth.uid &&
-                       request.resource.data.patternId != null &&
-                       request.resource.data.patternName != null &&
-                       request.resource.data.modality != null &&
+                       request.resource.data.patternId is string &&
+                       request.resource.data.patternName is string &&
+                       request.resource.data.modality is string &&
                        request.resource.data.sharedAt != null &&
                        request.resource.data.importCount == 0;
       
-      // Users can update their own shares (increment import count only)
+      // Any authenticated importer can increment the count by exactly one
       allow update: if request.auth != null &&
-                       resource.data.authorId == request.auth.uid &&
                        request.resource.data.diff(resource.data)
-                          .affectedKeys().hasOnly(['importCount']);
+                          .affectedKeys().hasOnly(['importCount']) &&
+                       request.resource.data.importCount is int &&
+                       request.resource.data.importCount == resource.data.importCount + 1;
       
       // Users can only delete their own shares
       allow delete: if request.auth != null &&
@@ -62,6 +58,12 @@ service cloud.firestore {
 ```
 
 5. Click **Publish** to apply the rules
+
+If you are deploying rules from this repository instead of the Firebase console, run:
+
+```bash
+firebase deploy --only firestore:rules
+```
 
 ## Step 2: Verify the Implementation
 
@@ -97,9 +99,9 @@ After deploying, verify that the sharing feature is working:
 - `importCount` must be 0 initially
 
 ### Update Rules
-- Users can only update their own patterns (by authorId match)
+- Any authenticated user can increment `importCount` by exactly 1
 - Only `importCount` field can be modified
-- Prevents unauthorized changes to pattern metadata
+- Prevents unauthorized changes to pattern metadata while allowing imports
 
 ### Delete Rules
 - Users can only delete their own shares
