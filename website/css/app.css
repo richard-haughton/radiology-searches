@@ -1968,10 +1968,9 @@ html.dark .subsection-row-toggle {
 }
 
 .report-generation-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px 14px;
-  align-items: end;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .report-rules-collapsed-preview {
