@@ -1323,14 +1323,31 @@ function populateRichEditor(editor, richContent) {
   flush();
 }
 
+function _appendTextChunk(chunks, text, bold, color) {
+  if (!text) return;
+  var last = chunks.length ? chunks[chunks.length - 1] : null;
+  if (last && last.type === 'text' && Boolean(last.bold) === Boolean(bold) && (last.color || null) === (color || null)) {
+    last.text += text;
+    return;
+  }
+  chunks.push({ type: 'text', text: text, bold: Boolean(bold), color: color || null });
+}
+
+function _appendNewlineChunk(chunks) {
+  var last = chunks.length ? chunks[chunks.length - 1] : null;
+  if (last && last.type === 'text' && /\n$/.test(last.text || '')) return;
+  chunks.push({ type: 'text', text: '\n', bold: false, color: null });
+}
+
 // ── Rich editor: extract richContent ─────────────────────────
 function extractRichContent(editor) {
   const chunks = [];
 
-  function processNode(node) {
+  function processNode(node, activeFormatting) {
+    const formatting = activeFormatting || { bold: false, color: null };
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent;
-      if (text) chunks.push({ type: 'text', text, bold: false, color: null });
+      if (text) _appendTextChunk(chunks, text, formatting.bold, formatting.color);
     } else if (node.nodeName === 'IMG') {
       const src = node.src || '';
       const match = src.match(/^data:image\/(\w+);base64,(.+)$/);
@@ -1344,26 +1361,44 @@ function extractRichContent(editor) {
         chunks.push({ type: 'link', text, url: sanitiseEditorLinkUrl(url) });
       }
     } else if (node.nodeName === 'SPAN' || node.nodeName === 'B' || node.nodeName === 'STRONG') {
-      const bold = node.style.fontWeight === '700' || node.nodeName === 'B' || node.nodeName === 'STRONG';
-      const color = node.dataset.color || null;
-      const text = node.textContent;
-      chunks.push({ type: 'text', text, bold, color });
+      const nextFormatting = {
+        bold: Boolean(formatting.bold || node.style.fontWeight === '700' || node.nodeName === 'B' || node.nodeName === 'STRONG'),
+        color: node.dataset.color || formatting.color || null
+      };
+      node.childNodes.forEach(function(child) {
+        processNode(child, nextFormatting);
+      });
     } else if (node.nodeName === 'BR') {
-      chunks.push({ type: 'text', text: '\n', bold: false, color: null });
+      _appendNewlineChunk(chunks);
     } else {
-      node.childNodes.forEach(processNode);
-      // Add newline after block elements
+      node.childNodes.forEach(function(child) {
+        processNode(child, formatting);
+      });
       if (['DIV', 'P', 'LI'].includes(node.nodeName) && node !== editor) {
-        chunks.push({ type: 'text', text: '\n', bold: false, color: null });
+        var lastChild = node.lastChild;
+        if (!(lastChild && lastChild.nodeName === 'BR')) {
+          _appendNewlineChunk(chunks);
+        }
       }
     }
   }
 
-  editor.childNodes.forEach(processNode);
+  editor.childNodes.forEach(function(child) {
+    processNode(child, { bold: false, color: null });
+  });
 
   // Remove trailing newlines
-  while (chunks.length && chunks[chunks.length - 1].text === '\n') {
-    chunks.pop();
+  while (chunks.length && chunks[chunks.length - 1].type === 'text') {
+    var trailing = chunks[chunks.length - 1];
+    if (trailing.text === '\n') {
+      chunks.pop();
+      continue;
+    }
+    if (/\n+$/.test(trailing.text || '')) {
+      trailing.text = trailing.text.replace(/\n+$/g, '');
+      if (!trailing.text) chunks.pop();
+    }
+    break;
   }
 
   return chunks;
@@ -2605,8 +2640,28 @@ function execColor(color, targetEditor) {
   const span = document.createElement('span');
   span.style.color = colorMap[color];
   span.dataset.color = color;
-  range.surroundContents(span);
+  try {
+    range.surroundContents(span);
+  } catch (err) {
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, colorMap[color]);
+    editor.querySelectorAll('font[color], span[style*="color"]').forEach(function(node) {
+      var nodeColor = (node.dataset && node.dataset.color) || '';
+      if (!nodeColor) {
+        var styleColor = String((node.style && node.style.color) || '').toLowerCase();
+        if (styleColor.indexOf('192, 57, 43') !== -1 || styleColor === '#c0392b' || styleColor === 'rgb(192, 57, 43)') node.dataset.color = 'red';
+        if (styleColor.indexOf('26, 122, 74') !== -1 || styleColor === '#1a7a4a' || styleColor === 'rgb(26, 122, 74)') node.dataset.color = 'green';
+        if (styleColor.indexOf('26, 92, 158') !== -1 || styleColor === '#1a5c9e' || styleColor === 'rgb(26, 92, 158)') node.dataset.color = 'blue';
+      }
+    });
+    return;
+  }
+
+  const after = document.createRange();
+  after.setStartAfter(span);
+  after.collapse(true);
   sel.removeAllRanges();
+  sel.addRange(after);
 }
 
 function execRemoveFormat(targetEditor) {
