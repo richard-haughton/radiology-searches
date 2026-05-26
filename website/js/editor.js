@@ -1315,7 +1315,9 @@ function populateRichEditor(editor, richContent) {
         }
 
         if (i < parts.length - 1) {
-          currentLine.appendChild(document.createElement('br'));
+          const br = document.createElement('br');
+          br.className = 'rich-break';
+          currentLine.appendChild(br);
         }
       }
     }
@@ -1425,7 +1427,8 @@ function extractRichContent(editor) {
       });
     } else if (node.nodeName === 'BR') {
       if (!isEmptyLineBlock(parentNode)) {
-        _appendNewlineChunk(chunks);
+        // Each explicit BR comes from a user Enter and should be preserved.
+        _appendNewlineChunk(chunks, true);
       }
     } else {
       node.childNodes.forEach(function(child) {
@@ -1448,17 +1451,64 @@ function extractRichContent(editor) {
     processNode(child, { bold: false, color: null }, editor);
   });
 
-  // Remove trailing newlines
+  function countTrailingEmptyRootBlocks(root) {
+    if (!root || !root.childNodes || !root.childNodes.length) return 0;
+    var count = 0;
+    for (var i = root.childNodes.length - 1; i >= 0; i--) {
+      var node = root.childNodes[i];
+      if (!node || !['DIV', 'P', 'LI'].includes(node.nodeName)) break;
+      if (!isEmptyLineBlock(node)) break;
+      count += 1;
+    }
+    return count;
+  }
+
+  function hasTrailingExplicitBreak(root) {
+    if (!root || !root.childNodes || !root.childNodes.length) return false;
+    for (var i = root.childNodes.length - 1; i >= 0; i--) {
+      var node = root.childNodes[i];
+      if (!node) continue;
+      if (node.nodeType === Node.TEXT_NODE && !String(node.textContent || '').trim()) {
+        continue;
+      }
+      if (!['DIV', 'P', 'LI'].includes(node.nodeName)) return false;
+      if (!node.childNodes || !node.childNodes.length) return false;
+      var lastChild = node.lastChild;
+      return Boolean(lastChild && lastChild.nodeName === 'BR');
+    }
+    return false;
+  }
+
+  function countTrailingNewlineChars(text) {
+    if (!text) return 0;
+    var match = String(text).match(/\n+$/);
+    return match ? match[0].length : 0;
+  }
+
+  // Remove implicit trailing newlines, but keep user-entered trailing blank lines.
+  var keepTrailingNewlines = countTrailingEmptyRootBlocks(editor);
+  if (hasTrailingExplicitBreak(editor) && keepTrailingNewlines < 1) {
+    keepTrailingNewlines = 1;
+  }
   while (chunks.length && chunks[chunks.length - 1].type === 'text') {
     var trailing = chunks[chunks.length - 1];
-    if (trailing.text === '\n') {
+    var trailingCount = countTrailingNewlineChars(trailing.text || '');
+
+    if (!trailingCount) {
+      break;
+    }
+
+    if (trailingCount <= keepTrailingNewlines) {
+      break;
+    }
+
+    var removeCount = trailingCount - keepTrailingNewlines;
+    trailing.text = String(trailing.text || '').replace(new RegExp('\\n{' + removeCount + '}$'), '');
+    if (!trailing.text) {
       chunks.pop();
       continue;
     }
-    if (/\n+$/.test(trailing.text || '')) {
-      trailing.text = trailing.text.replace(/\n+$/g, '');
-      if (!trailing.text) chunks.pop();
-    }
+
     break;
   }
 

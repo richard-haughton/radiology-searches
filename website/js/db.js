@@ -10,14 +10,6 @@ function _now()              { return firebase.firestore.FieldValue.serverTimest
 var STEP_SECTION_KEYS = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
 var FINDINGS_BATCH_SIZE = 400;
 
-function _normaliseMultilineText(value) {
-  return String(value || '')
-    .replace(/\r\n?/g, '\n')
-    .replace(/\\r\\n/g, '\n')
-    .replace(/\\n/g, '\n')
-    .replace(/\\r/g, '\n');
-}
-
 function _normaliseFindingName(name) {
   return String(name || '')
     .toLowerCase()
@@ -197,8 +189,11 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
           links: []
         };
       } else {
-        findingsById[findingId].content = _mergeRichContentLists(findingsById[findingId].content, item.content || []);
-        findingsById[findingId].isRedFinding = Boolean(findingsById[findingId].isRedFinding || item.isRedFinding);
+        // Overwrite semantics: latest occurrence in this save payload wins.
+        findingsById[findingId].name = item.title;
+        findingsById[findingId].nameKey = _normaliseFindingName(item.title);
+        findingsById[findingId].content = cloneRichContentForStorage(item.content || []);
+        findingsById[findingId].isRedFinding = Boolean(item.isRedFinding);
       }
 
       findingsById[findingId].links.push({
@@ -299,7 +294,7 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
           links: baseLinks,
           updatedAt: _now()
         },
-        merge: true
+        merge: false
       });
       return;
     }
@@ -311,7 +306,6 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
       data: {
         name: nextFinding.name || (existing && existing.name) || '',
         nameKey: nextFinding.nameKey || (existing && existing.nameKey) || _normaliseFindingName(nextFinding.name || ''),
-        // Replace with the current editor state so formatting edits (including newlines) persist.
         content: cloneRichContentForStorage(nextFinding.content || []),
         isRedFinding: Boolean(nextFinding.isRedFinding),
         modalities: _modalitiesFromFindingLinks(mergedLinks),
@@ -319,7 +313,7 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
         updatedAt: _now(),
         createdAt: existing && existing.createdAt ? existing.createdAt : _now()
       },
-      merge: true
+      merge: false
     });
   });
 
@@ -494,7 +488,7 @@ function normaliseSubsectionChunk(chunk) {
     type: 'subsection',
     subsectionId: String((chunk && (chunk.subsectionId || chunk.subsection_id)) || '').trim() || _makeSubsectionId(),
     findingId: String((chunk && (chunk.findingId || chunk.finding_id)) || '').trim(),
-    title: _normaliseMultilineText((chunk && (chunk.title || chunk.name)) || ''),
+    title: (chunk && (chunk.title || chunk.name)) || '',
     isRedFinding: Boolean(chunk && (chunk.isRedFinding || chunk.is_red_finding || chunk.findingRed)),
     linkMeta: _normaliseSectionLinkMeta(chunk && (chunk.linkMeta || chunk.link_meta)),
     content: cloneRichContentForStorage(content)
@@ -521,7 +515,7 @@ function normaliseStepSections(sections, fallbackRichContent) {
       if (type === 'link') {
         return {
           type: 'link',
-          text: _normaliseMultilineText((chunk && (chunk.text || chunk.content || chunk.url)) || ''),
+          text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
           url: (chunk && chunk.url) || ''
         };
       }
@@ -530,7 +524,7 @@ function normaliseStepSections(sections, fallbackRichContent) {
       }
       return {
         type: 'text',
-        text: _normaliseMultilineText((chunk && (chunk.text || chunk.content)) || ''),
+        text: (chunk && (chunk.text || chunk.content)) || '',
         bold: Boolean(chunk && chunk.bold),
         color: (chunk && chunk.color) || null
       };
@@ -598,7 +592,7 @@ function _normalisePatternDoc(doc) {
       if (type === 'link') {
         return {
           type: 'link',
-          text: _normaliseMultilineText((chunk && (chunk.text || chunk.content || chunk.url)) || ''),
+          text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
           url: (chunk && chunk.url) || ''
         };
       }
@@ -607,7 +601,7 @@ function _normalisePatternDoc(doc) {
       }
       return {
         type: 'text',
-        text: _normaliseMultilineText((chunk && (chunk.text || chunk.content)) || ''),
+        text: (chunk && (chunk.text || chunk.content)) || '',
         bold: Boolean(chunk && chunk.bold),
         color: (chunk && chunk.color) || null
       };
@@ -786,7 +780,7 @@ function cloneRichContentForStorage(richContent) {
     if (chunk && chunk.type === 'link') {
       return {
         type: 'link',
-        text: _normaliseMultilineText(chunk.text || chunk.url || ''),
+        text: chunk.text || chunk.url || '',
         url: chunk.url || ''
       };
     }
@@ -795,7 +789,7 @@ function cloneRichContentForStorage(richContent) {
     }
     return {
       type: 'text',
-      text: _normaliseMultilineText((chunk && chunk.text) || ''),
+      text: (chunk && chunk.text) || '',
       bold: Boolean(chunk && chunk.bold),
       color: (chunk && chunk.color) || null
     };
