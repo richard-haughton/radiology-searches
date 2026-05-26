@@ -581,7 +581,14 @@ function resolveSectionLinksForViewer(step) {
   const searchPatternLink = resolved.sectionLinks.searchPattern;
   if (searchPatternLink && searchPatternLink.sourceStepId) {
     const sourceStep = findLinkedStepData(searchPatternLink.sourceStepId);
-    if (sourceStep && sourceStep.sections) {
+    const hasLocalSearchPattern = normaliseRichContent(resolved.sections.searchPattern || []).some(function(chunk) {
+      if (!chunk) return false;
+      if (chunk.type === 'image') return Boolean(chunk.data);
+      if (chunk.type === 'link') return Boolean(String(chunk.url || '').trim() || String(chunk.text || '').trim());
+      if (chunk.type === 'subsection') return Boolean(String(chunk.title || '').trim()) || normaliseRichContent(chunk.content || []).length > 0;
+      return Boolean(String(chunk.text || '').trim());
+    });
+    if (!hasLocalSearchPattern && sourceStep && sourceStep.sections) {
       resolved.sections.searchPattern = normaliseRichContent(sourceStep.sections.searchPattern || []);
       resolved.richContent = normaliseRichContent(resolved.sections.searchPattern || []);
     }
@@ -591,7 +598,14 @@ function resolveSectionLinksForViewer(step) {
     if (!item || item.type !== 'subsection' || !item.linkMeta || !item.linkMeta.sourceSubsectionId) return item;
     const sourceStep = findLinkedStepData(item.linkMeta.sourceStepId || '');
     const sourceSub = findSubsectionByIdForViewer(sourceStep, item.linkMeta.sourceSubsectionId);
-    if (!sourceSub) return item;
+    const hasLocalFindingContent = normaliseRichContent(item.content || []).some(function(chunk) {
+      if (!chunk) return false;
+      if (chunk.type === 'image') return Boolean(chunk.data);
+      if (chunk.type === 'link') return Boolean(String(chunk.url || '').trim() || String(chunk.text || '').trim());
+      if (chunk.type === 'subsection') return Boolean(String(chunk.title || '').trim()) || normaliseRichContent(chunk.content || []).length > 0;
+      return Boolean(String(chunk.text || '').trim());
+    });
+    if (!sourceSub || hasLocalFindingContent) return item;
     return Object.assign({}, item, {
       title: sourceSub.title || item.title,
       isRedFinding: Boolean(sourceSub.isRedFinding),
