@@ -422,6 +422,30 @@ function _normaliseGoalSeconds(rawGoalSeconds, rawGoalMinutes) {
   return null;
 }
 
+function _stripLinkedStepData(step) {
+  if (!step || typeof step !== 'object') return step;
+
+  var nextStep = Object.assign({}, step);
+  nextStep.linkedStepId = '';
+  nextStep.linkMeta = null;
+  nextStep.sectionLinks = {};
+
+  var sections = normaliseStepSections(nextStep.sections, nextStep.richContent || []);
+  sections.dontMissPathology = (sections.dontMissPathology || []).map(function(item) {
+    if (!item || item.type !== 'subsection') return item;
+    return Object.assign({}, item, {
+      linkMeta: null
+    });
+  });
+
+  nextStep.sections = sections;
+  return nextStep;
+}
+
+function _stripLinkedStepDataList(steps) {
+  return (steps || []).map(_stripLinkedStepData);
+}
+
 function _normaliseLinkMeta(raw) {
   if (!raw || typeof raw !== 'object') return null;
   var mode = raw.mode === 'snapshot' ? 'snapshot' : 'internal';
@@ -698,7 +722,7 @@ function createPattern(uid, data) {
   var ref = _patternsRef(uid).doc();
   var patternId = ref.id;
   var rawSteps = Array.isArray(data.steps) ? data.steps : [];
-  var workingSteps = JSON.parse(JSON.stringify(rawSteps));
+  var workingSteps = _stripLinkedStepDataList(JSON.parse(JSON.stringify(rawSteps)));
   var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
   var findingIds = Object.keys(extractedFindings);
 
@@ -722,7 +746,7 @@ function createPattern(uid, data) {
 
 function updatePattern(uid, patternId, data) {
   var rawSteps = Array.isArray(data.steps) ? data.steps : [];
-  var workingSteps = JSON.parse(JSON.stringify(rawSteps));
+  var workingSteps = _stripLinkedStepDataList(JSON.parse(JSON.stringify(rawSteps)));
   var patternRef = _patternsRef(uid).doc(patternId);
 
   return patternRef.get().then(function(existingDoc) {

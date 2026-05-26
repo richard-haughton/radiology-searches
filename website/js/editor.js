@@ -184,33 +184,16 @@ function findSourceSubsectionById(sourceEntry, subsectionId) {
 
 function resolveSectionLinksForEditor(step) {
   var resolved = cloneStepSnapshot(step);
-  resolved.sectionLinks = normaliseSectionLinksMeta(resolved.sectionLinks);
+  resolved.sectionLinks = {};
+  resolved.linkMeta = null;
+  resolved.linkedStepId = '';
   resolved.sections = normaliseStepSectionsForEditor(resolved.sections, resolved.richContent || []);
-
-  var searchPatternLink = resolved.sectionLinks.searchPattern;
-  if (searchPatternLink && searchPatternLink.sourceStepId) {
-    var sourceStep = findSourceEntryForLinkedId(searchPatternLink.sourceStepId);
-    if (sourceStep) {
-      var sourceSections = normaliseStepSectionsForEditor(sourceStep.sections, sourceStep.richContent || []);
-      resolved.sections.searchPattern = normaliseRichContent(sourceSections.searchPattern || []);
-      resolved.richContent = normaliseRichContent(resolved.sections.searchPattern || []);
-    }
-  }
 
   var findings = ensureSubsectionMetadata(resolved.sections.dontMissPathology || []);
   resolved.sections.dontMissPathology = findings.map(function(item) {
-    if (!item || item.type !== 'subsection' || !item.linkMeta || !item.linkMeta.sourceSubsectionId) {
-      return item;
-    }
-    var sourceEntry = findSourceEntryForLinkedId(item.linkMeta.sourceStepId || '');
-    if (!sourceEntry) return item;
-    var sourceSub = findSourceSubsectionById(sourceEntry, item.linkMeta.sourceSubsectionId);
-    if (!sourceSub) return item;
-
+    if (!item || item.type !== 'subsection') return item;
     return Object.assign({}, item, {
-      title: sourceSub.title || item.title,
-      isRedFinding: Boolean(sourceSub.isRedFinding),
-      content: normaliseRichContent(sourceSub.content || [])
+      linkMeta: null
     });
   });
 
@@ -219,37 +202,7 @@ function resolveSectionLinksForEditor(step) {
 
 function resolveLinkedStepForEditor(step) {
   if (!step) return step;
-
-  if (step.linkMeta && step.linkMeta.mode === 'snapshot' && step.linkMeta.snapshot) {
-    var snapshot = step.linkMeta.snapshot;
-    return resolveSectionLinksForEditor({
-      stepTitle: snapshot.stepTitle || step.stepTitle || '',
-      isRedStep: Boolean(snapshot.isRedStep || step.isRedStep),
-      stepId: String(step.stepId || '').trim() || String(snapshot.stepId || '').trim() || makeStepId(),
-      linkedStepId: String(step.linkedStepId || '').trim(),
-      linkMeta: step.linkMeta,
-      sectionLinks: normaliseSectionLinksMeta(step.sectionLinks),
-      richContent: normaliseRichContent(snapshot.richContent || []),
-      sections: normaliseStepSectionsForEditor(snapshot.sections, snapshot.richContent || [])
-    });
-  }
-
-  const linkedStepId = String(step.linkedStepId || '').trim();
-  if (!linkedStepId) return resolveSectionLinksForEditor(step);
-
-  const shared = findLinkedStepDataForEditor(linkedStepId);
-  if (!shared) return resolveSectionLinksForEditor(step);
-
-  return resolveSectionLinksForEditor({
-    stepTitle: shared.stepTitle,
-    isRedStep: Boolean(shared.isRedStep),
-    stepId: String(step.stepId || '').trim() || makeStepId(),
-    linkedStepId,
-    linkMeta: step.linkMeta || null,
-    sectionLinks: normaliseSectionLinksMeta(step.sectionLinks),
-    richContent: shared.richContent,
-    sections: shared.sections
-  });
+  return resolveSectionLinksForEditor(step);
 }
 
 function findLinkedStepDataForEditor(linkedStepId) {
@@ -2464,19 +2417,6 @@ async function savePattern() {
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
-  function syncLinkedStepsInBackground(patternId, stepsForStorage, successMessage) {
-    return propagateLinkedSteps(editorUid, patternId, stepsForStorage, _allPatternsRef)
-      .then(function(updatedCount) {
-        if (updatedCount > 0) {
-          showToast(successMessage + ' Synced linked steps in ' + updatedCount + ' pattern(s).');
-        }
-      })
-      .catch(function(err) {
-        console.error(err);
-        showToast('Saved, but failed to sync linked steps: ' + (err && err.message ? err.message : err), true);
-      });
-  }
-
   try {
     const stepsForStorage = await prepareStepsForStorage(editorSteps);
 
@@ -2494,11 +2434,9 @@ async function savePattern() {
       if (typeof rememberStepForPattern === 'function') {
         rememberStepForPattern(editingPatternId, activeStepIndex);
       }
-      syncLinkedStepsInBackground(editingPatternId, stepsForStorage, 'Pattern updated.');
     } else {
       const newPatternId = await createPattern(editorUid, { name, modality, steps: stepsForStorage });
       showToast('Pattern created.');
-      syncLinkedStepsInBackground(newPatternId, stepsForStorage, 'Pattern created.');
     }
     closeEditor();
   } catch (err) {
@@ -2537,9 +2475,9 @@ async function prepareStepsForStorage(steps) {
       stepTitle: (step && step.stepTitle) || '',
       isRedStep: Boolean(step && step.isRedStep),
       stepId: String((step && step.stepId) || '').trim() || makeStepId(),
-      linkedStepId: (step && step.linkedStepId) || '',
-      linkMeta: (step && step.linkMeta) ? JSON.parse(JSON.stringify(step.linkMeta)) : null,
-      sectionLinks: normaliseSectionLinksMeta(step && step.sectionLinks),
+      linkedStepId: '',
+      linkMeta: null,
+      sectionLinks: {},
       sections: compressedSections,
       richContent: legacySearchPattern
     });
@@ -2575,7 +2513,7 @@ async function compressRichContentForStorage(richContent) {
         subsectionId: String(chunk.subsectionId || '').trim() || makeSubsectionId(),
         title: chunk.title || '',
         isRedFinding: Boolean(chunk.isRedFinding),
-        linkMeta: normaliseSectionLinkMeta(chunk.linkMeta),
+        linkMeta: null,
         content: await compressRichContentForStorage(chunk.content || [])
       });
       continue;

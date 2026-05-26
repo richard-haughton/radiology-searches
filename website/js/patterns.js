@@ -260,9 +260,13 @@ function renderCurrentStep(pattern) {
   emptyEl.style.display = 'none';
   headerEl.style.display = '';
   contentEl.style.display = '';
+  contentEl.classList.toggle('step-content-edit-mode', Boolean(_patternViewerEditMode));
 
   document.getElementById('step-counter').textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
-  document.getElementById('step-title').textContent = 'Select a step to view details';
+  const currentStep = steps[currentStepIndex] || steps[0] || null;
+  document.getElementById('step-title').textContent = (currentStep && currentStep.stepTitle)
+    ? currentStep.stepTitle
+    : 'Untitled Step';
   updateExpandAllButton(steps.length);
 
   contentEl.innerHTML = '';
@@ -508,34 +512,7 @@ async function reorderPatternSteps(pattern, fromIndex, toIndex) {
 
 function resolveLinkedStep(step) {
   if (!step) return step;
-
-  if (step.linkMeta && step.linkMeta.mode === 'snapshot' && step.linkMeta.snapshot) {
-    const snapshot = step.linkMeta.snapshot;
-    return {
-      stepTitle: snapshot.stepTitle || step.stepTitle || '',
-      isRedStep: Boolean(snapshot.isRedStep || step.isRedStep),
-      richContent: normaliseRichContent(snapshot.richContent || []),
-      linkedStepId: String(step.linkedStepId || '').trim(),
-      stepId: String(step.stepId || '').trim() || String(snapshot.stepId || '').trim(),
-      linkMeta: step.linkMeta,
-      sections: normaliseStepSectionsSafe(snapshot.sections, snapshot.richContent || [])
-    };
-  }
-
-  const linkedStepId = String(step.linkedStepId || '').trim();
-  if (!linkedStepId) return resolveSectionLinksForViewer(normaliseStepForViewer(step));
-
-  const shared = findLinkedStepData(linkedStepId);
-  if (!shared) return resolveSectionLinksForViewer(normaliseStepForViewer(step));
-
-  return resolveSectionLinksForViewer({
-    stepTitle: shared.stepTitle,
-    isRedStep: Boolean(shared.isRedStep),
-    richContent: shared.richContent,
-    linkedStepId,
-    sectionLinks: normaliseSectionLinksForViewer(step.sectionLinks),
-    sections: shared.sections
-  });
+  return resolveSectionLinksForViewer(normaliseStepForViewer(step));
 }
 
 function normaliseSectionLinkForViewer(raw) {
@@ -590,31 +567,13 @@ function hasRenderableRichContent(content) {
 
 function resolveSectionLinksForViewer(step) {
   const resolved = normaliseStepForViewer(step);
-  resolved.sectionLinks = normaliseSectionLinksForViewer(resolved.sectionLinks);
-
-  const searchPatternLink = resolved.sectionLinks.searchPattern;
-  if (searchPatternLink && searchPatternLink.sourceStepId) {
-    const sourceStep = findLinkedStepData(searchPatternLink.sourceStepId);
-    const hasLocalSearchPattern = hasRenderableRichContent(resolved.sections.searchPattern || []);
-    if (!hasLocalSearchPattern && sourceStep && sourceStep.sections) {
-      resolved.sections.searchPattern = normaliseRichContent(sourceStep.sections.searchPattern || []);
-      resolved.richContent = normaliseRichContent(resolved.sections.searchPattern || []);
-    }
-  }
-
-  const findings = normaliseRichContent(resolved.sections.dontMissPathology || []).map(item => {
-    if (!item || item.type !== 'subsection' || !item.linkMeta || !item.linkMeta.sourceSubsectionId) return item;
-    const sourceStep = findLinkedStepData(item.linkMeta.sourceStepId || '');
-    const sourceSub = findSubsectionByIdForViewer(sourceStep, item.linkMeta.sourceSubsectionId);
-    const hasLocalFindingContent = hasRenderableRichContent(item.content || []);
-    if (!sourceSub || hasLocalFindingContent) return item;
-    return Object.assign({}, item, {
-      title: sourceSub.title || item.title,
-      isRedFinding: Boolean(sourceSub.isRedFinding),
-      content: normaliseRichContent(sourceSub.content || [])
-    });
+  resolved.sectionLinks = {};
+  resolved.linkMeta = null;
+  resolved.linkedStepId = '';
+  resolved.sections.dontMissPathology = normaliseRichContent(resolved.sections.dontMissPathology || []).map(function(item) {
+    if (!item || item.type !== 'subsection') return item;
+    return Object.assign({}, item, { linkMeta: null });
   });
-  resolved.sections.dontMissPathology = findings;
 
   return resolved;
 }
@@ -1208,8 +1167,8 @@ function renderNestedSubsections(container, content) {
     const wrap = document.createElement('section');
     wrap.className = 'step-subsection';
     if (entry.isRedFinding) wrap.classList.add('step-subsection-red');
-    const isEditing = isInlineEditActive('dontMissPathology', entry.subsectionId || '');
-    const isExpanded = isEditing || isFindingPanelOpen(entry.subsectionId || '');
+    const isExpanded = isFindingPanelOpen(entry.subsectionId || '');
+    const isEditing = _patternViewerEditMode && isExpanded;
 
     const header = document.createElement('div');
     header.className = 'step-subsection-header';
@@ -1257,20 +1216,14 @@ function renderNestedSubsections(container, content) {
       panel.style.display = nextOpen ? '' : 'none';
       const chevron = btn.querySelector('.step-subsection-chevron');
       if (chevron) chevron.textContent = nextOpen ? '▾' : '▸';
+
+      if (_patternViewerEditMode && nextOpen) {
+        // Re-render so the opened finding switches into direct edit mode.
+        const pattern = getSelectedPattern();
+        if (pattern) renderCurrentStep(pattern);
+      }
     });
 
-    if (_patternViewerEditMode) {
-      const modifyBtn = document.createElement('button');
-      modifyBtn.type = 'button';
-      modifyBtn.className = 'btn btn-ghost btn-sm step-inline-modify-btn';
-      modifyBtn.textContent = isEditing ? 'Editing' : 'Modify';
-      modifyBtn.disabled = _inlineEditSaving;
-      modifyBtn.addEventListener('click', () => {
-        if (isEditing) return;
-        startInlineEdit('dontMissPathology', entry.subsectionId || '', entry.title || '', entry.content || [], Boolean(entry.isRedFinding));
-      });
-      header.appendChild(modifyBtn);
-    }
     header.appendChild(btn);
     wrap.appendChild(header);
     wrap.appendChild(panel);
@@ -1325,42 +1278,20 @@ function renderSearchPatternContent(container, richContent, isRedStep) {
 
   const layout = document.createElement('div');
   layout.className = 'step-section-inline-layout';
-  const isEditing = isInlineEditActive('searchPattern', '');
-
-  const modifyBtn = document.createElement('button');
-  modifyBtn.type = 'button';
-  modifyBtn.className = 'btn btn-ghost btn-sm step-inline-modify-btn';
-  modifyBtn.textContent = isEditing ? 'Editing' : 'Modify';
-  modifyBtn.disabled = _inlineEditSaving;
-  modifyBtn.addEventListener('click', () => {
-    if (isEditing) return;
-    startInlineEdit('searchPattern', '', '', richContent || [], Boolean(isRedStep));
-  });
 
   const body = document.createElement('div');
   body.className = 'step-section-inline-body';
-  const chunks = normaliseRichContent(richContent);
 
-  if (isEditing) {
-    renderInlineEditForm(body, {
-      sectionKey: 'searchPattern',
-      findingId: '',
-      includeTitle: false,
-      title: '',
-      content: richContent || [],
-      isMarkedRed: Boolean(isRedStep),
-      redToggleLabel: 'Change color of this step to red in main search pattern display'
-    });
-  } else if (chunks.length) {
-    renderRichContent(body, chunks);
-  } else {
-    const empty = document.createElement('p');
-    empty.className = 'step-section-empty';
-    empty.textContent = 'No content yet.';
-    body.appendChild(empty);
-  }
+  renderInlineEditForm(body, {
+    sectionKey: 'searchPattern',
+    findingId: '',
+    includeTitle: false,
+    title: '',
+    content: richContent || [],
+    isMarkedRed: Boolean(isRedStep),
+    redToggleLabel: 'Change color of this step to red in main search pattern display'
+  });
 
-  layout.appendChild(modifyBtn);
   layout.appendChild(body);
   container.appendChild(layout);
 }

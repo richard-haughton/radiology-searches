@@ -332,7 +332,10 @@ body {
 .step-counter { font-size: 0.85rem; color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
 .step-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 0; line-height: 1.2; }
 
-.step-content { line-height: 1.65; font-size: 0.95rem; }
+.step-content {
+  line-height: 1.65;
+  font-size: 0.95rem;
+}
 .step-list {
   display: flex;
   flex-direction: column;
@@ -1968,15 +1971,15 @@ html.dark .step-item.step-item-red .step-item-number,
 html.dark .step-item.step-item-red .step-item-title,
 html.dark .step-item.step-item-red .step-item-chevron { color: #f1a8a0; }
 html.dark .step-section-actions      { border-top-color: #2b4337; }
-html.dark .step-section             { background: #17291f; border-color: #2b4337; }
-html.dark .step-section-toggle      { background: #1d3226; border-bottom-color: #2b4337; }
-html.dark .step-section-panel       { background: #17291f; }
-html.dark .step-section-content     { background: #17291f; }
-html.dark .step-subsection          { background: #1a2d22; border-color: #2b4337; }
+html.dark .step-section             { background: #21382c; border-color: #365646; }
+html.dark .step-section-toggle      { background: #284333; border-bottom-color: #365646; }
+html.dark .step-section-panel       { background: #21382c; }
+html.dark .step-section-content     { background: #21382c; }
+html.dark .step-subsection          { background: #264036; border-color: #365646; }
 html.dark .step-subsection-header .step-inline-modify-btn { background: #203528; border-right-color: #2b4337; color: #8ab89d; }
-html.dark .step-subsection-toggle   { background: #21382a; border-bottom-color: #2b4337; }
-html.dark .step-subsection-panel    { background: #1a2d22; }
-html.dark .step-subsection-content  { background: #1a2d22; }
+html.dark .step-subsection-toggle   { background: #2d4a3a; border-bottom-color: #365646; }
+html.dark .step-subsection-panel    { background: #264036; }
+html.dark .step-subsection-content  { background: #264036; }
 html.dark .step-subsection.step-subsection-red { background: #3a211f; border-color: #7a3f39; }
 html.dark .step-subsection.step-subsection-red .step-inline-modify-btn { background: #472826; border-right-color: #7a3f39; color: #f1a8a0; }
 html.dark .step-subsection.step-subsection-red .step-subsection-toggle { background: #472826; color: #f1a8a0; border-bottom-color: #7a3f39; }
@@ -1989,6 +1992,29 @@ html.dark .rich-toolbar             { background: #192b1e; border-color: #2b4337
 html.dark .rich-tool:hover          { background: #21382a; border-color: #2b4337; }
 html.dark .rich-editor              { background: #14241b; border-color: #2b4337; color: #d8ead9; }
 html.dark .rich-editor:focus        { border-color: #4b7a5f; }
+html.dark .rich-editor.rich-editor-readonly { background: #2a4438; border-color: #3e6551; }
+
+/* Clear visual distinction in edit mode: lighter green surface while editable. */
+html.dark .step-content.step-content-edit-mode .step-section,
+html.dark .step-content.step-content-edit-mode .step-section-panel,
+html.dark .step-content.step-content-edit-mode .step-section-content {
+  background: #295040;
+  border-color: #4a7a61;
+}
+html.dark .step-content.step-content-edit-mode .step-section-toggle {
+  background: #33614d;
+  border-bottom-color: #4a7a61;
+}
+html.dark .step-content.step-content-edit-mode .step-subsection,
+html.dark .step-content.step-content-edit-mode .step-subsection-panel,
+html.dark .step-content.step-content-edit-mode .step-subsection-content {
+  background: #2f5b47;
+  border-color: #4a7a61;
+}
+html.dark .step-content.step-content-edit-mode .step-subsection-toggle {
+  background: #397059;
+  border-bottom-color: #4a7a61;
+}
 html.dark .step-content .rich-green { color: #7fd8a6; }
 html.dark .step-section-tab         { background: #192b1e; }
 html.dark .section-link-current     { color: #9dc2ac; }
