@@ -22,6 +22,7 @@ var _draggingPatternStepIndex = null;
 var _patternViewerEditMode = false;
 var _activeInlineEdit = null;
 var _inlineEditSaving = false;
+var _openFindingPanels = new Set();
 var _accordionMode = false;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var STEP_SECTION_LABELS = {
@@ -903,7 +904,34 @@ function isInlineEditActive(sectionKey, findingId) {
   return _activeInlineEdit.key === getInlineEditKey(sectionKey, findingId);
 }
 
+function getFindingPanelKey(findingId, stepIndexOverride) {
+  var safeFindingId = String(findingId || '').trim();
+  if (!safeFindingId) return '';
+  var safePatternId = String(selectedPatternId || '').trim();
+  var safeStepIndex = typeof stepIndexOverride === 'number' ? stepIndexOverride : currentStepIndex;
+  if (!safePatternId || safeStepIndex < 0) return '';
+  return [safePatternId, safeStepIndex, safeFindingId].join('::');
+}
+
+function setFindingPanelOpen(findingId, isOpen, stepIndexOverride) {
+  var key = getFindingPanelKey(findingId, stepIndexOverride);
+  if (!key) return;
+  if (isOpen) {
+    _openFindingPanels.add(key);
+  } else {
+    _openFindingPanels.delete(key);
+  }
+}
+
+function isFindingPanelOpen(findingId, stepIndexOverride) {
+  var key = getFindingPanelKey(findingId, stepIndexOverride);
+  return key ? _openFindingPanels.has(key) : false;
+}
+
 function startInlineEdit(sectionKey, findingId, title, content, isMarkedRed) {
+  if (sectionKey === 'dontMissPathology') {
+    setFindingPanelOpen(findingId, true);
+  }
   _activeInlineEdit = {
     key: getInlineEditKey(sectionKey, findingId),
     stepIndex: currentStepIndex,
@@ -986,6 +1014,9 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
       steps: nextSteps
     });
     pattern.steps = nextSteps;
+    if (sectionKey === 'dontMissPathology') {
+      setFindingPanelOpen(findingId, true);
+    }
     _activeInlineEdit = null;
     _inlineEditSaving = false;
     renderCurrentStep(pattern);
@@ -1136,6 +1167,7 @@ function renderNestedSubsections(container, content) {
     wrap.className = 'step-subsection';
     if (entry.isRedFinding) wrap.classList.add('step-subsection-red');
     const isEditing = isInlineEditActive('dontMissPathology', entry.subsectionId || '');
+    const isExpanded = isEditing || isFindingPanelOpen(entry.subsectionId || '');
 
     const header = document.createElement('div');
     header.className = 'step-subsection-header';
@@ -1143,15 +1175,15 @@ function renderNestedSubsections(container, content) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'step-subsection-toggle';
-    btn.setAttribute('aria-expanded', String(isEditing));
+    btn.setAttribute('aria-expanded', String(isExpanded));
     btn.innerHTML = `
       <span>${entry.title || `Subsection ${idx + 1}`}</span>
-      <span class="step-subsection-chevron" aria-hidden="true">${isEditing ? '▾' : '▸'}</span>
+      <span class="step-subsection-chevron" aria-hidden="true">${isExpanded ? '▾' : '▸'}</span>
     `;
 
     const panel = document.createElement('div');
     panel.className = 'step-subsection-panel';
-    panel.style.display = isEditing ? '' : 'none';
+    panel.style.display = isExpanded ? '' : 'none';
 
     const panelInner = document.createElement('div');
     panelInner.className = 'step-subsection-content';
@@ -1178,6 +1210,7 @@ function renderNestedSubsections(container, content) {
     btn.addEventListener('click', () => {
       const isOpen = btn.getAttribute('aria-expanded') === 'true';
       const nextOpen = !isOpen;
+      setFindingPanelOpen(entry.subsectionId || '', nextOpen);
       btn.setAttribute('aria-expanded', String(nextOpen));
       panel.style.display = nextOpen ? '' : 'none';
       const chevron = btn.querySelector('.step-subsection-chevron');
@@ -1207,61 +1240,64 @@ function renderRichContent(container, richContent) {
   const chunks = normaliseRichContent(richContent);
   if (!chunks.length) return;
 
-  let currentParagraph = null;
-
   chunks.forEach(chunk => {
+    if (!chunk) return;
+
     if (chunk.type === 'image') {
       if (!chunk.data) return;
-      if (currentParagraph) { container.appendChild(currentParagraph); currentParagraph = null; }
       const img = document.createElement('img');
       img.src = `data:image/${chunk.format || 'png'};base64,${chunk.data}`;
       img.alt = 'Step image';
+      img.style.maxWidth = '100%';
+      img.style.borderRadius = '6px';
+      img.style.margin = '4px 0';
+      img.style.display = 'block';
+      img.style.cursor = 'pointer';
       img.addEventListener('click', () => openLightbox(img.src));
       container.appendChild(img);
-    } else if (chunk.type === 'link') {
+      return;
+    }
+
+    if (chunk.type === 'link') {
       const href = sanitiseLinkUrl(chunk.url || '');
-      const label = chunk.text || chunk.url || '';
+      const label = String(chunk.text || chunk.url || '').trim();
       if (!href || !label) return;
-      if (!currentParagraph) {
-        currentParagraph = document.createElement('p');
-      }
+      const row = document.createElement('div');
+      row.className = 'step-hyperlink-row';
       const anchor = document.createElement('a');
+      anchor.className = 'step-link';
       anchor.href = href;
       anchor.textContent = label;
       anchor.target = '_blank';
       anchor.rel = 'noopener noreferrer';
-      anchor.className = 'step-link';
-      currentParagraph.appendChild(anchor);
-      currentParagraph.appendChild(document.createTextNode(' '));
-    } else {
-      if (!currentParagraph) {
-        currentParagraph = document.createElement('p');
-      }
-      const text = chunk.text || '';
-      if (!text && !chunk.bold && !chunk.color) {
-        if (currentParagraph.childNodes.length) {
-          container.appendChild(currentParagraph);
-          currentParagraph = null;
-        }
-        return;
-      }
-      if (chunk.bold || chunk.color) {
-        const span = document.createElement('span');
-        span.textContent = text;
-        if (chunk.bold) span.style.fontWeight = '700';
-        if (chunk.color === 'red') span.classList.add('rich-red');
-        if (chunk.color === 'green') span.classList.add('rich-green');
-        if (chunk.color === 'blue') span.classList.add('rich-blue');
-        currentParagraph.appendChild(span);
-      } else {
-        currentParagraph.appendChild(document.createTextNode(text));
-      }
+      row.appendChild(anchor);
+      container.appendChild(row);
+      return;
     }
-  });
 
-  if (currentParagraph && currentParagraph.childNodes.length) {
-    container.appendChild(currentParagraph);
-  }
+    const text = String(chunk.text || '');
+    if (!text) return;
+    const parts = text.split('\n');
+
+    parts.forEach((part, index) => {
+      if (part) {
+        if (chunk.bold || chunk.color) {
+          const span = document.createElement('span');
+          span.textContent = part;
+          if (chunk.bold) span.style.fontWeight = '700';
+          if (chunk.color === 'red') span.style.color = '#c0392b';
+          if (chunk.color === 'green') span.style.color = '#1a7a4a';
+          if (chunk.color === 'blue') span.style.color = '#1a5c9e';
+          container.appendChild(span);
+        } else {
+          container.appendChild(document.createTextNode(part));
+        }
+      }
+      if (index < parts.length - 1) {
+        container.appendChild(document.createElement('br'));
+      }
+    });
+  });
 }
 
 function renderSearchPatternContent(container, richContent, isRedStep) {

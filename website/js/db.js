@@ -301,8 +301,9 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
       type: 'set',
       id: findingId,
       data: {
-        name: nextFinding.name || '',
-        nameKey: nextFinding.nameKey || _normaliseFindingName(nextFinding.name || ''),
+        name: nextFinding.name || (existing && existing.name) || '',
+        nameKey: nextFinding.nameKey || (existing && existing.nameKey) || _normaliseFindingName(nextFinding.name || ''),
+        // Replace with the current editor state so formatting edits (including newlines) persist.
         content: cloneRichContentForStorage(nextFinding.content || []),
         isRedFinding: Boolean(nextFinding.isRedFinding),
         modalities: _modalitiesFromFindingLinks(mergedLinks),
@@ -375,19 +376,8 @@ function _deleteFindingDocs(uid, findingIds) {
   return _commitFindingOps(uid, ops);
 }
 
-function _timestampToMillis(value) {
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.seconds === 'number') {
-    return (value.seconds * 1000) + Math.floor(Number(value.nanoseconds || 0) / 1000000);
-  }
-  var parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function _hydratePatternsWithFindings(patterns, findingsById) {
   return (patterns || []).map(function(pattern) {
-    var patternUpdatedAtMs = _timestampToMillis(pattern && pattern.updatedAt);
     var nextPattern = Object.assign({}, pattern);
     nextPattern.steps = (pattern.steps || []).map(function(step) {
       var nextStep = Object.assign({}, step);
@@ -397,9 +387,6 @@ function _hydratePatternsWithFindings(patterns, findingsById) {
         var findingId = String(item.findingId || '').trim();
         var finding = findingId ? findingsById[findingId] : null;
         if (!finding) return item;
-        if (_timestampToMillis(finding.updatedAt) < patternUpdatedAtMs) {
-          return item;
-        }
         return Object.assign({}, item, {
           findingId: findingId,
           title: finding.name || item.title,
