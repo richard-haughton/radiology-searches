@@ -10,6 +10,14 @@ function _now()              { return firebase.firestore.FieldValue.serverTimest
 var STEP_SECTION_KEYS = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
 var FINDINGS_BATCH_SIZE = 400;
 
+function _normaliseMultilineText(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n');
+}
+
 function _normaliseFindingName(name) {
   return String(name || '')
     .toLowerCase()
@@ -486,7 +494,7 @@ function normaliseSubsectionChunk(chunk) {
     type: 'subsection',
     subsectionId: String((chunk && (chunk.subsectionId || chunk.subsection_id)) || '').trim() || _makeSubsectionId(),
     findingId: String((chunk && (chunk.findingId || chunk.finding_id)) || '').trim(),
-    title: (chunk && (chunk.title || chunk.name)) || '',
+    title: _normaliseMultilineText((chunk && (chunk.title || chunk.name)) || ''),
     isRedFinding: Boolean(chunk && (chunk.isRedFinding || chunk.is_red_finding || chunk.findingRed)),
     linkMeta: _normaliseSectionLinkMeta(chunk && (chunk.linkMeta || chunk.link_meta)),
     content: cloneRichContentForStorage(content)
@@ -513,7 +521,7 @@ function normaliseStepSections(sections, fallbackRichContent) {
       if (type === 'link') {
         return {
           type: 'link',
-          text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
+          text: _normaliseMultilineText((chunk && (chunk.text || chunk.content || chunk.url)) || ''),
           url: (chunk && chunk.url) || ''
         };
       }
@@ -522,7 +530,7 @@ function normaliseStepSections(sections, fallbackRichContent) {
       }
       return {
         type: 'text',
-        text: (chunk && (chunk.text || chunk.content)) || '',
+        text: _normaliseMultilineText((chunk && (chunk.text || chunk.content)) || ''),
         bold: Boolean(chunk && chunk.bold),
         color: (chunk && chunk.color) || null
       };
@@ -590,7 +598,7 @@ function _normalisePatternDoc(doc) {
       if (type === 'link') {
         return {
           type: 'link',
-          text: (chunk && (chunk.text || chunk.content || chunk.url)) || '',
+          text: _normaliseMultilineText((chunk && (chunk.text || chunk.content || chunk.url)) || ''),
           url: (chunk && chunk.url) || ''
         };
       }
@@ -599,7 +607,7 @@ function _normalisePatternDoc(doc) {
       }
       return {
         type: 'text',
-        text: (chunk && (chunk.text || chunk.content)) || '',
+        text: _normaliseMultilineText((chunk && (chunk.text || chunk.content)) || ''),
         bold: Boolean(chunk && chunk.bold),
         color: (chunk && chunk.color) || null
       };
@@ -778,7 +786,7 @@ function cloneRichContentForStorage(richContent) {
     if (chunk && chunk.type === 'link') {
       return {
         type: 'link',
-        text: chunk.text || chunk.url || '',
+        text: _normaliseMultilineText(chunk.text || chunk.url || ''),
         url: chunk.url || ''
       };
     }
@@ -787,7 +795,7 @@ function cloneRichContentForStorage(richContent) {
     }
     return {
       type: 'text',
-      text: (chunk && chunk.text) || '',
+      text: _normaliseMultilineText((chunk && chunk.text) || ''),
       bold: Boolean(chunk && chunk.bold),
       color: (chunk && chunk.color) || null
     };

@@ -2870,6 +2870,14 @@ function insertImageBlob(blob, targetEditor) {
 }
 
 // ── Utility ──────────────────────────────────────────────────
+function normaliseMultilineText(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n');
+}
+
 function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
@@ -2887,7 +2895,7 @@ function normaliseRichContent(richContent) {
     if (type === 'link') {
       return {
         type: 'link',
-        text: chunk?.text || chunk?.content || chunk?.url || '',
+        text: normaliseMultilineText(chunk?.text || chunk?.content || chunk?.url || ''),
         url: chunk?.url || ''
       };
     }
@@ -2896,7 +2904,7 @@ function normaliseRichContent(richContent) {
       return {
         type: 'subsection',
         subsectionId: String(chunk?.subsectionId || chunk?.subsection_id || '').trim() || makeSubsectionId(),
-        title: chunk?.title || chunk?.name || '',
+        title: normaliseMultilineText(chunk?.title || chunk?.name || ''),
         isRedFinding: Boolean(chunk?.isRedFinding || chunk?.is_red_finding || chunk?.findingRed),
         linkMeta: normaliseSectionLinkMeta(chunk?.linkMeta || chunk?.link_meta || null),
         content: normaliseRichContent(chunk?.content || [])
@@ -2905,7 +2913,7 @@ function normaliseRichContent(richContent) {
 
     return {
       type: 'text',
-      text: chunk?.text || chunk?.content || '',
+      text: normaliseMultilineText(chunk?.text || chunk?.content || ''),
       bold: Boolean(chunk?.bold),
       color: chunk?.color || null
     };
