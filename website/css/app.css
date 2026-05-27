@@ -329,6 +329,11 @@ body {
   justify-content: space-between;
   margin-bottom: 6px;
 }
+.step-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .step-counter { font-size: 0.85rem; color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
 .step-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 0; line-height: 1.2; }
 
@@ -430,6 +435,15 @@ body {
 .step-item-panel-inner {
   line-height: 1.65;
   font-size: 0.92rem;
+}
+.step-title-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.step-title-edit-input {
+  flex: 1;
 }
 .step-item.step-item-red {
   border-color: #d98d86;
@@ -1052,6 +1066,60 @@ body {
 }
 .quick-link:hover {
   text-decoration: underline;
+}
+
+.contrast-card {
+  max-width: 1200px;
+}
+.contrast-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.contrast-summary {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+.contrast-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f8fcf9;
+}
+.contrast-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1180px;
+  font-size: 0.86rem;
+}
+.contrast-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f0f6f2;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.contrast-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e7f0ea;
+  color: var(--ink);
+  vertical-align: top;
+}
+.contrast-table tbody tr:nth-child(even) {
+  background: rgba(229, 242, 234, 0.52);
+}
+.contrast-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 980px) {
+  .contrast-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================================================
@@ -1937,6 +2005,10 @@ html.dark .calc-scan-entry           { background: #16261d; border-color: #2a403
 html.dark .calc-scan-badge           { color: #8dd8b2; }
 html.dark .quick-links-item         { background: #192b1e; border-color: #2a4035; }
 html.dark .quick-link               { color: #87d6b0; }
+html.dark .contrast-table-wrap      { background: #16261d; border-color: #2a4035; }
+html.dark .contrast-table th        { background: #1b2f22; border-bottom-color: #2a4035; }
+html.dark .contrast-table td        { border-bottom-color: #213729; color: var(--ink); }
+html.dark .contrast-table tbody tr:nth-child(even) { background: rgba(34, 58, 44, 0.65); }
 html.dark .settings-status          { background: #192b1e; }
 html.dark .notes-search-status      { background: #192b1e; }
 html.dark .share-item,

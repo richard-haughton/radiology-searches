@@ -7,6 +7,12 @@ function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _reportTemplatesRef(uid) { return _userRef(uid).collection('reportTemplates'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
 
+function stripStepTitleNumbering(title) {
+  var raw = String(title || '').trim();
+  if (!raw) return '';
+  return raw.replace(/^(?:step\s+\d+|\d+)\s*[.)\-:]?\s*/i, '').trim();
+}
+
 var STEP_SECTION_KEYS = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
 var FINDINGS_BATCH_SIZE = 400;
 
@@ -167,7 +173,7 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
     if (!step) return;
     var stepId = String(step.stepId || '').trim() || _makeStepId();
     step.stepId = stepId;
-    var stepTitle = String(step.stepTitle || '').trim() || ('Step ' + (stepIndex + 1));
+    var stepTitle = stripStepTitleNumbering(step && step.stepTitle) || ('Step ' + (stepIndex + 1));
     var sections = normaliseStepSections(step.sections, step.richContent || []);
 
     (sections.dontMissPathology || []).forEach(function(item, itemIndex) {
@@ -446,6 +452,14 @@ function _stripLinkedStepDataList(steps) {
   return (steps || []).map(_stripLinkedStepData);
 }
 
+function _sanitizeStepTitles(steps) {
+  (steps || []).forEach(function(step) {
+    if (!step || typeof step !== 'object') return;
+    step.stepTitle = stripStepTitleNumbering(step.stepTitle || '');
+  });
+  return steps || [];
+}
+
 function _normaliseLinkMeta(raw) {
   if (!raw || typeof raw !== 'object') return null;
   var mode = raw.mode === 'snapshot' ? 'snapshot' : 'internal';
@@ -632,7 +646,7 @@ function _normalisePatternDoc(doc) {
     });
 
     return {
-      stepTitle: (step && (step.stepTitle || step.step_title)) || '',
+      stepTitle: stripStepTitleNumbering(step && (step.stepTitle || step.step_title)),
       isRedStep: Boolean(step && (step.isRedStep || step.is_red_step || step.stepColorRed)),
       stepId: String((step && (step.stepId || step.step_id)) || '').trim() || _makeStepId(),
       richContent: richContent,
@@ -723,6 +737,7 @@ function createPattern(uid, data) {
   var patternId = ref.id;
   var rawSteps = Array.isArray(data.steps) ? data.steps : [];
   var workingSteps = _stripLinkedStepDataList(JSON.parse(JSON.stringify(rawSteps)));
+  _sanitizeStepTitles(workingSteps);
   var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
   var findingIds = Object.keys(extractedFindings);
 
@@ -747,6 +762,7 @@ function createPattern(uid, data) {
 function updatePattern(uid, patternId, data) {
   var rawSteps = Array.isArray(data.steps) ? data.steps : [];
   var workingSteps = _stripLinkedStepDataList(JSON.parse(JSON.stringify(rawSteps)));
+  _sanitizeStepTitles(workingSteps);
   var patternRef = _patternsRef(uid).doc(patternId);
 
   return patternRef.get().then(function(existingDoc) {
@@ -834,7 +850,7 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
     var stepId = String((step && step.stepId) || '').trim() || _makeStepId();
 
     var sharedData = {
-      stepTitle: (step && step.stepTitle) || '',
+      stepTitle: stripStepTitleNumbering(step && step.stepTitle),
       isRedStep: Boolean(step && step.isRedStep),
       stepId: stepId,
       richContent: cloneRichContentForStorage(step && step.richContent),

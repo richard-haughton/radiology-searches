@@ -58,7 +58,7 @@ function cloneStepSnapshot(step) {
   var fallback = normaliseRichContent(safeStep.richContent || safeStep.rich_content || []);
   var sections = normaliseStepSectionsForEditor(safeStep.sections, fallback);
   return {
-    stepTitle: safeStep.stepTitle || '',
+    stepTitle: getDisplayTitleWithoutLeadingNumbering(safeStep.stepTitle || ''),
     isRedStep: Boolean(safeStep.isRedStep || safeStep.is_red_step || safeStep.stepColorRed),
     stepId: String(safeStep.stepId || '').trim() || makeStepId(),
     linkedStepId: String(safeStep.linkedStepId || '').trim(),
@@ -746,9 +746,8 @@ function addStep() {
   // Save current step first
   saveActiveStepToState();
 
-  const newIdx = editorSteps.length;
   editorSteps.push({
-    stepTitle: `${newIdx + 1}. `,
+    stepTitle: '',
     isRedStep: false,
     stepId: makeStepId(),
     richContent: [{ type: 'text', text: '', bold: false, color: null }],
@@ -801,7 +800,7 @@ function renderStepEditPanel() {
 
   panel.innerHTML = `
     <label class="form-label">Step Title
-      <input id="step-title-input" type="text" class="form-input" value="${escapeHtml(step.stepTitle || '')}" placeholder="e.g. 1. Aorta">
+      <input id="step-title-input" type="text" class="form-input" value="${escapeHtml(step.stepTitle || '')}" placeholder="e.g. Aorta">
     </label>
 
     <label class="step-red-checkbox-row" for="step-red-checkbox">
@@ -1158,7 +1157,7 @@ async function handleAiStepModify(mode) {
 
     // Apply AI result to the selected target.
     const updatedStep = editorSteps[activeStepIndex];
-    updatedStep.stepTitle = (nextStep.stepTitle || step.stepTitle || '').trim();
+    updatedStep.stepTitle = getDisplayTitleWithoutLeadingNumbering((nextStep.stepTitle || step.stepTitle || '').trim());
 
     if (!updatedStep.sections) {
       updatedStep.sections = normaliseStepSectionsForEditor(null, updatedStep.richContent || []);
@@ -1476,7 +1475,7 @@ function saveActiveStepToState() {
 
   const activeStep = editorSteps[activeStepIndex];
   ensureStepId(activeStep);
-  activeStep.stepTitle = titleInput.value;
+  activeStep.stepTitle = getDisplayTitleWithoutLeadingNumbering(titleInput.value);
   activeStep.isRedStep = Boolean((document.getElementById('step-red-checkbox') || {}).checked);
 
   if (!activeStep.linkedStepId && activeStep.linkMeta && activeStep.linkMeta.mode === 'internal') {
@@ -2171,6 +2170,9 @@ function getSourceEntriesForPattern(patternId) {
 }
 
 function getDisplayTitleWithoutLeadingNumbering(title) {
+  if (typeof stripStepTitleNumbering === 'function') {
+    return stripStepTitleNumbering(title);
+  }
   var raw = String(title || '').trim();
   if (!raw) return '';
   return raw.replace(/^(?:step\s+\d+|\d+)\s*[.)\-:]?\s*/i, '').trim();
@@ -2389,14 +2391,9 @@ function moveStepToIndex(fromIdx, toIdx) {
 }
 
 function renumberStepTitlesAfterReorder() {
-  editorSteps.forEach(function(step, idx) {
+  editorSteps.forEach(function(step) {
     if (!step || typeof step.stepTitle !== 'string') return;
-
-    var rawTitle = step.stepTitle.trim();
-    var cleanedTitle = getDisplayTitleWithoutLeadingNumbering(rawTitle);
-    if (rawTitle === cleanedTitle) return;
-
-    step.stepTitle = cleanedTitle ? ((idx + 1) + '. ' + cleanedTitle) : ('Step ' + (idx + 1));
+    step.stepTitle = getDisplayTitleWithoutLeadingNumbering(step.stepTitle);
   });
 }
 

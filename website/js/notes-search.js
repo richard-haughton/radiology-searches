@@ -6,6 +6,7 @@ var _notesSearchRecords = [];
 var _notesSearchIndexReady = false;
 var _notesSearchLastResults = [];
 var _findingsAddContext = null;
+var _findingsCreateContext = null;
 var _notesSearchActiveModality = 'All';
 var _notesSearchRedOnly = false;
 
@@ -677,6 +678,92 @@ function getPatternById(patternId) {
   }) || null;
 }
 
+function resolveStepIndexForPattern(pattern, stepId, fallbackIndex) {
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) return -1;
+  var targetStepId = String(stepId || '').trim();
+  if (targetStepId) {
+    var exactIndex = pattern.steps.findIndex(function(step) {
+      return String((step && step.stepId) || '') === targetStepId;
+    });
+    if (exactIndex >= 0) return exactIndex;
+  }
+  if (Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < pattern.steps.length) {
+    return fallbackIndex;
+  }
+  return 0;
+}
+
+function resolveFindingsCreateSourceContext(sourceContext) {
+  var fallbackPatternId = (typeof selectedPatternId !== 'undefined' && selectedPatternId)
+    ? String(selectedPatternId)
+    : '';
+  var fallbackStepIndex = (typeof currentStepIndex === 'number') ? currentStepIndex : 0;
+
+  var requestedPatternId = String((sourceContext && sourceContext.patternId) || fallbackPatternId || '');
+  var requestedStepIndex = Number.isInteger(sourceContext && sourceContext.stepIndex)
+    ? sourceContext.stepIndex
+    : fallbackStepIndex;
+
+  var pattern = getPatternById(requestedPatternId);
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) return null;
+
+  var stepIndex = resolveStepIndexForPattern(pattern, '', requestedStepIndex);
+  if (stepIndex < 0) return null;
+  var step = pattern.steps[stepIndex] || {};
+
+  return {
+    patternId: String(pattern.id || ''),
+    patternName: pattern.name || 'Untitled Pattern',
+    stepId: String(step.stepId || ''),
+    stepTitle: String(step.stepTitle || '').trim() || 'Untitled Step',
+    stepIndex: stepIndex
+  };
+}
+
+function updateFindingsCreateStatusForSelection() {
+  var statusEl = document.getElementById('findings-create-status');
+  var patternSelect = document.getElementById('findings-create-pattern-select');
+  var stepSelect = document.getElementById('findings-create-step-select');
+  if (!statusEl) return;
+
+  if (!_findingsCreateContext) {
+    statusEl.textContent = 'Select a pattern step before creating a finding.';
+    return;
+  }
+
+  var base = 'This finding will be created in the current step: '
+    + _findingsCreateContext.patternName
+    + ' | Step '
+    + (_findingsCreateContext.stepIndex + 1)
+    + ': '
+    + _findingsCreateContext.stepTitle
+    + '.';
+
+  var additionalPattern = getPatternById(patternSelect && patternSelect.value);
+  var additionalStepId = String((stepSelect && stepSelect.value) || '').trim();
+  if (!additionalPattern || !additionalStepId) {
+    statusEl.textContent = base + ' You can optionally add it to one additional step below.';
+    return;
+  }
+
+  var additionalStepIndex = resolveStepIndexForPattern(additionalPattern, additionalStepId, -1);
+  var additionalStep = additionalPattern.steps[additionalStepIndex] || null;
+  if (!additionalStep) {
+    statusEl.textContent = base + ' You can optionally add it to one additional step below.';
+    return;
+  }
+
+  var additionalStepTitle = String((additionalStep && additionalStep.stepTitle) || '').trim() || 'Untitled Step';
+  statusEl.textContent = base
+    + ' It will also be added to: '
+    + (additionalPattern.name || 'Untitled Pattern')
+    + ' | Step '
+    + (additionalStepIndex + 1)
+    + ': '
+    + additionalStepTitle
+    + '.';
+}
+
 function bindFindingsAddModal() {
   var modal = document.getElementById('modal-findings-add');
   var closeBtn = document.getElementById('btn-findings-add-close');
@@ -771,12 +858,14 @@ function bindFindingsCreateModal() {
   var cancelBtn = document.getElementById('btn-findings-create-cancel');
   var applyBtn = document.getElementById('btn-findings-create-apply');
   var patternSelect = document.getElementById('findings-create-pattern-select');
+  var stepSelect = document.getElementById('findings-create-step-select');
   var contentEl = document.getElementById('findings-create-content');
   var toolbarEl = document.getElementById('findings-create-toolbar');
   if (closeBtn) closeBtn.addEventListener('click', closeCreateFindingModal);
   if (cancelBtn) cancelBtn.addEventListener('click', closeCreateFindingModal);
   if (applyBtn) applyBtn.addEventListener('click', applyCreatedFindingToSelectedStep);
   if (patternSelect) patternSelect.addEventListener('change', populateFindingsCreateStepSelect);
+  if (stepSelect) stepSelect.addEventListener('change', updateFindingsCreateStatusForSelection);
   if (toolbarEl && contentEl && typeof bindRichEditorToolbar === 'function') {
     bindRichEditorToolbar(toolbarEl, contentEl);
   }
@@ -796,7 +885,7 @@ function bindFindingsCreateModal() {
   }
 }
 
-function openCreateFindingModal() {
+function openCreateFindingModal(sourceContext) {
   var modal = document.getElementById('modal-findings-create');
   var titleEl = document.getElementById('findings-create-title');
   var contentEl = document.getElementById('findings-create-content');
@@ -805,8 +894,10 @@ function openCreateFindingModal() {
   var statusEl = document.getElementById('findings-create-status');
   if (!modal || !titleEl || !contentEl || !redEl || !patternSelect || !statusEl) return;
 
+  _findingsCreateContext = resolveFindingsCreateSourceContext(sourceContext);
+
   var patternsWithSteps = getPatternsWithSteps();
-  patternSelect.innerHTML = '';
+  patternSelect.innerHTML = '<option value="">No additional location</option>';
   patternsWithSteps.forEach(function(pattern) {
     var option = document.createElement('option');
     option.value = String(pattern.id || '');
@@ -821,13 +912,6 @@ function openCreateFindingModal() {
     contentEl.innerHTML = '';
   }
   redEl.checked = false;
-  statusEl.textContent = patternsWithSteps.length
-    ? 'The finding will be created in the selected step\'s Findings section.'
-    : 'No target patterns with steps are available yet.';
-
-  if (patternsWithSteps.length && typeof selectedPatternId !== 'undefined' && selectedPatternId) {
-    patternSelect.value = String(selectedPatternId);
-  }
 
   populateFindingsCreateStepSelect();
   modal.style.display = '';
@@ -838,6 +922,7 @@ function openCreateFindingModal() {
 }
 
 function closeCreateFindingModal() {
+  _findingsCreateContext = null;
   var modal = document.getElementById('modal-findings-create');
   if (modal) modal.style.display = 'none';
 }
@@ -845,17 +930,27 @@ function closeCreateFindingModal() {
 function populateFindingsCreateStepSelect() {
   var patternSelect = document.getElementById('findings-create-pattern-select');
   var stepSelect = document.getElementById('findings-create-step-select');
-  var statusEl = document.getElementById('findings-create-status');
-  if (!patternSelect || !stepSelect || !statusEl) return;
+  if (!patternSelect || !stepSelect) return;
 
   var pattern = getPatternById(patternSelect.value);
 
   stepSelect.innerHTML = '';
-  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) {
-    stepSelect.innerHTML = '<option value="">No target steps available</option>';
-    statusEl.textContent = 'Select a pattern with at least one step.';
+  if (!patternSelect.value) {
+    stepSelect.disabled = true;
+    stepSelect.innerHTML = '<option value="">No additional step selected</option>';
+    updateFindingsCreateStatusForSelection();
     return;
   }
+
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) {
+    stepSelect.disabled = true;
+    stepSelect.innerHTML = '<option value="">No additional steps available</option>';
+    updateFindingsCreateStatusForSelection();
+    return;
+  }
+
+  stepSelect.disabled = false;
+  stepSelect.innerHTML = '<option value="">Select additional step (optional)</option>';
 
   (pattern.steps || []).forEach(function(step, index) {
     var option = document.createElement('option');
@@ -863,12 +958,7 @@ function populateFindingsCreateStepSelect() {
     option.textContent = 'Step ' + (index + 1) + ': ' + (String((step && step.stepTitle) || '').trim() || 'Untitled Step');
     stepSelect.appendChild(option);
   });
-
-  if (typeof selectedPatternId !== 'undefined' && String(selectedPatternId || '') === String(pattern.id || '') && typeof currentStepIndex === 'number' && pattern.steps[currentStepIndex]) {
-    stepSelect.value = String((pattern.steps[currentStepIndex] && pattern.steps[currentStepIndex].stepId) || '');
-  }
-
-  statusEl.textContent = 'The finding will be created in the selected step\'s Findings section.';
+  updateFindingsCreateStatusForSelection();
 }
 
 function buildFindingContentFromText(text, isRedFinding) {
@@ -908,7 +998,6 @@ async function applyCreatedFindingToSelectedStep() {
     ? hasAnyRichContent(content)
     : Boolean(String(contentEl.textContent || '').trim());
   var isRedFinding = Boolean(redEl.checked);
-  var targetPattern = getPatternById(patternSelect.value);
   if (!title) {
     statusEl.textContent = 'Finding title is required.';
     titleEl.focus();
@@ -920,55 +1009,127 @@ async function applyCreatedFindingToSelectedStep() {
     contentEl.focus();
     return;
   }
-  if (!targetPattern) {
-    statusEl.textContent = 'Select a valid target pattern.';
+  if (!_findingsCreateContext) {
+    statusEl.textContent = 'Unable to resolve the current step for this finding.';
     return;
   }
 
-  var targetSteps = JSON.parse(JSON.stringify(targetPattern.steps || []));
-  var targetIndex = targetSteps.findIndex(function(step) {
-    return String((step && step.stepId) || '') === String(stepSelect.value || '');
-  });
-  if (targetIndex < 0) {
-    statusEl.textContent = 'Select a valid target step.';
+  var primaryPattern = getPatternById(_findingsCreateContext.patternId);
+  if (!primaryPattern) {
+    statusEl.textContent = 'Current pattern is no longer available. Refresh and try again.';
     return;
+  }
+
+  var primaryIndex = resolveStepIndexForPattern(primaryPattern, _findingsCreateContext.stepId, _findingsCreateContext.stepIndex);
+  if (primaryIndex < 0 || !primaryPattern.steps[primaryIndex]) {
+    statusEl.textContent = 'Current step is no longer available. Refresh and try again.';
+    return;
+  }
+
+  var additionalPatternId = String(patternSelect.value || '').trim();
+  var additionalStepId = String(stepSelect.value || '').trim();
+  if (additionalPatternId && !additionalStepId) {
+    statusEl.textContent = 'Select an additional step or choose no additional location.';
+    return;
+  }
+
+  var targets = [{
+    patternId: String(primaryPattern.id || ''),
+    stepId: String((primaryPattern.steps[primaryIndex] && primaryPattern.steps[primaryIndex].stepId) || ''),
+    stepIndex: primaryIndex,
+    isPrimary: true
+  }];
+
+  if (additionalPatternId && additionalStepId) {
+    var additionalPattern = getPatternById(additionalPatternId);
+    if (!additionalPattern) {
+      statusEl.textContent = 'Select a valid additional pattern.';
+      return;
+    }
+    var additionalIndex = resolveStepIndexForPattern(additionalPattern, additionalStepId, -1);
+    if (additionalIndex < 0 || !additionalPattern.steps[additionalIndex]) {
+      statusEl.textContent = 'Select a valid additional step.';
+      return;
+    }
+
+    var primaryTarget = targets[0];
+    var resolvedAdditionalStepId = String((additionalPattern.steps[additionalIndex] && additionalPattern.steps[additionalIndex].stepId) || additionalStepId);
+    var isDuplicateTarget = String(primaryTarget.patternId) === String(additionalPattern.id || '')
+      && String(primaryTarget.stepId || '') === String(resolvedAdditionalStepId || '');
+
+    if (!isDuplicateTarget) {
+      targets.push({
+        patternId: String(additionalPattern.id || ''),
+        stepId: resolvedAdditionalStepId,
+        stepIndex: additionalIndex,
+        isPrimary: false
+      });
+    }
   }
 
   applyBtn.disabled = true;
   applyBtn.textContent = 'Creating...';
-  statusEl.textContent = 'Saving finding...';
+  statusEl.textContent = targets.length > 1 ? 'Saving finding to multiple steps...' : 'Saving finding...';
 
   try {
-    var targetStep = targetSteps[targetIndex] || {};
-    targetStep.sections = buildSearchSections(targetStep.sections, normaliseRichContent(targetStep.richContent || targetStep.rich_content || []));
-    targetStep.sections.dontMissPathology = normaliseRichContent(targetStep.sections.dontMissPathology || []);
-    targetStep.sections.dontMissPathology.push({
-      type: 'subsection',
-      title: title,
-      isRedFinding: isRedFinding,
-      content: buildFindingContentFromRichContent(content, isRedFinding)
+    var stepsByPatternId = {};
+
+    targets.forEach(function(target) {
+      var pattern = getPatternById(target.patternId);
+      if (!pattern) return;
+
+      if (!stepsByPatternId[target.patternId]) {
+        stepsByPatternId[target.patternId] = {
+          pattern: pattern,
+          steps: JSON.parse(JSON.stringify(pattern.steps || []))
+        };
+      }
+
+      var entry = stepsByPatternId[target.patternId];
+      var stepIndex = resolveStepIndexForPattern({ steps: entry.steps }, target.stepId, target.stepIndex);
+      if (stepIndex < 0 || !entry.steps[stepIndex]) {
+        throw new Error('A selected step no longer exists. Refresh and try again.');
+      }
+
+      var targetStep = entry.steps[stepIndex] || {};
+      targetStep.sections = buildSearchSections(targetStep.sections, normaliseRichContent(targetStep.richContent || targetStep.rich_content || []));
+      targetStep.sections.dontMissPathology = normaliseRichContent(targetStep.sections.dontMissPathology || []);
+      targetStep.sections.dontMissPathology.push({
+        type: 'subsection',
+        title: title,
+        isRedFinding: isRedFinding,
+        content: buildFindingContentFromRichContent(content, isRedFinding)
+      });
+      targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
+      entry.steps[stepIndex] = targetStep;
     });
-    targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
-    targetSteps[targetIndex] = targetStep;
 
-    var preparedSteps = typeof prepareStepsForStorage === 'function'
-      ? await prepareStepsForStorage(targetSteps)
-      : targetSteps;
+    var patternIdsToUpdate = Object.keys(stepsByPatternId);
+    for (var i = 0; i < patternIdsToUpdate.length; i++) {
+      var patternId = patternIdsToUpdate[i];
+      var entry = stepsByPatternId[patternId];
+      var preparedSteps = typeof prepareStepsForStorage === 'function'
+        ? await prepareStepsForStorage(entry.steps)
+        : entry.steps;
 
-    await updatePattern(_notesSearchUid, targetPattern.id, {
-      name: targetPattern.name || 'Untitled Pattern',
-      modality: targetPattern.modality || 'Other',
-      goalSeconds: targetPattern.goalSeconds,
-      reportConfig: targetPattern.reportConfig || null,
-      steps: preparedSteps
-    });
+      await updatePattern(_notesSearchUid, entry.pattern.id, {
+        name: entry.pattern.name || 'Untitled Pattern',
+        modality: entry.pattern.modality || 'Other',
+        goalSeconds: entry.pattern.goalSeconds,
+        reportConfig: entry.pattern.reportConfig || null,
+        steps: preparedSteps
+      });
 
-    targetPattern.steps = preparedSteps;
+      entry.pattern.steps = preparedSteps;
+    }
+
     if (typeof setAllPatternsRef === 'function' && typeof allPatterns !== 'undefined') {
       setAllPatternsRef(allPatterns);
     }
 
-    showToast('Finding created in ' + (targetPattern.name || 'pattern') + '.');
+    showToast(targets.length > 1
+      ? 'Finding created in current step and additional step.'
+      : 'Finding created in current step.');
     closeCreateFindingModal();
   } catch (err) {
     console.error(err);

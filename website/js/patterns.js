@@ -22,6 +22,7 @@ var _draggingPatternStepIndex = null;
 var _patternViewerEditMode = false;
 var _activeInlineEdit = null;
 var _inlineEditSaving = false;
+var _stepTitleSaveInFlight = {};
 var _openFindingPanels = new Set();
 var _accordionMode = false;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
@@ -36,6 +37,15 @@ var _stepSectionsOpenState = {
   searchPattern: true,
   dontMissPathology: false
 };
+
+function getCleanStepTitle(title) {
+  if (typeof stripStepTitleNumbering === 'function') {
+    return stripStepTitleNumbering(title);
+  }
+  var raw = String(title || '').trim();
+  if (!raw) return '';
+  return raw.replace(/^(?:step\s+\d+|\d+)\s*[.)\-:]?\s*/i, '').trim();
+}
 
 // ── Init ─────────────────────────────────────────────────────
 function initPatterns(userId) {
@@ -101,6 +111,7 @@ function initPatterns(userId) {
       togglePatternViewerEditMode();
     }
   });
+  document.getElementById('btn-add-pattern-step').addEventListener('click', handleAddPatternStep);
   document.getElementById('btn-delete-pattern').addEventListener('click', handleDeletePattern);
 
   // HDF5 import
@@ -190,6 +201,7 @@ function loadPattern(id, preferredStepIndex) {
   const pattern = allPatterns.find(p => p.id === id);
   if (!pattern) return;
 
+  const wasSamePattern = selectedPatternId === id;
   selectedPatternId = id;
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
@@ -201,10 +213,22 @@ function loadPattern(id, preferredStepIndex) {
   }
   updateSidebarButtons(true);
 
-  // Reset timer
-  stopTimer();
-  timerSeconds = 0;
-  startTimer(pattern);
+  if (!wasSamePattern) {
+    // Reset timer only when switching to a different pattern.
+    stopTimer();
+    timerSeconds = 0;
+    startTimer(pattern);
+  } else {
+    // Keep elapsed time when reloading the same pattern after background updates.
+    timerGoalSeconds = normaliseGoalSeconds(pattern && pattern.goalSeconds);
+    syncGoalInputFromState();
+    document.getElementById('timer-pattern-name').textContent = (pattern && pattern.name) ? pattern.name : '';
+    if (timerRunning) {
+      const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
+      if (timerBar) timerBar.style.display = '';
+    }
+    updateTimerDisplay();
+  }
 
   renderCurrentStep(pattern);
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
@@ -250,13 +274,27 @@ function renderCurrentStep(pattern) {
   const contentEl = document.getElementById('step-content');
 
   if (!steps.length) {
+    updatePatternStepAddButton();
     emptyEl.style.display = '';
     headerEl.style.display = 'none';
     contentEl.style.display = 'none';
-    emptyEl.querySelector('p').textContent = 'This pattern has no steps yet.';
+    emptyEl.innerHTML = '';
+    const emptyMsg = document.createElement('p');
+    emptyMsg.textContent = 'This pattern has no steps yet.';
+    emptyEl.appendChild(emptyMsg);
+
+    if (_patternViewerEditMode) {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'btn btn-accent btn-sm';
+      addBtn.textContent = '+ Add Step';
+      addBtn.addEventListener('click', handleAddPatternStep);
+      emptyEl.appendChild(addBtn);
+    }
     return;
   }
 
+  updatePatternStepAddButton();
   emptyEl.style.display = 'none';
   headerEl.style.display = '';
   contentEl.style.display = '';
@@ -264,8 +302,8 @@ function renderCurrentStep(pattern) {
 
   document.getElementById('step-counter').textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
   const currentStep = steps[currentStepIndex] || steps[0] || null;
-  document.getElementById('step-title').textContent = (currentStep && currentStep.stepTitle)
-    ? currentStep.stepTitle
+  document.getElementById('step-title').textContent = (currentStep && getCleanStepTitle(currentStep.stepTitle))
+    ? getCleanStepTitle(currentStep.stepTitle)
     : 'Untitled Step';
   updateExpandAllButton(steps.length);
 
@@ -306,7 +344,7 @@ function renderCurrentStep(pattern) {
 
     const title = document.createElement('span');
     title.className = 'step-item-title';
-    title.textContent = step.stepTitle || `Untitled Step ${idx + 1}`;
+    title.textContent = getCleanStepTitle(step.stepTitle) || `Untitled Step ${idx + 1}`;
 
     label.appendChild(number);
     label.appendChild(title);
@@ -339,7 +377,7 @@ function renderCurrentStep(pattern) {
 
     const panelInner = document.createElement('div');
     panelInner.className = 'step-item-panel-inner';
-    renderStepSections(panelInner, step);
+    renderStepSections(panelInner, step, idx);
     panel.appendChild(panelInner);
 
     toggle.addEventListener('click', () => {
@@ -682,7 +720,7 @@ function normaliseStepSectionsSafe(sections, fallbackRichContent) {
 function normaliseStepForViewer(step) {
   const fallback = normaliseRichContent((step && (step.richContent || step.rich_content)) || []);
   return {
-    stepTitle: (step && step.stepTitle) || '',
+    stepTitle: getCleanStepTitle(step && step.stepTitle),
     isRedStep: Boolean(step && (step.isRedStep || step.is_red_step || step.stepColorRed)),
     richContent: fallback,
     stepId: (step && step.stepId) || '',
@@ -693,8 +731,43 @@ function normaliseStepForViewer(step) {
   };
 }
 
-function renderStepSections(container, step) {
+function renderStepSections(container, step, stepIndex) {
   const sections = normaliseStepSectionsSafe(step.sections, step.richContent || []);
+
+  if (_patternViewerEditMode) {
+    const titleEditWrap = document.createElement('div');
+    titleEditWrap.className = 'step-title-edit-row';
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = 'form-input step-title-edit-input';
+    titleInput.value = getCleanStepTitle(step.stepTitle);
+    titleInput.placeholder = 'Step title';
+
+    const saveTitleBtn = document.createElement('button');
+    saveTitleBtn.type = 'button';
+    saveTitleBtn.className = 'btn btn-ghost btn-sm';
+    const saveBusy = Boolean(_stepTitleSaveInFlight[String(stepIndex)]);
+    saveTitleBtn.textContent = saveBusy ? 'Saving...' : 'Save Title';
+    saveTitleBtn.disabled = saveBusy;
+    saveTitleBtn.addEventListener('click', function() {
+      savePatternStepTitle(stepIndex, titleInput.value);
+    });
+
+    titleInput.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      savePatternStepTitle(stepIndex, titleInput.value);
+    });
+
+    titleInput.addEventListener('blur', function() {
+      savePatternStepTitle(stepIndex, titleInput.value);
+    });
+
+    titleEditWrap.appendChild(titleInput);
+    titleEditWrap.appendChild(saveTitleBtn);
+    container.appendChild(titleEditWrap);
+  }
 
   STEP_SECTION_ORDER.forEach(key => {
     const sectionWrap = document.createElement('section');
@@ -742,7 +815,10 @@ function renderStepSections(container, step) {
       addFindingBtn.textContent = 'Add Finding';
       addFindingBtn.addEventListener('click', function() {
         if (typeof openCreateFindingModal === 'function') {
-          openCreateFindingModal();
+          openCreateFindingModal({
+            patternId: selectedPatternId,
+            stepIndex: stepIndex
+          });
         } else {
           showToast('Finding creation is unavailable right now.', true);
         }
@@ -767,6 +843,61 @@ function renderStepSections(container, step) {
     sectionWrap.appendChild(panel);
     container.appendChild(sectionWrap);
   });
+}
+
+async function savePatternStepTitle(stepIndex, nextTitleRaw) {
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  if (!pattern || !_pUid || !steps[safeStepIndex]) return;
+
+  const nextTitle = getCleanStepTitle(nextTitleRaw);
+  if (!nextTitle) {
+    showToast('Step title is required.', true);
+    return;
+  }
+
+  const currentTitle = String((steps[safeStepIndex] && steps[safeStepIndex].stepTitle) || '').trim();
+  if (currentTitle === nextTitle) {
+    return;
+  }
+  if (_stepTitleSaveInFlight[String(safeStepIndex)]) {
+    return;
+  }
+
+  _stepTitleSaveInFlight[String(safeStepIndex)] = true;
+
+  const nextSteps = JSON.parse(JSON.stringify(steps));
+  nextSteps[safeStepIndex].stepTitle = nextTitle;
+  pattern.steps = nextSteps;
+  if (safeStepIndex === currentStepIndex) {
+    document.getElementById('step-title').textContent = nextTitle;
+  }
+  renderCurrentStep(pattern);
+
+  try {
+    await updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: nextSteps
+    });
+    renderCurrentStep(pattern);
+    showToast('Step title updated.');
+  } catch (err) {
+    console.error(err);
+    const rollbackSteps = JSON.parse(JSON.stringify(nextSteps));
+    rollbackSteps[safeStepIndex].stepTitle = currentTitle;
+    pattern.steps = rollbackSteps;
+    if (safeStepIndex === currentStepIndex) {
+      document.getElementById('step-title').textContent = currentTitle;
+    }
+    renderCurrentStep(pattern);
+    showToast('Failed to update step title.', true);
+  } finally {
+    _stepTitleSaveInFlight[String(safeStepIndex)] = false;
+  }
 }
 
 function loadStepSectionsOpenState() {
@@ -1311,6 +1442,86 @@ function clearStepView() {
   setPatternViewerEditMode(false, false);
 }
 
+function updatePatternStepAddButton() {
+  const btn = document.getElementById('btn-add-pattern-step');
+  if (!btn) return;
+  const hasPattern = Boolean(getSelectedPattern());
+  const visible = _patternViewerEditMode && hasPattern;
+  btn.style.display = visible ? '' : 'none';
+  btn.disabled = !visible;
+}
+
+function makePatternViewerStepId() {
+  if (typeof makeStepId === 'function') {
+    return makeStepId();
+  }
+  if (window.crypto && window.crypto.randomUUID) {
+    return 'step_' + window.crypto.randomUUID().replace(/-/g, '');
+  }
+  return 'step_' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+function buildNewViewerStep() {
+  const emptyRich = [{ type: 'text', text: '', bold: false, color: null }];
+  return {
+    stepTitle: '',
+    isRedStep: false,
+    stepId: makePatternViewerStepId(),
+    linkedStepId: '',
+    linkMeta: null,
+    sectionLinks: {},
+    richContent: emptyRich,
+    sections: normaliseStepSectionsSafe(null, emptyRich)
+  };
+}
+
+async function handleAddPatternStep() {
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!pattern || !_pUid || !_patternViewerEditMode) return;
+
+  if (_activeInlineEdit) {
+    const discardOk = await showConfirm(
+      'Discard Unsaved Edits?',
+      'Adding a step now will discard the current inline edits. Continue?'
+    );
+    if (!discardOk) return;
+    _activeInlineEdit = null;
+    _inlineEditSaving = false;
+  }
+
+  const previousSteps = steps.slice();
+  const previousOpen = new Set(_openStepIndices);
+  const previousStepIndex = currentStepIndex;
+  const nextSteps = steps.concat([buildNewViewerStep()]);
+  const nextStepIndex = nextSteps.length - 1;
+
+  pattern.steps = nextSteps;
+  currentStepIndex = nextStepIndex;
+  _openStepIndices = new Set([nextStepIndex]);
+  rememberStepForPattern(pattern.id, currentStepIndex);
+  renderCurrentStep(pattern);
+
+  try {
+    await updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: nextSteps
+    });
+    showToast('Step added.');
+  } catch (err) {
+    console.error(err);
+    pattern.steps = previousSteps;
+    currentStepIndex = previousStepIndex;
+    _openStepIndices = previousOpen;
+    rememberStepForPattern(pattern.id, currentStepIndex);
+    renderCurrentStep(pattern);
+    showToast('Failed to add step.', true);
+  }
+}
+
 function navigateStep(delta) {
   const pattern = getSelectedPattern();
   if (!pattern) return;
@@ -1589,6 +1800,7 @@ function updateSidebarButtons(hasSelection) {
   editBtn.disabled = !hasSelection;
   editBtn.textContent = _patternViewerEditMode ? 'Done Editing' : 'Edit Pattern';
   document.getElementById('btn-delete-pattern').disabled = !hasSelection;
+  updatePatternStepAddButton();
 }
 
 function setPatternViewerEditMode(enabled, shouldRender) {

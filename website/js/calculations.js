@@ -24,6 +24,10 @@ function renderCalc(key) {
     case 'stenosis': main.innerHTML = stenosisHtml(); bindStenosis(); break;
     case 'lft':      main.innerHTML = lftHtml();      bindLft();      break;
     case 'dlp':      main.innerHTML = dlpHtml();      bindDlp();      break;
+    case 'contrast-agents':
+      main.innerHTML = contrastAgentsHtml();
+      bindContrastAgents();
+      break;
     case 'quick-links':
       main.innerHTML = quickLinksHtml();
       break;
@@ -477,6 +481,360 @@ function bindDlp() {
   document.getElementById('dlp-reset').addEventListener('click', resetDlpScans);
   bindEnterToCalculate(['dlp-val', 'dlp-region', 'dlp-age'], addDlpScan);
   renderDlpScans();
+}
+
+const CONTRAST_AGENTS = [
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iopromide',
+    tradeName: 'Ultravist 150 (Bayer HealthCare)',
+    iodineConcentrationMgMl: 150,
+    composition: 'Nonionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 328,
+    use: 'Low-concentration intravascular CT contrast',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iopamidol (408)',
+    tradeName: 'Isovue-200 (Bracco)',
+    iodineConcentrationMgMl: 200,
+    composition: 'Nonionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 413,
+    use: 'Intravascular CT and angiography',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Ioversol (509)',
+    tradeName: 'Optiray 240 (Guerbet)',
+    iodineConcentrationMgMl: 240,
+    composition: 'Nonionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 502,
+    use: 'Intravascular CT and angiography',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iopamidol (510)',
+    tradeName: 'Isovue 250 (Bracco)',
+    iodineConcentrationMgMl: 250,
+    composition: 'Nonionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 524,
+    use: 'Intravascular CT and angiography',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iodixanol (550)',
+    tradeName: 'Visipaque 270 (GE Healthcare)',
+    iodineConcentrationMgMl: 270,
+    composition: 'Nonionic',
+    chemicalStructure: 'Dimer',
+    osmolality: 290,
+    use: 'Iso-osmolar option for angiography and CT',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iothalamate (600)',
+    tradeName: 'Conray (Covidien)',
+    iodineConcentrationMgMl: 282,
+    composition: 'Ionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 1400,
+    use: 'Legacy ionic intravascular contrast',
+    contraindications: 'Prior severe iodinated contrast reaction; avoid intrathecal use; caution in severe kidney dysfunction'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iopromide',
+    tradeName: 'Ultravist 300 (Bayer HealthCare)',
+    iodineConcentrationMgMl: 300,
+    composition: 'Nonionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 607,
+    use: 'Higher-concentration intravascular CT contrast',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iodixanol (652)',
+    tradeName: 'Visipaque 320 (GE Healthcare)',
+    iodineConcentrationMgMl: 320,
+    composition: 'Nonionic',
+    chemicalStructure: 'Dimer',
+    osmolality: 290,
+    use: 'Iso-osmolar option for angiography and CT',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Iopamidol (755)',
+    tradeName: 'Isovue 370 (Bracco)',
+    iodineConcentrationMgMl: 370,
+    composition: 'Nonionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 796,
+    use: 'High-concentration intravascular CT contrast',
+    contraindications: 'Prior severe iodinated contrast reaction; caution in severe kidney dysfunction and uncontrolled hyperthyroidism'
+  },
+  {
+    category: 'Iodinated (Intravascular)',
+    genericName: 'Diatrizoate (760)',
+    tradeName: 'MD-76 R (Guerbet)',
+    iodineConcentrationMgMl: 370,
+    composition: 'Ionic',
+    chemicalStructure: 'Monomer',
+    osmolality: 1551,
+    use: 'Legacy high-osmolar ionic contrast agent',
+    contraindications: 'Prior severe iodinated contrast reaction; avoid intrathecal use; caution in severe kidney dysfunction'
+  },
+  {
+    category: 'Iodinated (Enteric)',
+    genericName: 'Diatrizoate meglumine + diatrizoate sodium',
+    tradeName: 'Gastrografin (Bracco/Guerbet regional branding)',
+    iodineConcentrationMgMl: null,
+    composition: 'Ionic',
+    chemicalStructure: 'Monomer blend',
+    osmolality: 1900,
+    use: 'Water-soluble enteric contrast for GI fluoroscopy/CT, leak evaluation',
+    contraindications: 'Avoid if aspiration risk is high; caution with dehydration and in neonates due to fluid shifts'
+  },
+  {
+    category: 'Barium Sulfate (Enteric)',
+    genericName: 'Barium sulfate suspension',
+    tradeName: 'Varibar / Readi-Cat 2 (typical examples)',
+    iodineConcentrationMgMl: null,
+    composition: 'Insoluble suspension',
+    chemicalStructure: 'Particulate sulfate salt',
+    osmolality: null,
+    use: 'Oral/rectal enteric contrast for fluoroscopy and CT bowel opacification',
+    contraindications: 'Suspected GI perforation, high-grade obstruction, severe aspiration risk, or recent high-risk bowel surgery'
+  },
+  {
+    category: 'Gadolinium (MRI)',
+    genericName: 'Gadobutrol',
+    tradeName: 'Gadavist (Bayer)',
+    iodineConcentrationMgMl: null,
+    composition: 'Nonionic',
+    chemicalStructure: 'Macrocyclic',
+    osmolality: 1603,
+    use: 'Extracellular MRI contrast agent',
+    contraindications: 'Prior severe gadolinium reaction; avoid or specialist review in severe renal failure (eGFR <30) due to NSF risk'
+  },
+  {
+    category: 'Gadolinium (MRI)',
+    genericName: 'Gadoterate meglumine',
+    tradeName: 'Dotarem (Guerbet)',
+    iodineConcentrationMgMl: null,
+    composition: 'Ionic',
+    chemicalStructure: 'Macrocyclic',
+    osmolality: 1350,
+    use: 'Extracellular MRI contrast agent',
+    contraindications: 'Prior severe gadolinium reaction; avoid or specialist review in severe renal failure (eGFR <30) due to NSF risk'
+  },
+  {
+    category: 'Gadolinium (MRI)',
+    genericName: 'Gadoteridol',
+    tradeName: 'ProHance (Bracco)',
+    iodineConcentrationMgMl: null,
+    composition: 'Nonionic',
+    chemicalStructure: 'Macrocyclic',
+    osmolality: 630,
+    use: 'Extracellular MRI contrast agent',
+    contraindications: 'Prior severe gadolinium reaction; avoid or specialist review in severe renal failure (eGFR <30) due to NSF risk'
+  },
+  {
+    category: 'Gadolinium (MRI)',
+    genericName: 'Gadopentetate dimeglumine',
+    tradeName: 'Magnevist (legacy)',
+    iodineConcentrationMgMl: null,
+    composition: 'Ionic',
+    chemicalStructure: 'Linear',
+    osmolality: 1960,
+    use: 'Legacy extracellular MRI contrast agent',
+    contraindications: 'Prior severe gadolinium reaction; higher NSF concern in severe renal failure, generally avoid when eGFR <30'
+  }
+];
+
+let contrastAgentSort = 'iodineConcentrationMgMl-asc';
+
+function contrastAgentsHtml() {
+  return `
+  <div class="calc-card contrast-card">
+    <h2>Contrast Agent Reference</h2>
+    <p class="calc-description">Filter and sort iodinated, enteric, and MRI contrast agents by category, composition, chemical structure, and osmolality.</p>
+
+    <div class="contrast-toolbar">
+      <label class="form-label">Search
+        <input id="contrast-search" type="search" class="form-input" placeholder="Search generic, trade name, or use">
+      </label>
+      <label class="form-label">Category
+        <select id="contrast-category" class="form-input">
+          <option value="all">All</option>
+          <option value="Iodinated (Intravascular)">Iodinated (Intravascular)</option>
+          <option value="Iodinated (Enteric)">Iodinated (Enteric)</option>
+          <option value="Barium Sulfate (Enteric)">Barium Sulfate (Enteric)</option>
+          <option value="Gadolinium (MRI)">Gadolinium (MRI)</option>
+        </select>
+      </label>
+      <label class="form-label">Composition
+        <select id="contrast-composition" class="form-input">
+          <option value="all">All</option>
+          <option value="Nonionic">Nonionic</option>
+          <option value="Ionic">Ionic</option>
+        </select>
+      </label>
+      <label class="form-label">Sort by
+        <select id="contrast-sort" class="form-input">
+          <option value="iodineConcentrationMgMl-asc">Iodine concentration (low to high)</option>
+          <option value="iodineConcentrationMgMl-desc">Iodine concentration (high to low)</option>
+          <option value="osmolality-asc">Osmolality (low to high)</option>
+          <option value="osmolality-desc">Osmolality (high to low)</option>
+          <option value="genericName-asc">Generic name (A-Z)</option>
+          <option value="tradeName-asc">Trade name (A-Z)</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="contrast-summary" class="calc-result-detail contrast-summary"></div>
+
+    <div class="contrast-table-wrap">
+      <table class="contrast-table" aria-label="Contrast agent reference table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Generic name</th>
+            <th>Trade name</th>
+            <th>Iodine concentration (mg/mL)</th>
+            <th>Composition</th>
+            <th>Chemical structure</th>
+            <th>Osmolality</th>
+            <th>Use</th>
+            <th>Contraindications</th>
+          </tr>
+        </thead>
+        <tbody id="contrast-table-body"></tbody>
+      </table>
+      <p id="contrast-empty" class="table-empty">No contrast agents match the current filter.</p>
+    </div>
+  </div>`;
+}
+
+function bindContrastAgents() {
+  const search = document.getElementById('contrast-search');
+  const category = document.getElementById('contrast-category');
+  const composition = document.getElementById('contrast-composition');
+  const sort = document.getElementById('contrast-sort');
+
+  sort.value = contrastAgentSort;
+
+  search.addEventListener('input', renderContrastAgentsTable);
+  category.addEventListener('change', renderContrastAgentsTable);
+  composition.addEventListener('change', renderContrastAgentsTable);
+  sort.addEventListener('change', function() {
+    contrastAgentSort = sort.value;
+    renderContrastAgentsTable();
+  });
+
+  renderContrastAgentsTable();
+}
+
+function renderContrastAgentsTable() {
+  const query = (document.getElementById('contrast-search').value || '').trim().toLowerCase();
+  const category = document.getElementById('contrast-category').value;
+  const composition = document.getElementById('contrast-composition').value;
+  const tbody = document.getElementById('contrast-table-body');
+  const empty = document.getElementById('contrast-empty');
+  const summary = document.getElementById('contrast-summary');
+
+  const filtered = CONTRAST_AGENTS.filter(agent => {
+    const matchesCategory = category === 'all' || agent.category === category;
+    const matchesComposition = composition === 'all' || agent.composition === composition;
+    if (!matchesCategory) return false;
+    if (!matchesComposition) return false;
+    if (!query) return true;
+
+    const haystack = [
+      agent.category,
+      agent.genericName,
+      agent.tradeName,
+      agent.iodineConcentrationMgMl == null ? '' : String(agent.iodineConcentrationMgMl),
+      agent.composition,
+      agent.chemicalStructure,
+      agent.osmolality == null ? '' : String(agent.osmolality),
+      agent.use,
+      agent.contraindications
+    ].join(' ').toLowerCase();
+
+    return haystack.includes(query);
+  });
+
+  const sorted = filtered.slice().sort((a, b) => sortContrastAgents(a, b, contrastAgentSort));
+
+  summary.textContent = `Showing ${sorted.length} of ${CONTRAST_AGENTS.length} agents.`;
+
+  if (!sorted.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  tbody.innerHTML = sorted.map(agent => {
+    const iodine = agent.iodineConcentrationMgMl == null ? 'N/A' : String(agent.iodineConcentrationMgMl);
+    const osmolality = agent.osmolality == null ? 'N/A' : agent.osmolality.toLocaleString();
+
+    return `
+      <tr>
+        <td>${escapeHtml(agent.category)}</td>
+        <td>${escapeHtml(agent.genericName)}</td>
+        <td>${escapeHtml(agent.tradeName)}</td>
+        <td>${iodine}</td>
+        <td>${escapeHtml(agent.composition)}</td>
+        <td>${escapeHtml(agent.chemicalStructure)}</td>
+        <td>${osmolality}</td>
+        <td>${escapeHtml(agent.use)}</td>
+        <td>${escapeHtml(agent.contraindications)}</td>
+      </tr>`;
+  }).join('');
+}
+
+function sortContrastAgents(a, b, sortKey) {
+  const aIodine = a.iodineConcentrationMgMl == null ? Number.POSITIVE_INFINITY : a.iodineConcentrationMgMl;
+  const bIodine = b.iodineConcentrationMgMl == null ? Number.POSITIVE_INFINITY : b.iodineConcentrationMgMl;
+  const aOsm = a.osmolality == null ? Number.POSITIVE_INFINITY : a.osmolality;
+  const bOsm = b.osmolality == null ? Number.POSITIVE_INFINITY : b.osmolality;
+
+  switch (sortKey) {
+    case 'iodineConcentrationMgMl-desc':
+      return bIodine - aIodine;
+    case 'osmolality-asc':
+      return aOsm - bOsm;
+    case 'osmolality-desc':
+      return bOsm - aOsm;
+    case 'genericName-asc':
+      return a.genericName.localeCompare(b.genericName);
+    case 'tradeName-asc':
+      return a.tradeName.localeCompare(b.tradeName);
+    case 'iodineConcentrationMgMl-asc':
+    default:
+      return aIodine - bIodine;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function quickLinksHtml() {
