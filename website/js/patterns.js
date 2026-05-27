@@ -206,10 +206,10 @@ function loadPattern(id, preferredStepIndex) {
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
     currentStepIndex = Math.max(0, Math.min(preferredStepIndex, steps.length - 1));
-    _openStepIndices = new Set([currentStepIndex]);
+    _openStepIndices = _patternViewerEditMode ? new Set() : new Set([currentStepIndex]);
   } else {
     currentStepIndex = 0;
-    _openStepIndices = steps.length ? new Set([0]) : new Set();
+    _openStepIndices = _patternViewerEditMode ? new Set() : (steps.length ? new Set([0]) : new Set());
   }
   updateSidebarButtons(true);
 
@@ -519,10 +519,14 @@ async function reorderPatternSteps(pattern, fromIndex, toIndex) {
   const nextSteps = order.map(function(previousIndex) {
     return previousSteps[previousIndex];
   });
+  const movedStepNextIndex = order.indexOf(fromIndex);
   const nextCurrentStepIndex = order.indexOf(previousCurrentStepIndex);
 
   pattern.steps = nextSteps;
-  _openStepIndices = remapOpenStepIndices(order, previousOpenIndices);
+  _openStepIndices = _patternViewerEditMode ? new Set() : remapOpenStepIndices(order, previousOpenIndices);
+  if (!_patternViewerEditMode && movedStepNextIndex >= 0) {
+    _openStepIndices.delete(movedStepNextIndex);
+  }
   currentStepIndex = nextCurrentStepIndex >= 0 ? nextCurrentStepIndex : 0;
   rememberStepForPattern(pattern.id, currentStepIndex);
   _draggingPatternStepIndex = null;
@@ -744,15 +748,8 @@ function renderStepSections(container, step, stepIndex) {
     titleInput.value = getCleanStepTitle(step.stepTitle);
     titleInput.placeholder = 'Step title';
 
-    const saveTitleBtn = document.createElement('button');
-    saveTitleBtn.type = 'button';
-    saveTitleBtn.className = 'btn btn-ghost btn-sm';
     const saveBusy = Boolean(_stepTitleSaveInFlight[String(stepIndex)]);
-    saveTitleBtn.textContent = saveBusy ? 'Saving...' : 'Save Title';
-    saveTitleBtn.disabled = saveBusy;
-    saveTitleBtn.addEventListener('click', function() {
-      savePatternStepTitle(stepIndex, titleInput.value);
-    });
+    titleInput.disabled = saveBusy;
 
     titleInput.addEventListener('keydown', function(e) {
       if (e.key !== 'Enter') return;
@@ -764,8 +761,17 @@ function renderStepSections(container, step, stepIndex) {
       savePatternStepTitle(stepIndex, titleInput.value);
     });
 
+    const deleteStepBtn = document.createElement('button');
+    deleteStepBtn.type = 'button';
+    deleteStepBtn.className = 'btn btn-danger btn-sm';
+    deleteStepBtn.textContent = 'Delete Step';
+    deleteStepBtn.disabled = saveBusy;
+    deleteStepBtn.addEventListener('click', function() {
+      handleDeletePatternStep(stepIndex);
+    });
+
     titleEditWrap.appendChild(titleInput);
-    titleEditWrap.appendChild(saveTitleBtn);
+    titleEditWrap.appendChild(deleteStepBtn);
     container.appendChild(titleEditWrap);
   }
 
@@ -883,6 +889,9 @@ async function savePatternStepTitle(stepIndex, nextTitleRaw) {
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
       steps: nextSteps
     });
+    if (_patternViewerEditMode) {
+      _openStepIndices.delete(safeStepIndex);
+    }
     renderCurrentStep(pattern);
     showToast('Step title updated.');
   } catch (err) {
@@ -1142,8 +1151,11 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
       steps: nextSteps
     });
     pattern.steps = nextSteps;
-    if (sectionKey === 'dontMissPathology') {
+    if (sectionKey === 'dontMissPathology' && !_patternViewerEditMode) {
       setFindingPanelOpen(findingId, true);
+    }
+    if (_patternViewerEditMode) {
+      _openStepIndices.delete(currentStepIndex);
     }
     _activeInlineEdit = null;
     _inlineEditSaving = false;
@@ -1522,6 +1534,84 @@ async function handleAddPatternStep() {
   }
 }
 
+async function handleDeletePatternStep(stepIndex) {
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  if (!pattern || !_pUid || !_patternViewerEditMode || !steps[safeStepIndex]) return;
+
+  if (_activeInlineEdit) {
+    const discardOk = await showConfirm(
+      'Discard Unsaved Edits?',
+      'Deleting a step now will discard the current inline edits. Continue?'
+    );
+    if (!discardOk) return;
+    _activeInlineEdit = null;
+    _inlineEditSaving = false;
+  }
+
+  const stepTitle = getCleanStepTitle((steps[safeStepIndex] && steps[safeStepIndex].stepTitle) || '');
+  const confirmTitle = steps.length === 1 ? 'Delete Only Step?' : 'Delete Step?';
+  const confirmMessage = steps.length === 1
+    ? 'Delete "' + (stepTitle || 'Untitled Step') + '"? This will leave the pattern with no steps.'
+    : 'Delete "' + (stepTitle || 'Untitled Step') + '"? This cannot be undone.';
+
+  const confirmed = await showConfirm(confirmTitle, confirmMessage);
+  if (!confirmed) return;
+
+  const previousSteps = steps.slice();
+  const previousOpen = new Set(_openStepIndices);
+  const previousStepIndex = currentStepIndex;
+  const previousInlineEdit = _activeInlineEdit;
+  const previousInlineEditSaving = _inlineEditSaving;
+
+  const nextSteps = steps.filter(function(_, idx) {
+    return idx !== safeStepIndex;
+  });
+
+  let nextStepIndex = currentStepIndex;
+  if (!nextSteps.length) {
+    nextStepIndex = 0;
+  } else if (safeStepIndex < currentStepIndex) {
+    nextStepIndex = Math.max(0, currentStepIndex - 1);
+  } else if (safeStepIndex === currentStepIndex) {
+    nextStepIndex = Math.min(safeStepIndex, nextSteps.length - 1);
+  }
+
+  const nextOpen = new Set();
+  previousOpen.forEach(function(idx) {
+    if (idx === safeStepIndex) return;
+    nextOpen.add(idx > safeStepIndex ? idx - 1 : idx);
+  });
+
+  pattern.steps = nextSteps;
+  currentStepIndex = nextStepIndex;
+  _openStepIndices = nextOpen;
+  rememberStepForPattern(pattern.id, currentStepIndex);
+  renderCurrentStep(pattern);
+
+  try {
+    await updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: nextSteps
+    });
+    showToast('Step deleted.');
+  } catch (err) {
+    console.error(err);
+    pattern.steps = previousSteps;
+    currentStepIndex = previousStepIndex;
+    _openStepIndices = previousOpen;
+    _activeInlineEdit = previousInlineEdit;
+    _inlineEditSaving = previousInlineEditSaving;
+    rememberStepForPattern(pattern.id, currentStepIndex);
+    renderCurrentStep(pattern);
+    showToast('Failed to delete step.', true);
+  }
+}
+
 function navigateStep(delta) {
   const pattern = getSelectedPattern();
   if (!pattern) return;
@@ -1805,7 +1895,9 @@ function updateSidebarButtons(hasSelection) {
 
 function setPatternViewerEditMode(enabled, shouldRender) {
   _patternViewerEditMode = Boolean(enabled);
-  if (!_patternViewerEditMode) {
+  if (_patternViewerEditMode) {
+    _openStepIndices = new Set();
+  } else {
     _activeInlineEdit = null;
     _inlineEditSaving = false;
   }

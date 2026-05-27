@@ -606,7 +606,12 @@ body {
 .step-inline-edit-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 .step-subsection-header .step-inline-modify-btn {
   min-width: 84px;
