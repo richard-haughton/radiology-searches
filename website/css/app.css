@@ -276,33 +276,122 @@ body {
 .timer-bar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 20px;
-  background: #e8f5ef;
-  border-bottom: 1px solid #c2ddd3;
+  --timer-bg: #d5f2e2;
+  --timer-border: #6cbe99;
+  --timer-text: #0d2d1e;
+  --timer-soft: #1b5b3d;
+  --timer-strong: #0a6c47;
+  --timer-input-bg: #ffffff;
+  --timer-input-border: #57ad86;
+  --timer-ghost-bg: rgba(255, 255, 255, 0.8);
+  --timer-ghost-bg-hover: rgba(255, 255, 255, 0.95);
+  --timer-ghost-border: #3d9b71;
+  --timer-ghost-text: #0f4d33;
+  --timer-accent-1: #067549;
+  --timer-accent-2: #0a9059;
+  --timer-accent-hover-1: #055f3c;
+  --timer-accent-hover-2: #077146;
+  --timer-shadow: 0 0 0 1px rgba(15, 123, 79, 0.28), 0 8px 18px rgba(11, 92, 61, 0.18);
+  background: var(--timer-bg);
+  border-bottom: 1px solid var(--timer-border);
+  box-shadow: var(--timer-shadow);
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
   flex-shrink: 0;
 }
+.timer-bar.timer-goal-green {
+  --timer-bg: #d5f2e2;
+  --timer-border: #6cbe99;
+  --timer-text: #0d2d1e;
+  --timer-soft: #1b5b3d;
+  --timer-strong: #0a6c47;
+  --timer-input-bg: #ffffff;
+  --timer-input-border: #57ad86;
+  --timer-ghost-bg: rgba(255, 255, 255, 0.8);
+  --timer-ghost-bg-hover: rgba(255, 255, 255, 0.95);
+  --timer-ghost-border: #3d9b71;
+  --timer-ghost-text: #0f4d33;
+  --timer-accent-1: #067549;
+  --timer-accent-2: #0a9059;
+  --timer-accent-hover-1: #055f3c;
+  --timer-accent-hover-2: #077146;
+  --timer-shadow: 0 0 0 1px rgba(15, 123, 79, 0.28), 0 8px 18px rgba(11, 92, 61, 0.18);
+}
+.timer-bar.timer-goal-yellow {
+  --timer-bg: #ffeb9d;
+  --timer-border: #d2a92f;
+  --timer-text: #3a2a00;
+  --timer-soft: #5e4700;
+  --timer-strong: #7a5700;
+  --timer-input-bg: #fff7da;
+  --timer-input-border: #bc8f17;
+  --timer-ghost-bg: rgba(255, 248, 220, 0.88);
+  --timer-ghost-bg-hover: rgba(255, 250, 232, 1);
+  --timer-ghost-border: #9e780f;
+  --timer-ghost-text: #4f3a00;
+  --timer-accent-1: #a66f00;
+  --timer-accent-2: #bf8200;
+  --timer-accent-hover-1: #8a5c00;
+  --timer-accent-hover-2: #a16d00;
+  --timer-shadow: 0 0 0 1px rgba(167, 117, 0, 0.35), 0 8px 18px rgba(126, 89, 1, 0.23);
+}
+.timer-bar.timer-goal-red {
+  --timer-bg: #ffc9c4;
+  --timer-border: #ce5e53;
+  --timer-text: #4a120d;
+  --timer-soft: #6b1d16;
+  --timer-strong: #8f1f16;
+  --timer-input-bg: #fff0ee;
+  --timer-input-border: #b4443a;
+  --timer-ghost-bg: rgba(255, 242, 240, 0.92);
+  --timer-ghost-bg-hover: rgba(255, 247, 246, 1);
+  --timer-ghost-border: #984037;
+  --timer-ghost-text: #651913;
+  --timer-accent-1: #a9281f;
+  --timer-accent-2: #c03328;
+  --timer-accent-hover-1: #8e211a;
+  --timer-accent-hover-2: #a9291f;
+  --timer-shadow: 0 0 0 1px rgba(161, 34, 25, 0.34), 0 8px 18px rgba(115, 26, 20, 0.24);
+}
 .timer-info { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.timer-label { font-weight: 700; font-size: 0.9rem; color: var(--ink); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.timer-display { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); font-family: var(--font-mono); }
+.timer-label { font-weight: 700; font-size: 0.9rem; color: var(--timer-text); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-display { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--timer-strong); font-family: var(--font-mono); }
 .timer-display.timer-display-over-goal { color: var(--danger); }
 .timer-goal-control { display: inline-flex; align-items: center; gap: 8px; }
-.timer-goal-label { font-size: 0.78rem; color: var(--ink-soft); font-weight: 700; }
+.timer-goal-label { font-size: 0.78rem; color: var(--timer-soft); font-weight: 700; }
 .timer-goal-input {
   width: 80px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--timer-input-border);
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   font-family: var(--font);
   font-size: 0.84rem;
-  color: var(--ink);
-  background: var(--card);
+  color: var(--timer-text);
+  background: var(--timer-input-bg);
 }
 .timer-goal-status {
   font-size: 0.82rem;
-  color: var(--ink-soft);
+  color: var(--timer-soft);
   font-weight: 600;
 }
 .timer-goal-status.timer-goal-over { color: var(--danger); }
 .timer-actions { display: flex; gap: 8px; }
+.timer-bar .btn-ghost {
+  background: var(--timer-ghost-bg);
+  border-color: var(--timer-ghost-border);
+  color: var(--timer-ghost-text);
+}
+.timer-bar .btn-ghost:hover {
+  background: var(--timer-ghost-bg-hover);
+  border-color: var(--timer-ghost-border);
+}
+.timer-bar .btn-accent {
+  background: linear-gradient(135deg, var(--timer-accent-1), var(--timer-accent-2));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+.timer-bar .btn-accent:hover {
+  background: linear-gradient(135deg, var(--timer-accent-hover-1), var(--timer-accent-hover-2));
+}
 
 .step-viewer {
   flex: 1;
@@ -490,6 +579,22 @@ body {
 .step-item.step-item-red .step-item-chevron {
   color: #a52d24;
 }
+.step-item.step-item-yellow {
+  border-color: #d5b14a;
+}
+.step-item.step-item-yellow .step-item-toggle {
+  background: #fff7d8;
+}
+.step-item.step-item-yellow .step-drag-handle {
+  background: #f7edc6;
+  border-right-color: #d5b14a;
+  color: #8a6400;
+}
+.step-item.step-item-yellow .step-item-number,
+.step-item.step-item-yellow .step-item-title,
+.step-item.step-item-yellow .step-item-chevron {
+  color: #8a6400;
+}
 .step-section-actions {
   display: flex;
   justify-content: flex-end;
@@ -641,6 +746,13 @@ body {
   margin-top: 2px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+}
+.step-subsection-danger-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
 }
 .step-subsection-header .step-inline-modify-btn {
   min-width: 84px;
@@ -2027,7 +2139,7 @@ html.dark .sidebar-toggle-btn:hover { background: #1a2e22; }
 /* Badge & tint backgrounds */
 html.dark .rvu-badge   { background: #1a2e22; border-color: #2a4035; }
 html.dark .mod-btn     { background: #192b1e; }
-html.dark .timer-bar   { background: #1a2e22; border-color: #2a4035; }
+html.dark .timer-bar   { background: var(--timer-bg); border-color: var(--timer-border); }
 
 /* Log table */
 html.dark .log-table th              { background: #192b1e; }

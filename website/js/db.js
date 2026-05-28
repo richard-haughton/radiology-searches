@@ -181,8 +181,10 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
       var title = String(item.title || '').trim();
       var findingId = String(item.findingId || '').trim() || _makeFindingId(title);
       if (!findingId) return;
+      var subsectionId = String(item.subsectionId || '').trim() || _makeSubsectionId();
 
       item.findingId = findingId;
+      item.subsectionId = subsectionId;
       item.title = title || ('Findings Section ' + (itemIndex + 1));
 
       if (!findingsById[findingId]) {
@@ -208,7 +210,7 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
         modality: modality || 'Other',
         stepId: stepId,
         stepTitle: stepTitle,
-        subsectionId: String(item.subsectionId || '').trim() || _makeSubsectionId()
+        subsectionId: subsectionId
       });
     });
 
@@ -268,6 +270,32 @@ function _replaceArrayContents(target, next) {
   });
 }
 
+function _isFirestoreDocumentSizeError(err) {
+  if (!err) return false;
+  var msg = String((err && err.message) || err || '').toLowerCase();
+  if (msg.indexOf('exceeds the maximum allowed size') >= 0) return true;
+  if (msg.indexOf('maximum allowed size of 1,048,576') >= 0) return true;
+  if (msg.indexOf('document too large') >= 0) return true;
+  return false;
+}
+
+function _buildLeanPatternStepsForStorage(steps) {
+  var cloned = JSON.parse(JSON.stringify(steps || []));
+  return cloned.map(function(step) {
+    var nextStep = Object.assign({}, step);
+    var sections = normaliseStepSections(nextStep.sections, nextStep.richContent || []);
+    sections.dontMissPathology = (sections.dontMissPathology || []).map(function(item) {
+      if (!item || item.type !== 'subsection') return item;
+      return Object.assign({}, item, {
+        content: []
+      });
+    });
+    nextStep.sections = sections;
+    nextStep.richContent = cloneRichContentForStorage(sections.searchPattern || []);
+    return nextStep;
+  });
+}
+
 function _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds) {
   var nextIds = Object.keys(extractedFindings || {});
   var allIds = (previousFindingIds || []).concat(nextIds).filter(function(id, index, list) {
@@ -284,10 +312,6 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
 
     if (!nextFinding) {
       if (!existing) return;
-      if (!baseLinks.length) {
-        mutations.push({ type: 'delete', id: findingId });
-        return;
-      }
       mutations.push({
         type: 'set',
         id: findingId,
@@ -298,7 +322,8 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
           isRedFinding: Boolean(existing.isRedFinding),
           modalities: _modalitiesFromFindingLinks(baseLinks),
           links: baseLinks,
-          updatedAt: _now()
+          updatedAt: _now(),
+          createdAt: existing && existing.createdAt ? existing.createdAt : _now()
         },
         merge: false
       });
@@ -711,21 +736,11 @@ function subscribeFindings(uid, callback) {
   if (!uid) { callback([]); return function() {}; }
   return _findingsRef(uid).orderBy('nameKey').onSnapshot(function(snap) {
     var findings = [];
-    var orphanIds = [];
     snap.docs.forEach(function(d) {
       var finding = _normaliseFindingDoc(d.data() || {});
-      if (!_hasFindingStudyLinks(finding.links)) {
-        orphanIds.push(d.id);
-        return;
-      }
       findings.push(Object.assign({ id: d.id }, finding));
     });
     callback(findings);
-    if (orphanIds.length) {
-      _deleteFindingDocs(uid, orphanIds).catch(function(err) {
-        console.error('delete orphan findings error:', err);
-      });
-    }
   }, function(err) {
     console.error('subscribeFindings error:', err);
   });
@@ -788,7 +803,24 @@ function updatePattern(uid, patternId, data) {
 
       var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds);
       _replaceArrayContents(rawSteps, workingSteps);
-      return _commitPatternAndFindingMutations(uid, patternRef, payload, findingMutations, false);
+
+      function commitWithFallback(currentPayload, hasRetriedSlim) {
+        return _commitPatternAndFindingMutations(uid, patternRef, currentPayload, findingMutations, false).catch(function(err) {
+          if (hasRetriedSlim || !_isFirestoreDocumentSizeError(err)) {
+            throw err;
+          }
+
+          var leanSteps = _buildLeanPatternStepsForStorage(workingSteps);
+          var leanPayload = Object.assign({}, currentPayload, {
+            steps: leanSteps
+          });
+
+          console.warn('Pattern document exceeded size limit; retrying save with lean embedded findings payload for pattern', patternId);
+          return _commitPatternAndFindingMutations(uid, patternRef, leanPayload, findingMutations, false);
+        });
+      }
+
+      return commitWithFallback(payload, false);
     });
   });
 }

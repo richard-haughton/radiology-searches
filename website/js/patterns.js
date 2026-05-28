@@ -40,6 +40,16 @@ var _stepSectionsOpenState = {
 };
 var _inlineToolbarOffsetBound = false;
 var _inlineEditorFontSize = 'md';
+var _voiceRecognition = null;
+var _voiceRecognitionEnabled = false;
+var _voiceRecognitionRestartTimer = null;
+var _yellowMarkedStepKeys = new Set();
+
+var VOICE_COMMAND_PREFIXES = [
+  'radiology',
+  'assistant',
+  'searches'
+];
 
 function getCleanStepTitle(title) {
   if (typeof stripStepTitleNumbering === 'function') {
@@ -196,6 +206,450 @@ function initPatterns(userId) {
 
   // Keyboard navigation
   document.addEventListener('keydown', handleKeydown);
+
+  bindVoiceToggleButton();
+
+  // Voice command navigation
+  initVoiceCommands();
+}
+
+function isVoiceRecognitionSupported() {
+  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function updateVoiceToggleButton() {
+  var btn = document.getElementById('btn-voice-toggle');
+  if (!btn) return;
+
+  if (!isVoiceRecognitionSupported()) {
+    btn.disabled = true;
+    btn.textContent = 'Mic Unavailable';
+    btn.title = 'Voice commands are not supported in this browser.';
+    btn.setAttribute('aria-pressed', 'false');
+    btn.classList.remove('btn-accent');
+    btn.classList.add('btn-ghost');
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = _voiceRecognitionEnabled ? 'Mic On' : 'Mic Off';
+  btn.title = _voiceRecognitionEnabled ? 'Turn voice commands off' : 'Turn voice commands on';
+  btn.setAttribute('aria-pressed', _voiceRecognitionEnabled ? 'true' : 'false');
+  btn.classList.toggle('btn-accent', _voiceRecognitionEnabled);
+  btn.classList.toggle('btn-ghost', !_voiceRecognitionEnabled);
+}
+
+function bindVoiceToggleButton() {
+  var btn = document.getElementById('btn-voice-toggle');
+  if (!btn) return;
+
+  updateVoiceToggleButton();
+  btn.addEventListener('click', function() {
+    if (!isVoiceRecognitionSupported()) {
+      showToast('Voice commands are not supported in this browser.', true);
+      return;
+    }
+    setVoiceCommandsEnabled(!_voiceRecognitionEnabled, { silent: false });
+  });
+}
+
+function setVoiceCommandsEnabled(enabled, options) {
+  var opts = options || {};
+  var nextEnabled = Boolean(enabled);
+
+  if (nextEnabled) {
+    if (!_voiceRecognition) {
+      initVoiceCommands();
+    }
+    if (!_voiceRecognition) {
+      updateVoiceToggleButton();
+      if (!opts.silent) {
+        showToast('Voice commands are not supported in this browser.', true);
+      }
+      return;
+    }
+
+    _voiceRecognitionEnabled = true;
+    updateVoiceToggleButton();
+    startVoiceRecognition();
+    if (!opts.silent) {
+      showToast('Voice commands enabled.');
+    }
+    return;
+  }
+
+  _voiceRecognitionEnabled = false;
+  clearTimeout(_voiceRecognitionRestartTimer);
+  _voiceRecognitionRestartTimer = null;
+  if (_voiceRecognition) {
+    try {
+      _voiceRecognition.stop();
+    } catch (_) {
+      // no-op
+    }
+  }
+  updateVoiceToggleButton();
+  if (!opts.silent) {
+    showToast('Voice commands disabled.');
+  }
+}
+
+function initVoiceCommands() {
+  var RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!RecognitionCtor) {
+    updateVoiceToggleButton();
+    return;
+  }
+
+  if (_voiceRecognition) {
+    updateVoiceToggleButton();
+    return;
+  }
+
+  var recognition = new RecognitionCtor();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 3;
+  recognition.lang = 'en-US';
+
+  recognition.addEventListener('result', handleVoiceRecognitionResult);
+  recognition.addEventListener('end', function() {
+    if (!_voiceRecognitionEnabled) return;
+    queueVoiceRecognitionRestart();
+  });
+  recognition.addEventListener('error', function(evt) {
+    // Avoid aggressive restart loops when permission or capture is unavailable.
+    var code = String((evt && evt.error) || '').trim();
+    if (code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture') {
+      _voiceRecognitionEnabled = false;
+        updateVoiceToggleButton();
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        showToast('Voice commands were blocked by browser permissions.', true);
+      }
+      return;
+    }
+    if (_voiceRecognitionEnabled) {
+      queueVoiceRecognitionRestart();
+    }
+  });
+
+  _voiceRecognition = recognition;
+  updateVoiceToggleButton();
+
+  window.addEventListener('focus', function() {
+    if (_voiceRecognitionEnabled) {
+      queueVoiceRecognitionRestart();
+    }
+  });
+
+  window.addEventListener('blur', function() {
+    if (!_voiceRecognitionEnabled || !_voiceRecognition) return;
+    clearTimeout(_voiceRecognitionRestartTimer);
+    _voiceRecognitionRestartTimer = null;
+    try {
+      _voiceRecognition.stop();
+    } catch (_) {
+      // no-op
+    }
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (!_voiceRecognition) return;
+    if (document.visibilityState === 'visible') {
+      if (_voiceRecognitionEnabled) {
+        queueVoiceRecognitionRestart();
+      }
+      return;
+    }
+
+    try {
+      _voiceRecognition.stop();
+    } catch (_) {
+      // no-op
+    }
+  });
+
+  setVoiceCommandsEnabled(true, { silent: true });
+}
+
+function startVoiceRecognition() {
+  if (!_voiceRecognition) return;
+  if (!document.hasFocus() || document.visibilityState !== 'visible') return;
+
+  _voiceRecognitionEnabled = true;
+  clearTimeout(_voiceRecognitionRestartTimer);
+  _voiceRecognitionRestartTimer = null;
+  try {
+    _voiceRecognition.start();
+  } catch (_) {
+    // Ignore InvalidStateError when already started.
+  }
+}
+
+function queueVoiceRecognitionRestart() {
+  if (!_voiceRecognitionEnabled || !_voiceRecognition) return;
+  clearTimeout(_voiceRecognitionRestartTimer);
+  _voiceRecognitionRestartTimer = setTimeout(function() {
+    if (!document.hasFocus() || document.visibilityState !== 'visible') return;
+    try {
+      _voiceRecognition.start();
+    } catch (_) {
+      // Ignore InvalidStateError when already started.
+    }
+  }, 350);
+}
+
+function refreshVoiceRecognitionSession() {
+  if (!_voiceRecognitionEnabled || !_voiceRecognition) return;
+  clearTimeout(_voiceRecognitionRestartTimer);
+  _voiceRecognitionRestartTimer = null;
+  try {
+    _voiceRecognition.stop();
+  } catch (_) {
+    // no-op
+  }
+  queueVoiceRecognitionRestart();
+}
+
+function handleVoiceRecognitionResult(event) {
+  if (!event || !event.results) return;
+
+  for (var i = event.resultIndex; i < event.results.length; i += 1) {
+    var result = event.results[i];
+    if (!result || !result.isFinal || !result[0]) continue;
+    var transcript = String(result[0].transcript || '').trim();
+    if (!transcript) continue;
+    if (handleVoiceCommandTranscript(transcript)) {
+      refreshVoiceRecognitionSession();
+      return;
+    }
+  }
+}
+
+function normaliseVoiceCommandText(text) {
+  var cleaned = String(text || '').toLowerCase();
+  cleaned = cleaned
+    .replace(/[.,!?;:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  for (var i = 0; i < VOICE_COMMAND_PREFIXES.length; i += 1) {
+    var prefix = VOICE_COMMAND_PREFIXES[i] + ' ';
+    if (cleaned.indexOf(prefix) === 0) {
+      cleaned = cleaned.slice(prefix.length).trim();
+      break;
+    }
+  }
+
+  return cleaned;
+}
+
+function canHandleVoiceCommandsNow() {
+  if (!document.hasFocus() || document.visibilityState !== 'visible') return false;
+  var panel = document.getElementById('panel-patterns');
+  if (!panel || !panel.classList.contains('active')) return false;
+
+  var active = document.activeElement;
+  if (!active) return true;
+  var tag = String(active.tagName || '').toUpperCase();
+  var isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
+  return !isEditing;
+}
+
+function handleVoiceCommandTranscript(transcript) {
+  if (!canHandleVoiceCommandsNow()) return false;
+  var text = normaliseVoiceCommandText(transcript);
+  if (!text) return false;
+
+  if (text === 'mark' || text === 'mark step' || text === 'mark current step') {
+    if (markCurrentStepYellow()) {
+      showToast('Marked current step in yellow.');
+    }
+    return true;
+  }
+
+  if (text === 'next' || text === 'next step') {
+    navigateStep(1, { wrap: true });
+    return true;
+  }
+
+  if (text === 'previous' || text === 'previous step' || text === 'back' || text === 'prior step') {
+    navigateStep(-1, { wrap: true });
+    return true;
+  }
+
+  if (text.indexOf('set goal') === 0) {
+    handleSetGoalVoiceCommand(text);
+    return true;
+  }
+
+  if (text.indexOf('go to') === 0) {
+    handleGoToVoiceCommand(text);
+    return true;
+  }
+
+  return false;
+}
+
+function extractMinutesFromVoiceText(text) {
+  var match = String(text || '').match(/(?:set\s+goal\s*)(\d+(?:\.\d+)?)/i);
+  if (!match) return null;
+  var minutes = Number(match[1]);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return minutes;
+}
+
+function handleSetGoalVoiceCommand(text) {
+  var input = document.getElementById('timer-goal-minutes');
+  if (!input) return;
+
+  var minutes = extractMinutesFromVoiceText(text);
+  if (minutes === null) {
+    var prompted = window.prompt('Set goal time in minutes:', input.value || '');
+    if (prompted === null) return;
+    minutes = Number(String(prompted || '').trim());
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      showToast('Goal minutes must be a positive number.', true);
+      return;
+    }
+  }
+
+  input.value = String(Math.max(1, Math.round(minutes)));
+  saveStudyGoal();
+}
+
+function extractStepSearchText(step, fallbackNumber) {
+  if (!step) return '';
+  var parts = [];
+  var title = getCleanStepTitle(step.stepTitle);
+  if (title) parts.push(title);
+  if (fallbackNumber) parts.push('step ' + String(fallbackNumber));
+
+  var sections = normaliseStepSectionsSafe(step.sections, step.richContent || []);
+  var searchPatternChunks = normaliseRichContent(sections.searchPattern || []);
+  var searchPatternText = typeof richContentToPlainText === 'function'
+    ? richContentToPlainText(searchPatternChunks)
+    : searchPatternChunks.map(function(chunk) {
+        return chunk && chunk.type === 'text' ? String(chunk.text || '') : '';
+      }).join(' ');
+  if (searchPatternText) parts.push(searchPatternText);
+
+  var findingsChunks = normaliseRichContent(sections.dontMissPathology || []);
+  var findingsText = typeof richContentToPlainText === 'function'
+    ? richContentToPlainText(findingsChunks)
+    : findingsChunks.map(function(chunk) {
+        return chunk && chunk.type === 'text' ? String(chunk.text || '') : '';
+      }).join(' ');
+  if (findingsText) parts.push(findingsText);
+
+  return parts.join(' ').toLowerCase();
+}
+
+function parseGoToTarget(text) {
+  var cleaned = String(text || '').trim();
+  if (!cleaned) return { type: 'none', value: '' };
+
+  var numberMatch = cleaned.match(/(?:step\s*)?(\d+)/i);
+  if (numberMatch) {
+    var stepNumber = Number(numberMatch[1]);
+    if (Number.isFinite(stepNumber) && stepNumber > 0) {
+      return { type: 'index', value: Math.floor(stepNumber) - 1 };
+    }
+  }
+
+  return { type: 'query', value: cleaned.toLowerCase() };
+}
+
+function handleGoToVoiceCommand(text) {
+  var pattern = getSelectedPattern();
+  if (!pattern) return;
+
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!steps.length) return;
+
+  var tail = String(text || '').replace(/^go\s+to\s*/i, '').trim();
+  if (!tail) {
+    showToast('Say "go to" followed by a step number or phrase.', true);
+    return;
+  }
+
+  var target = parseGoToTarget(tail);
+  if (target.type === 'index') {
+    if (target.value < 0 || target.value >= steps.length) {
+      showToast('Step number is out of range.', true);
+      return;
+    }
+    currentStepIndex = target.value;
+    _openStepIndices = new Set([target.value]);
+    renderCurrentStep(pattern);
+    focusCurrentStepToggle(target.value);
+    return;
+  }
+
+  if (target.type === 'query') {
+    var queryWords = target.value.split(/\s+/).filter(Boolean);
+    var bestIndex = -1;
+
+    for (var i = 0; i < steps.length; i += 1) {
+      var step = resolveLinkedStep(steps[i]);
+      var haystack = extractStepSearchText(step, i + 1);
+      var matched = queryWords.every(function(word) {
+        return haystack.indexOf(word) !== -1;
+      });
+      if (matched) {
+        bestIndex = i;
+        break;
+      }
+    }
+
+    if (bestIndex < 0) {
+      showToast('Could not find a matching step for that command.', true);
+      return;
+    }
+
+    currentStepIndex = bestIndex;
+    _openStepIndices = new Set([bestIndex]);
+    renderCurrentStep(pattern);
+    focusCurrentStepToggle(bestIndex);
+  }
+}
+
+function focusCurrentStepToggle(stepIndex) {
+  var toggle = document.querySelector('.step-item[data-step-index="' + stepIndex + '"] .step-item-toggle');
+  if (toggle && typeof toggle.focus === 'function') {
+    toggle.focus({ preventScroll: true });
+  }
+}
+
+function getStepMarkKey(patternId, stepIndex) {
+  var safePatternId = String(patternId || '').trim();
+  if (!safePatternId || !Number.isInteger(stepIndex) || stepIndex < 0) return '';
+  return safePatternId + '::' + String(stepIndex);
+}
+
+function isStepYellowMarked(patternId, stepIndex) {
+  var key = getStepMarkKey(patternId, stepIndex);
+  return key ? _yellowMarkedStepKeys.has(key) : false;
+}
+
+function markCurrentStepYellow() {
+  var pattern = getSelectedPattern();
+  if (!pattern) return false;
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!steps.length || currentStepIndex < 0 || currentStepIndex >= steps.length) return false;
+
+  var key = getStepMarkKey(pattern.id, currentStepIndex);
+  if (!key) return false;
+
+  _yellowMarkedStepKeys.add(key);
+  renderCurrentStep(pattern);
+  focusCurrentStepToggle(currentStepIndex);
+  return true;
+}
+
+function clearYellowStepMarks() {
+  if (!_yellowMarkedStepKeys.size) return;
+  _yellowMarkedStepKeys.clear();
 }
 
 function initPatternSidebarToggle() {
@@ -400,6 +854,7 @@ function renderCurrentStep(pattern) {
     const item = document.createElement('section');
     item.className = 'step-item';
     if (step.isRedStep) item.classList.add('step-item-red');
+    if (isStepYellowMarked(pattern.id, idx)) item.classList.add('step-item-yellow');
     item.dataset.stepIndex = String(idx);
 
     const toggle = document.createElement('button');
@@ -876,7 +1331,7 @@ function renderStepSections(container, step, stepIndex) {
       renderSearchPatternContent(panelInner, content, Boolean(step.isRedStep));
     } else if (content.length) {
       if (SECTION_WITH_SUBSECTIONS_KEYS.indexOf(key) !== -1) {
-        renderNestedSubsections(panelInner, content);
+        renderNestedSubsections(panelInner, content, stepIndex);
       } else {
         renderRichContent(panelInner, content);
       }
@@ -1375,7 +1830,8 @@ function renderInlineEditForm(container, options) {
   }
 }
 
-function renderNestedSubsections(container, content) {
+function renderNestedSubsections(container, content, stepIndex) {
+  const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
   const entries = normaliseSubsectionEntries(content).filter(entry => {
     return (entry.title || '').trim() || (entry.content || []).length;
   });
@@ -1391,7 +1847,7 @@ function renderNestedSubsections(container, content) {
     const wrap = document.createElement('section');
     wrap.className = 'step-subsection';
     if (entry.isRedFinding) wrap.classList.add('step-subsection-red');
-    const isExpanded = isFindingPanelOpen(entry.subsectionId || '');
+    const isExpanded = isFindingPanelOpen(entry.subsectionId || '', safeStepIndex);
     const isEditing = _patternViewerEditMode && isExpanded;
 
     const header = document.createElement('div');
@@ -1431,11 +1887,29 @@ function renderNestedSubsections(container, content) {
       panelInner.appendChild(empty);
     }
 
+    if (_patternViewerEditMode && entry.subsectionId) {
+      const actions = document.createElement('div');
+      actions.className = 'step-subsection-danger-actions';
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-danger btn-sm';
+      deleteBtn.textContent = 'Remove from This Step';
+      deleteBtn.title = 'Remove this finding from the current search pattern step';
+      deleteBtn.addEventListener('click', function() {
+        handleDeletePatternFinding(safeStepIndex, entry.subsectionId, entry.title || 'Finding');
+      });
+
+      actions.appendChild(deleteBtn);
+      panelInner.appendChild(actions);
+    }
+
     panel.appendChild(panelInner);
+
     btn.addEventListener('click', () => {
       const isOpen = btn.getAttribute('aria-expanded') === 'true';
       const nextOpen = !isOpen;
-      setFindingPanelOpen(entry.subsectionId || '', nextOpen);
+      setFindingPanelOpen(entry.subsectionId || '', nextOpen, safeStepIndex);
       btn.setAttribute('aria-expanded', String(nextOpen));
       panel.style.display = nextOpen ? '' : 'none';
       const chevron = btn.querySelector('.step-subsection-chevron');
@@ -1453,6 +1927,85 @@ function renderNestedSubsections(container, content) {
     wrap.appendChild(panel);
     container.appendChild(wrap);
   });
+}
+
+async function handleDeletePatternFinding(stepIndex, findingId, findingTitle) {
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  const safeFindingId = String(findingId || '').trim();
+  if (!pattern || !_pUid || !_patternViewerEditMode || !steps[safeStepIndex] || !safeFindingId) return;
+
+  if (_activeInlineEdit) {
+    const discardOk = await showConfirm(
+      'Discard Unsaved Edits?',
+      'Removing a finding now will discard the current inline edits. Continue?'
+    );
+    if (!discardOk) return;
+    _activeInlineEdit = null;
+    _inlineEditSaving = false;
+  }
+
+  const title = String(findingTitle || '').trim() || 'this finding';
+  const confirmed = await showConfirm(
+    'Remove Finding from Step?',
+    'Remove "' + title + '" from this search pattern step? This does not delete it from the Findings tab.'
+  );
+  if (!confirmed) return;
+
+  const previousSteps = JSON.parse(JSON.stringify(steps));
+  const previousInlineEdit = _activeInlineEdit;
+  const previousInlineEditSaving = _inlineEditSaving;
+  const previousPanelOpen = isFindingPanelOpen(safeFindingId, safeStepIndex);
+
+  const nextSteps = JSON.parse(JSON.stringify(steps));
+  const nextStep = nextSteps[safeStepIndex] || {};
+  nextStep.sections = normaliseStepSectionsSafe(nextStep.sections, nextStep.richContent || nextStep.rich_content || []);
+
+  const findings = typeof ensureSubsectionMetadata === 'function'
+    ? ensureSubsectionMetadata(nextStep.sections.dontMissPathology || [])
+    : normaliseRichContent(nextStep.sections.dontMissPathology || []);
+
+  const findingIndex = findings.findIndex(function(item) {
+    return item
+      && item.type === 'subsection'
+      && String(item.subsectionId || '').trim() === safeFindingId;
+  });
+
+  if (findingIndex < 0) {
+    showToast('Finding could not be found.', true);
+    return;
+  }
+
+  findings.splice(findingIndex, 1);
+  nextStep.sections.dontMissPathology = findings;
+  nextStep.richContent = normaliseRichContent(nextStep.sections.searchPattern || []);
+  nextSteps[safeStepIndex] = nextStep;
+
+  pattern.steps = nextSteps;
+  setFindingPanelOpen(safeFindingId, false, safeStepIndex);
+  _activeInlineEdit = null;
+  _inlineEditSaving = false;
+  renderCurrentStep(pattern);
+
+  try {
+    await updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: nextSteps
+    });
+    showToast('Finding removed from this step.');
+  } catch (err) {
+    console.error(err);
+    pattern.steps = previousSteps;
+    _activeInlineEdit = previousInlineEdit;
+    _inlineEditSaving = previousInlineEditSaving;
+    setFindingPanelOpen(safeFindingId, previousPanelOpen, safeStepIndex);
+    renderCurrentStep(pattern);
+    showToast('Failed to delete finding.', true);
+  }
 }
 
 function renderRichContent(container, richContent) {
@@ -1693,20 +2246,28 @@ async function handleDeletePatternStep(stepIndex) {
   }
 }
 
-function navigateStep(delta) {
+function navigateStep(delta, options) {
   const pattern = getSelectedPattern();
   if (!pattern) return;
   const steps = pattern.steps || [];
-  const next = currentStepIndex + delta;
-  if (next < 0 || next >= steps.length) return;
+  if (!steps.length) return;
+
+  var next = currentStepIndex + delta;
+  var wrap = Boolean(options && options.wrap);
+
+  if (next < 0 || next >= steps.length) {
+    if (!wrap) return;
+    if (next < 0) {
+      next = steps.length - 1;
+    } else {
+      next = 0;
+    }
+  }
+
   currentStepIndex = next;
   _openStepIndices = new Set([next]);
   renderCurrentStep(pattern);
-
-  const toggle = document.querySelector(`.step-item[data-step-index="${next}"] .step-item-toggle`);
-  if (toggle) {
-    toggle.focus({ preventScroll: true });
-  }
+  focusCurrentStepToggle(next);
 }
 
 function initPatternViewControls() {
@@ -1797,6 +2358,7 @@ function updateExpandAllButton(stepCount) {
 
 // ── Timer ────────────────────────────────────────────────────
 function startTimer(pattern) {
+  clearYellowStepMarks();
   const patternName = pattern && pattern.name ? pattern.name : '';
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = '';
@@ -1823,7 +2385,29 @@ function updateTimerDisplay() {
   timerDisplay.textContent = formatTimerClock(timerSeconds);
   const overGoal = timerGoalSeconds !== null && timerSeconds > timerGoalSeconds;
   timerDisplay.classList.toggle('timer-display-over-goal', overGoal);
+  applyTimerGoalTheme();
   renderGoalStatus();
+}
+
+function applyTimerGoalTheme() {
+  const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
+  if (!timerBar) return;
+
+  timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red');
+  if (timerGoalSeconds === null) return;
+
+  const progress = timerSeconds / timerGoalSeconds;
+  if (progress <= (2 / 3)) {
+    timerBar.classList.add('timer-goal-green');
+    return;
+  }
+
+  if (progress <= 1) {
+    timerBar.classList.add('timer-goal-yellow');
+    return;
+  }
+
+  timerBar.classList.add('timer-goal-red');
 }
 
 function normaliseGoalSeconds(rawValue) {
@@ -1950,6 +2534,9 @@ async function confirmRecord() {
       rvu:      rvu !== '' ? rvu : null
     });
     timerSeconds = 0;
+    clearYellowStepMarks();
+    const pattern = getSelectedPattern();
+    if (pattern) renderCurrentStep(pattern);
     updateTimerDisplay();
     pendingRecordSeconds = 0;
     showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(recordedSeconds)}`);
