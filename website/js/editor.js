@@ -841,6 +841,7 @@ function renderStepEditPanel() {
           <button type="button" class="rich-tool rich-tool-red" id="tool-red" title="Red text">A</button>
           <button type="button" class="rich-tool rich-tool-green" id="tool-green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" id="tool-blue" title="Blue text">A</button>
+          <button type="button" class="rich-tool rich-tool-white" id="tool-white" title="White text">A</button>
           <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
           <button type="button" class="rich-tool" id="tool-clear" title="Clear formatting">&#x2715; Format</button>
           <button type="button" class="rich-tool" id="tool-image" title="Paste image from clipboard">&#128247; Image</button>
@@ -928,6 +929,7 @@ function renderStepEditPanel() {
     document.getElementById('tool-red').addEventListener('click', () => execColor('red'));
     document.getElementById('tool-green').addEventListener('click', () => execColor('green'));
     document.getElementById('tool-blue').addEventListener('click', () => execColor('blue'));
+    document.getElementById('tool-white').addEventListener('click', () => execColor('white'));
     document.getElementById('tool-link').addEventListener('click', () => addHyperlinkToSelection(editor));
     document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
@@ -1261,6 +1263,7 @@ function populateRichEditor(editor, richContent) {
           if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
           if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
           if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
+          if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
           currentLine.appendChild(span);
         } else {
           currentLine.appendChild(document.createTextNode(part));
@@ -1657,6 +1660,7 @@ function createSubsectionRow(title, content, isRedFinding, options) {
         <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
         <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
         <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
+        <button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>
         <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
         <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
         <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>
@@ -2674,7 +2678,7 @@ function execColor(color, targetEditor) {
   setActiveRichEditor(editor);
   editor.focus();
 
-  const colorMap = { red: '#c0392b', green: '#1a7a4a', blue: '#1a5c9e' };
+  const colorMap = { red: '#c0392b', green: '#1a7a4a', blue: '#1a5c9e', white: '#ffffff' };
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed) return;
 
@@ -2698,6 +2702,7 @@ function execColor(color, targetEditor) {
         if (styleColor.indexOf('192, 57, 43') !== -1 || styleColor === '#c0392b' || styleColor === 'rgb(192, 57, 43)') node.dataset.color = 'red';
         if (styleColor.indexOf('26, 122, 74') !== -1 || styleColor === '#1a7a4a' || styleColor === 'rgb(26, 122, 74)') node.dataset.color = 'green';
         if (styleColor.indexOf('26, 92, 158') !== -1 || styleColor === '#1a5c9e' || styleColor === 'rgb(26, 92, 158)') node.dataset.color = 'blue';
+        if (styleColor.indexOf('255, 255, 255') !== -1 || styleColor === '#ffffff' || styleColor === 'rgb(255, 255, 255)') node.dataset.color = 'white';
       }
     });
     return;

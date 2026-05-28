@@ -33,10 +33,13 @@ var STEP_SECTION_LABELS = {
 var ACCORDION_MODE_STATE_KEY = 'patternStepAccordionMode';
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
+var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
 var _stepSectionsOpenState = {
   searchPattern: true,
   dontMissPathology: false
 };
+var _inlineToolbarOffsetBound = false;
+var _inlineEditorFontSize = 'md';
 
 function getCleanStepTitle(title) {
   if (typeof stripStepTitleNumbering === 'function') {
@@ -47,6 +50,75 @@ function getCleanStepTitle(title) {
   return raw.replace(/^(?:step\s+\d+|\d+)\s*[.)\-:]?\s*/i, '').trim();
 }
 
+function syncInlineToolbarOffset() {
+  const viewer = document.getElementById('step-viewer');
+  const header = document.getElementById('step-header');
+  const content = document.getElementById('step-content');
+  if (!viewer || !header || !content) return;
+
+  const viewerRect = viewer.getBoundingClientRect();
+  const headerRect = header.getBoundingClientRect();
+  const visibleHeaderHeight = Math.max(0, headerRect.bottom - viewerRect.top);
+  const toolbarOffset = Math.max(0, Math.round(visibleHeaderHeight + 8));
+  content.style.setProperty('--inline-toolbar-offset', toolbarOffset + 'px');
+}
+
+function bindInlineToolbarOffsetSync() {
+  if (_inlineToolbarOffsetBound) return;
+  const viewer = document.getElementById('step-viewer');
+  if (!viewer) return;
+
+  viewer.addEventListener('scroll', syncInlineToolbarOffset, { passive: true });
+  window.addEventListener('resize', syncInlineToolbarOffset);
+  _inlineToolbarOffsetBound = true;
+}
+
+function normaliseInlineEditorFontSize(size) {
+  var value = String(size || '').trim().toLowerCase();
+  if (value === 'sm' || value === 'md' || value === 'lg') return value;
+  return 'md';
+}
+
+function loadInlineEditorFontSizePreference() {
+  var saved = localStorage.getItem(INLINE_EDITOR_FONT_SIZE_KEY);
+  _inlineEditorFontSize = normaliseInlineEditorFontSize(saved || 'md');
+}
+
+function updateInlineFontSizeButtons(toolbar, size) {
+  if (!toolbar) return;
+  Array.prototype.forEach.call(toolbar.querySelectorAll('[data-rich-font-size]'), function(btn) {
+    var selected = String(btn.getAttribute('data-rich-font-size') || '') === size;
+    btn.classList.toggle('is-selected', selected);
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+}
+
+function applyInlineEditorFontSize(editor, size) {
+  if (!editor) return;
+  var safeSize = normaliseInlineEditorFontSize(size);
+  editor.classList.remove('font-size-sm', 'font-size-md', 'font-size-lg');
+  editor.classList.add('font-size-' + safeSize);
+}
+
+function bindInlineRichFontSizeControls(toolbar, editor) {
+  if (!toolbar || !editor) return;
+
+  var safeSize = normaliseInlineEditorFontSize(_inlineEditorFontSize);
+  applyInlineEditorFontSize(editor, safeSize);
+  updateInlineFontSizeButtons(toolbar, safeSize);
+
+  Array.prototype.forEach.call(toolbar.querySelectorAll('[data-rich-font-size]'), function(btn) {
+    btn.addEventListener('click', function() {
+      var nextSize = normaliseInlineEditorFontSize(btn.getAttribute('data-rich-font-size'));
+      _inlineEditorFontSize = nextSize;
+      localStorage.setItem(INLINE_EDITOR_FONT_SIZE_KEY, nextSize);
+      applyInlineEditorFontSize(editor, nextSize);
+      updateInlineFontSizeButtons(toolbar, nextSize);
+      editor.focus();
+    });
+  });
+}
+
 // ── Init ─────────────────────────────────────────────────────
 function initPatterns(userId) {
   _pUid = userId;
@@ -54,7 +126,9 @@ function initPatterns(userId) {
   initPatternSidebarToggle();
   loadStepSectionsOpenState();
   loadAccordionModeState();
+  loadInlineEditorFontSizePreference();
   initPatternViewControls();
+  bindInlineToolbarOffsetSync();
 
   // Subscribe to Firestore patterns
   _unsubscribePatterns = subscribePatterns(_pUid, patterns => {
@@ -480,6 +554,8 @@ function renderCurrentStep(pattern) {
   if (_openStepIndices.has(steps.length - 1) && timerRunning) {
     stopTimer();
   }
+
+  syncInlineToolbarOffset();
 }
 
 function moveStepIndexOrder(length, fromIndex, toIndex) {
@@ -1217,6 +1293,10 @@ function renderInlineEditForm(container, options) {
       '<button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>',
       '<button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>',
       '<button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>',
+      '<button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>',
+      '<button type="button" class="rich-tool rich-tool-font-size" data-rich-font-size="sm" title="Small font">A-</button>',
+      '<button type="button" class="rich-tool rich-tool-font-size" data-rich-font-size="md" title="Normal font">A</button>',
+      '<button type="button" class="rich-tool rich-tool-font-size" data-rich-font-size="lg" title="Large font">A+</button>',
       '<button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>',
       '<button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>',
       '<button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>'
@@ -1230,6 +1310,7 @@ function renderInlineEditForm(container, options) {
     richEditor.setAttribute('aria-label', options.includeTitle ? 'Finding content editor' : 'Search pattern content editor');
     populateRichEditor(richEditor, options.content || []);
     bindRichEditorToolbar(toolbar, richEditor);
+    bindInlineRichFontSizeControls(toolbar, richEditor);
     if (typeof attachRichEditorFocusHandlers === 'function') {
       attachRichEditorFocusHandlers(richEditor);
     }
@@ -1896,7 +1977,14 @@ function updateSidebarButtons(hasSelection) {
 function setPatternViewerEditMode(enabled, shouldRender) {
   _patternViewerEditMode = Boolean(enabled);
   if (_patternViewerEditMode) {
-    _openStepIndices = new Set();
+    const pattern = getSelectedPattern();
+    const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+    if (steps.length) {
+      currentStepIndex = Math.max(0, Math.min(currentStepIndex, steps.length - 1));
+      _openStepIndices = new Set([currentStepIndex]);
+    } else {
+      _openStepIndices = new Set();
+    }
   } else {
     _activeInlineEdit = null;
     _inlineEditSaving = false;
