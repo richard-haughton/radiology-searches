@@ -468,6 +468,23 @@ function handleVoiceCommandTranscript(transcript) {
     return true;
   }
 
+  if (text.indexOf('mark ') === 0) {
+    var markTarget = text.replace(/^mark\s+/i, '').trim();
+    if (!markTarget || markTarget === 'current step') {
+      if (markCurrentStepYellow()) {
+        showToast('Marked current step in yellow.');
+      }
+      return true;
+    }
+
+    if (markStepYellowByTarget(markTarget)) {
+      showToast('Marked matching step in yellow.');
+    } else {
+      showToast('Could not find a matching step to mark.', true);
+    }
+    return true;
+  }
+
   if (text === 'next' || text === 'next step') {
     navigateStep(1, { wrap: true });
     return true;
@@ -480,6 +497,16 @@ function handleVoiceCommandTranscript(transcript) {
 
   if (text.indexOf('set goal') === 0) {
     handleSetGoalVoiceCommand(text);
+    return true;
+  }
+
+  if (text === 'reset timer' || text === 'restart timer' || text === 'reset study timer' || text === 'start timer over') {
+    resetStudyTimerFromVoice();
+    return true;
+  }
+
+  if (text === 'record' || text === 'record study' || text === 'record this study' || text === 'save study') {
+    openRecordModal();
     return true;
   }
 
@@ -516,6 +543,30 @@ function handleSetGoalVoiceCommand(text) {
 
   input.value = String(Math.max(1, Math.round(minutes)));
   saveStudyGoal();
+}
+
+function resetStudyTimerFromVoice() {
+  var pattern = getSelectedPattern();
+  if (!pattern) {
+    showToast('Select a pattern before resetting the timer.', true);
+    return;
+  }
+
+  clearYellowStepMarks();
+
+  if (timerRunning) {
+    timerSeconds = 0;
+    timerStartWallTime = Date.now();
+    updateTimerDisplay();
+    renderCurrentStep(pattern);
+    showToast('Timer reset.');
+    return;
+  }
+
+  stopTimer();
+  startTimer(pattern);
+  renderCurrentStep(pattern);
+  showToast('Timer started at 0:00.');
 }
 
 function extractStepSearchText(step, fallbackNumber) {
@@ -638,13 +689,74 @@ function markCurrentStepYellow() {
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   if (!steps.length || currentStepIndex < 0 || currentStepIndex >= steps.length) return false;
 
-  var key = getStepMarkKey(pattern.id, currentStepIndex);
+  return markStepYellowByIndex(currentStepIndex);
+}
+
+function markStepYellowByIndex(stepIndex) {
+  var pattern = getSelectedPattern();
+  if (!pattern) return false;
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!steps.length || !Number.isInteger(stepIndex) || stepIndex < 0 || stepIndex >= steps.length) return false;
+
+  var key = getStepMarkKey(pattern.id, stepIndex);
   if (!key) return false;
 
   _yellowMarkedStepKeys.add(key);
+  currentStepIndex = stepIndex;
+  _openStepIndices = new Set([stepIndex]);
   renderCurrentStep(pattern);
-  focusCurrentStepToggle(currentStepIndex);
+  focusCurrentStepToggle(stepIndex);
   return true;
+}
+
+function normaliseMarkTargetQuery(rawQuery) {
+  var query = String(rawQuery || '').toLowerCase().trim();
+  if (!query) return '';
+  query = query.replace(/^step\s+/i, '').trim();
+  query = query.replace(/^the\s+/i, '').trim();
+  if (query.indexOf('the') === 0 && query.length > 3 && query.charAt(3) !== ' ') {
+    query = query.slice(3).trim();
+  }
+  return query;
+}
+
+function markStepYellowByTarget(rawTarget) {
+  var pattern = getSelectedPattern();
+  if (!pattern) return false;
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!steps.length) return false;
+
+  var target = parseGoToTarget(normaliseMarkTargetQuery(rawTarget));
+  if (target.type === 'index') {
+    return markStepYellowByIndex(target.value);
+  }
+
+  if (target.type !== 'query' || !target.value) {
+    return false;
+  }
+
+  var queryWords = target.value.split(/\s+/).filter(Boolean);
+  if (!queryWords.length) return false;
+
+  var bestIndex = -1;
+  for (var i = 0; i < steps.length; i += 1) {
+    var step = resolveLinkedStep(steps[i]);
+    var haystack = extractStepSearchText(step, i + 1);
+    var compactHaystack = haystack.replace(/\s+/g, '');
+    var matched = queryWords.every(function(word) {
+      var cleanWord = String(word || '').trim();
+      if (!cleanWord) return true;
+      if (haystack.indexOf(cleanWord) !== -1) return true;
+      return compactHaystack.indexOf(cleanWord.replace(/\s+/g, '')) !== -1;
+    });
+    if (matched) {
+      bestIndex = i;
+      break;
+    }
+  }
+
+  if (bestIndex < 0) return false;
+  return markStepYellowByIndex(bestIndex);
 }
 
 function clearYellowStepMarks() {
