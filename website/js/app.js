@@ -120,7 +120,6 @@ function showApp(user) {
     initNotesSearch(user.uid);
     initStudyLog(user.uid);
     initCalculations();
-    initReportGenerator(user.uid);
   }
 }
 

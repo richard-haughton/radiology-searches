@@ -24,7 +24,6 @@
   <script src="js/patterns.js?v=20260526b"></script>
   <script src="js/share-patterns.js?v=20260526b"></script>
   <script src="js/notes-search.js?v=20260526b"></script>
-  <script src="js/report-generator.js?v=20260526b"></script>
   <script src="js/app.js?v=20260526b"></script>
 </head>
 <body>
@@ -75,7 +74,6 @@
 
     <nav class="tab-bar" role="tablist" aria-label="App sections">
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-patterns" data-tab="patterns">Search Patterns</button>
-      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-report" data-tab="report">Report generator</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-notes-search" data-tab="notes-search">Findings</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Study Log</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-calc" data-tab="calc">Tools</button>
@@ -237,114 +235,6 @@
       </div>
     </section>
 
-    <!-- REPORT GENERATOR TAB -->
-    <section id="panel-report" class="tab-panel" role="tabpanel" style="display:none">
-      <div class="report-layout">
-        <aside class="report-sidebar">
-          <div class="report-sidebar-card">
-            <div class="report-sidebar-card-header">
-              <h3>Templates</h3>
-              <button id="btn-toggle-template-section" class="btn-icon report-template-toggle" type="button" title="Collapse template section" aria-expanded="true" aria-controls="report-template-collapsible">
-                <span class="report-template-toggle-chevron">&#9650;</span>
-              </button>
-            </div>
-
-            <label class="form-label report-always-visible-label" for="report-template-select">Template</label>
-            <select id="report-template-select" class="form-input">
-              <option value="">No template</option>
-            </select>
-
-            <div id="report-template-collapsible" class="report-template-collapsible">
-              <h4 class="report-context-label">Context</h4>
-              <p id="report-pattern-context" class="report-muted">No search pattern selected.</p>
-              <button id="btn-append-template-to-body" class="btn btn-ghost btn-sm" type="button" style="margin-top:4px">Append selected to body</button>
-
-              <label class="form-label" for="manual-template-name">Template name</label>
-              <input id="manual-template-name" class="form-input" type="text" placeholder="Template name">
-
-              <label class="form-label" for="manual-template-input">Template body</label>
-              <textarea id="manual-template-input" class="form-input" rows="5" placeholder="Paste or type template text..."></textarea>
-
-              <div class="report-template-actions">
-                <button id="btn-save-manual-template" class="btn btn-ghost btn-sm" type="button">Save / Update template</button>
-                <button id="btn-new-manual-template" class="btn btn-ghost btn-sm" type="button">New template</button>
-                <button id="btn-delete-manual-template" class="btn btn-danger btn-sm" type="button">Delete selected template</button>
-              </div>
-
-              <button id="btn-report-template-import" class="btn btn-ghost btn-sm" type="button">Import template</button>
-              <input id="report-template-import-input" type="file" accept=".rtf,.txt" style="display:none">
-            </div>
-          </div>
-
-        </aside>
-
-        <div class="report-main">
-          <div class="report-card">
-            <h2>Report Generator</h2>
-            <p class="settings-subtitle">Enter findings, choose context, and generate a structured draft report.</p>
-
-            <label class="form-label" for="report-findings-input">Findings input</label>
-            <textarea id="report-findings-input" class="form-input" rows="7" placeholder="Enter findings here..."></textarea>
-
-            <div class="report-sidebar-card report-rules-card">
-              <div class="report-sidebar-card-header">
-                <h3>Additional Rules</h3>
-                <button id="btn-toggle-rules-section" class="btn-icon report-template-toggle" type="button" title="Collapse additional rules section" aria-expanded="true" aria-controls="report-rules-collapsible">
-                  <span class="report-template-toggle-chevron">&#9650;</span>
-                </button>
-              </div>
-
-              <div id="report-rules-collapsed-preview" class="report-rules-collapsed-preview" title="No additional template-specific rules are currently applied.">
-                No additional template-specific rules are currently applied.
-              </div>
-
-              <div id="report-rules-collapsible" class="report-template-collapsible report-rules-collapsible">
-                <p class="report-muted">Save additional template-specific generation rules here, then copy them into other templates when you want the same reporting logic.</p>
-
-                <label class="form-label" for="report-rules-source-template-select">Apply rules from template</label>
-                <select id="report-rules-source-template-select" class="form-input">
-                  <option value="">Select a template with saved rules</option>
-                </select>
-                <button id="btn-apply-template-rules" class="btn btn-ghost btn-sm" type="button">Apply selected template rules</button>
-
-                <label class="form-label" for="report-template-rules-input">Additional rules</label>
-                <textarea id="report-template-rules-input" class="form-input" rows="6" placeholder="Examples:&#10;- For pathology across vertebral levels, list levels in anatomic order from cranial to caudal.&#10;- Keep impression statements aligned one-to-one with the abnormal findings above."></textarea>
-              </div>
-            </div>
-
-            <div class="report-generation-options">
-              <label class="form-label" for="report-findings-language-mode">Findings handling</label>
-              <select id="report-findings-language-mode" class="form-input">
-                <option value="keep">Keep exactly the same language</option>
-                <option value="improve" selected>Improve language</option>
-                <option value="omit">Don't include</option>
-              </select>
-
-              <label class="form-label" for="report-impression-mode">Impression handling</label>
-              <select id="report-impression-mode" class="form-input">
-                <option value="concise" selected>Concise</option>
-                <option value="expound">Expound</option>
-                <option value="omit">Don't include</option>
-              </select>
-            </div>
-
-            <div class="report-actions">
-              <button id="btn-generate-report" class="btn btn-accent" type="button">Generate report</button>
-            </div>
-            <div id="report-status" class="settings-status"></div>
-          </div>
-
-          <div class="report-card">
-            <div class="report-preview-header">
-              <h3>Draft report</h3>
-              <button id="btn-copy-report" class="btn btn-ghost btn-sm" type="button">Copy</button>
-            </div>
-            <textarea id="report-output" class="form-input report-output" rows="16" placeholder="Generated report will appear here..."></textarea>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- SETTINGS TAB -->
     <section id="panel-settings" class="tab-panel" role="tabpanel" style="display:none">
       <div class="settings-layout">
@@ -386,21 +276,6 @@
             <input id="setting-step-accordion-mode" type="checkbox">
             <span>True accordion mode (only one step open at a time)</span>
           </label>
-        </div>
-        <div class="settings-card">
-          <h2>Report Generator</h2>
-          <p class="settings-subtitle">Configure default behavior for AI report generation.</p>
-
-          <label class="form-label">Default output sections (comma separated)
-            <input id="report-default-sections" type="text" class="form-input" placeholder="Findings, Impression">
-          </label>
-
-          <label class="form-label">Global report rules
-            <textarea id="report-global-rules" class="form-input" rows="5" placeholder="Global rules. One rule per line."></textarea>
-          </label>
-
-          <button id="btn-save-report-settings" class="btn btn-ghost" type="button">Save report settings</button>
-          <div id="report-settings-status" class="settings-status"></div>
         </div>
       </div>
     </section>

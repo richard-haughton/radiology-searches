@@ -1562,6 +1562,21 @@ body {
 .modal-card p { color: var(--ink-soft); margin-bottom: 16px; font-size: 0.92rem; }
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
 
+/* Create Finding modal — keep action buttons always visible */
+#modal-findings-create .modal-card {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+#modal-findings-create .modal-actions {
+  position: sticky;
+  bottom: -28px;
+  background: var(--card);
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border, rgba(128,128,128,0.15));
+  z-index: 1;
+}
+
 /* Wide editor modal */
 .modal-wide { align-items: stretch; padding: 0; }
 .modal-wide .modal-card { max-width: none; width: 100%; height: 100%; border-radius: 0; padding: 0; display: flex; flex-direction: column; }
@@ -2268,201 +2283,4 @@ html.dark .subsection-row {
 html.dark .subsection-row-toggle {
   background: #1e3328 !important; /* Ensure green background for dark mode */
   color: var(--ink); /* Maintain text visibility */
-}
-
-/* ── Report Generator Layout ──────────────────────────────── */
-.report-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  align-items: stretch;
-  padding: 16px;
-  min-height: 0;
-}
-
-.report-sidebar {
-  width: 100%;
-  min-width: 0;
-}
-
-.report-sidebar-card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.report-sidebar-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
-
-.report-sidebar-card-header h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.report-context-label {
-  margin: 4px 0 0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-}
-
-.report-muted {
-  font-size: 0.85rem;
-  color: var(--ink-muted);
-  margin: 0;
-}
-
-.report-template-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition), color var(--transition);
-}
-
-.report-template-toggle:hover {
-  background: var(--line);
-  color: var(--ink);
-}
-
-.report-template-toggle-chevron {
-  display: inline-block;
-  font-size: 0.65rem;
-  line-height: 1;
-  transition: transform 0.22s ease;
-}
-
-/* Collapsed state */
-.report-template-collapsible {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow: hidden;
-  transition: opacity 0.2s ease;
-}
-
-.report-sidebar-card.template-collapsed .report-template-collapsible {
-  display: none;
-}
-
-.report-sidebar-card.template-collapsed .report-template-toggle-chevron {
-  transform: rotate(180deg);
-}
-
-.report-template-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.report-always-visible-label {
-  margin-top: 2px;
-}
-
-.report-rules-card {
-  margin-top: 12px;
-}
-
-.report-rules-collapsible {
-  gap: 10px;
-}
-
-.report-generation-options {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.report-rules-collapsed-preview {
-  display: none;
-  font-size: 0.84rem;
-  color: var(--ink-muted);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: help;
-}
-
-.report-rules-card.template-collapsed .report-rules-collapsed-preview {
-  display: block;
-}
-
-.report-main {
-  width: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.report-card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.report-card h2 {
-  margin: 0 0 2px;
-  font-size: 1.2rem;
-}
-
-.report-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Dark mode overrides */
-html.dark .report-sidebar-card {
-  background: #16261d;
-  border-color: #2b4337;
-}
-
-html.dark .report-sidebar-card-header h3 {
-  color: var(--ink);
-}
-
-html.dark .report-template-toggle {
-  color: var(--ink-soft);
-}
-
-html.dark .report-template-toggle:hover {
-  background: #1e3328;
-  color: var(--ink);
-}
-
-html.dark .report-card {
-  background: #16261d;
-  border-color: #2b4337;
-}
-
-html.dark .report-context-label {
-  color: var(--ink-muted);
-}
-
-html.dark .report-rules-collapsed-preview {
-  border-color: #2b4337;
-  color: var(--ink-soft);
 }
