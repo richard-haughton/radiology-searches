@@ -1786,14 +1786,18 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
   nextSteps[currentStepIndex] = nextStep;
 
   try {
+    const stepsForStorage = typeof prepareStepsForStorage === 'function'
+      ? await prepareStepsForStorage(nextSteps)
+      : nextSteps;
+
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
       modality: pattern.modality || 'Other',
       goalSeconds: pattern.goalSeconds,
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-      steps: nextSteps
+      steps: stepsForStorage
     });
-    pattern.steps = nextSteps;
+    pattern.steps = stepsForStorage;
     if (sectionKey === 'dontMissPathology' && !_patternViewerEditMode) {
       setFindingPanelOpen(findingId, true);
     }
