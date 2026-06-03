@@ -80,6 +80,15 @@ function _normaliseContentSignature(chunk) {
       content: cloneRichContentForStorage(chunk.content || [])
     });
   }
+  if (chunk.type === 'list') {
+    return JSON.stringify({
+      type: 'list',
+      ordered: Boolean(chunk.ordered),
+      items: (chunk.items || []).map(function(item) {
+        return _normaliseListItemContent(item);
+      })
+    });
+  }
   return JSON.stringify({ type: 'text', text: chunk.text || '', bold: Boolean(chunk.bold), color: chunk.color || null });
 }
 
@@ -268,6 +277,14 @@ function _replaceArrayContents(target, next) {
   (next || []).forEach(function(item) {
     target.push(item);
   });
+}
+
+function _normaliseListItemContent(item) {
+  if (Array.isArray(item)) return cloneRichContentForStorage(item);
+  if (item && typeof item === 'object' && Array.isArray(item.content)) {
+    return cloneRichContentForStorage(item.content);
+  }
+  return [];
 }
 
 function _isFirestoreDocumentSizeError(err) {
@@ -485,6 +502,17 @@ function _sanitizeStepTitles(steps) {
   return steps || [];
 }
 
+function _prepareStepsForFirestore(steps) {
+  return (steps || []).map(function(step) {
+    if (!step || typeof step !== 'object') return step;
+    var nextStep = Object.assign({}, step);
+    var sections = cloneStepSectionsForStorage(nextStep.sections, nextStep.richContent || []);
+    nextStep.sections = sections;
+    nextStep.richContent = cloneRichContentForStorage(sections.searchPattern || nextStep.richContent || []);
+    return nextStep;
+  });
+}
+
 function _normaliseLinkMeta(raw) {
   if (!raw || typeof raw !== 'object') return null;
   var mode = raw.mode === 'snapshot' ? 'snapshot' : 'internal';
@@ -585,6 +613,17 @@ function normaliseStepSections(sections, fallbackRichContent) {
       if (type === 'subsection') {
         return normaliseSubsectionChunk(chunk);
       }
+      if (type === 'list') {
+        return {
+          type: 'list',
+          ordered: Boolean(chunk && chunk.ordered),
+          items: Array.isArray(chunk && chunk.items)
+            ? chunk.items.map(function(item) {
+                return _normaliseListItemContent(item);
+              })
+            : []
+        };
+      }
       return {
         type: 'text',
         text: (chunk && (chunk.text || chunk.content)) || '',
@@ -661,6 +700,17 @@ function _normalisePatternDoc(doc) {
       }
       if (type === 'subsection') {
         return normaliseSubsectionChunk(chunk);
+      }
+      if (type === 'list') {
+        return {
+          type: 'list',
+          ordered: Boolean(chunk && chunk.ordered),
+          items: Array.isArray(chunk && chunk.items)
+            ? chunk.items.map(function(item) {
+                return _normaliseListItemContent(item);
+              })
+            : []
+        };
       }
       return {
         type: 'text',
@@ -754,6 +804,7 @@ function createPattern(uid, data) {
   var workingSteps = _stripLinkedStepDataList(JSON.parse(JSON.stringify(rawSteps)));
   _sanitizeStepTitles(workingSteps);
   var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
+  var firestoreSteps = _prepareStepsForFirestore(workingSteps);
   var findingIds = Object.keys(extractedFindings);
 
   return _loadFindingsByIds(uid, findingIds).then(function(existingFindings) {
@@ -761,13 +812,13 @@ function createPattern(uid, data) {
     var payload = {
       name: data.name,
       modality: data.modality || 'Other',
-      steps: workingSteps,
+      steps: firestoreSteps,
       reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
       goalSeconds: goalSeconds,
       updatedAt: _now()
     };
 
-    _replaceArrayContents(rawSteps, workingSteps);
+    _replaceArrayContents(rawSteps, firestoreSteps);
     return _commitPatternAndFindingMutations(uid, ref, payload, findingMutations, true).then(function() {
       return patternId;
     });
@@ -790,10 +841,11 @@ function updatePattern(uid, patternId, data) {
     });
 
     return _loadFindingsByIds(uid, allFindingIds).then(function(existingFindings) {
+      var firestoreSteps = _prepareStepsForFirestore(workingSteps);
       var payload = {
         name: data.name,
         modality: data.modality || 'Other',
-        steps: workingSteps,
+        steps: firestoreSteps,
         reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
         updatedAt: _now()
       };
@@ -802,7 +854,7 @@ function updatePattern(uid, patternId, data) {
       }
 
       var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds);
-      _replaceArrayContents(rawSteps, workingSteps);
+      _replaceArrayContents(rawSteps, firestoreSteps);
 
       function commitWithFallback(currentPayload, hasRetriedSlim) {
         return _commitPatternAndFindingMutations(uid, patternRef, currentPayload, findingMutations, false).catch(function(err) {
@@ -858,6 +910,19 @@ function cloneRichContentForStorage(richContent) {
     }
     if (chunk && chunk.type === 'subsection') {
       return normaliseSubsectionChunk(chunk);
+    }
+    if (chunk && chunk.type === 'list') {
+      return {
+        type: 'list',
+        ordered: Boolean(chunk.ordered),
+        items: Array.isArray(chunk.items)
+          ? chunk.items.map(function(item) {
+              return {
+                content: _normaliseListItemContent(item)
+              };
+            })
+          : []
+      };
     }
     return {
       type: 'text',

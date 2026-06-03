@@ -306,6 +306,8 @@ function openEditor(uid, patternId, preferredStepIndex) {
     editorSteps = [];
   }
 
+  updateEditorDeleteButtonState();
+
   renderCreateAiPanel();
   renderStepList();
   renderStepEditPanel();
@@ -319,6 +321,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
 function initEditor() {
   document.getElementById('btn-editor-close').addEventListener('click', closeEditor);
   document.getElementById('btn-editor-cancel').addEventListener('click', closeEditor);
+  document.getElementById('btn-editor-delete').addEventListener('click', deleteEditingPattern);
   document.getElementById('modal-editor').addEventListener('click', e => {
     // Don't close on card click, only background
     if (e.target === document.getElementById('modal-editor')) closeEditor();
@@ -384,12 +387,50 @@ function closeEditor() {
   document.getElementById('modal-editor').style.display = 'none';
   editorSteps = [];
   activeStepIndex = null;
+  editingPatternId = null;
   activeStepSectionKey = 'dontMissPathology';
   _stepAiTargetType = 'searchPattern';
   _stepAiTargetFindingId = '';
   _stepAiNewFindingTitleDraft = '';
   _stepAiUndoSnapshot = null;
   _contentLinkContext = null;
+  updateEditorDeleteButtonState();
+}
+
+function updateEditorDeleteButtonState() {
+  const btn = document.getElementById('btn-editor-delete');
+  if (!btn) return;
+  const hasExistingPattern = Boolean(editingPatternId);
+  btn.style.display = hasExistingPattern ? '' : 'none';
+  btn.disabled = !hasExistingPattern;
+}
+
+async function deleteEditingPattern() {
+  if (!editorUid || !editingPatternId) return;
+
+  const pattern = (_allPatternsRef || []).find(function(item) {
+    return item && String(item.id || '') === String(editingPatternId);
+  });
+  const patternName = pattern && pattern.name ? pattern.name : 'this pattern';
+  const ok = await showConfirm('Delete Pattern', 'Delete "' + patternName + '"? This cannot be undone.');
+  if (!ok) return;
+
+  const deleteBtn = document.getElementById('btn-editor-delete');
+  const saveBtn = document.getElementById('btn-editor-save');
+  if (deleteBtn) deleteBtn.disabled = true;
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    await deletePattern(editorUid, editingPatternId);
+    showToast('Pattern deleted.');
+    closeEditor();
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to delete pattern.', true);
+  } finally {
+    updateEditorDeleteButtonState();
+    if (saveBtn) saveBtn.disabled = false;
+  }
 }
 
 function normaliseStepSectionsForEditor(sections, fallbackRichContent) {
@@ -842,6 +883,8 @@ function renderStepEditPanel() {
           <button type="button" class="rich-tool rich-tool-green" id="tool-green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" id="tool-blue" title="Blue text">A</button>
           <button type="button" class="rich-tool rich-tool-white" id="tool-white" title="White text">A</button>
+          <button type="button" class="rich-tool" id="tool-bullet-list" title="Bulleted list">• List</button>
+          <button type="button" class="rich-tool" id="tool-number-list" title="Numbered list">1. List</button>
           <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
           <button type="button" class="rich-tool" id="tool-clear" title="Clear formatting">&#x2715; Format</button>
           <button type="button" class="rich-tool" id="tool-image" title="Paste image from clipboard">&#128247; Image</button>
@@ -930,6 +973,8 @@ function renderStepEditPanel() {
     document.getElementById('tool-green').addEventListener('click', () => execColor('green'));
     document.getElementById('tool-blue').addEventListener('click', () => execColor('blue'));
     document.getElementById('tool-white').addEventListener('click', () => execColor('white'));
+    document.getElementById('tool-bullet-list').addEventListener('click', () => execList('insertUnorderedList'));
+    document.getElementById('tool-number-list').addEventListener('click', () => execList('insertOrderedList'));
     document.getElementById('tool-link').addEventListener('click', () => addHyperlinkToSelection(editor));
     document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
@@ -1226,17 +1271,18 @@ function populateRichEditor(editor, richContent) {
     if (currentLine) { editor.appendChild(currentLine); currentLine = null; }
   };
 
-  chunks.forEach(chunk => {
+  const appendInlineChunk = function(parent, chunk) {
+    if (!chunk) return;
     if (chunk.type === 'image') {
       if (!chunk.data) return;
-      flush();
       const img = document.createElement('img');
       img.src = `data:image/${chunk.format || 'png'};base64,${chunk.data}`;
       img.alt = 'Embedded image';
       img.style.cursor = 'pointer';
-      editor.appendChild(img);
-    } else if (chunk.type === 'link') {
-      if (!currentLine) { currentLine = document.createElement('div'); }
+      parent.appendChild(img);
+      return;
+    }
+    if (chunk.type === 'link') {
       var href = sanitiseEditorLinkUrl(chunk.url || '');
       var label = chunk.text || chunk.url || '';
       if (!href || !label) return;
@@ -1245,37 +1291,95 @@ function populateRichEditor(editor, richContent) {
       anchor.textContent = label;
       anchor.target = '_blank';
       anchor.rel = 'noopener noreferrer';
-      currentLine.appendChild(anchor);
-      currentLine.appendChild(document.createTextNode(' '));
-    } else {
-      const text = chunk.text || '';
-      if (!currentLine) { currentLine = document.createElement('div'); }
+      parent.appendChild(anchor);
+      return;
+    }
+    if (chunk.type !== 'text') return;
 
-      // Preserve imported newlines exactly in the editable surface.
-      const parts = text.split('\n');
-      for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
+    const text = String(chunk.text || '');
+    const parts = text.split('\n');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
 
-        if (chunk.bold || chunk.color) {
-          const span = document.createElement('span');
-          span.textContent = part;
-          if (chunk.bold) span.style.fontWeight = '700';
-          if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
-          if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
-          if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
-          if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
-          currentLine.appendChild(span);
-        } else {
-          currentLine.appendChild(document.createTextNode(part));
-        }
+      if (chunk.bold || chunk.color) {
+        const span = document.createElement('span');
+        span.textContent = part;
+        if (chunk.bold) span.style.fontWeight = '700';
+        if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
+        if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
+        if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
+        if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
+        parent.appendChild(span);
+      } else {
+        parent.appendChild(document.createTextNode(part));
+      }
 
-        if (i < parts.length - 1) {
-          const br = document.createElement('br');
-          br.className = 'rich-break';
-          currentLine.appendChild(br);
-        }
+      if (i < parts.length - 1) {
+        parent.appendChild(document.createElement('br'));
       }
     }
+  };
+
+  const appendBlockChunk = function(chunk) {
+    if (!chunk) return;
+
+    if (chunk.type === 'list') {
+      flush();
+      const listEl = document.createElement(chunk.ordered ? 'ol' : 'ul');
+      (chunk.items || []).forEach(function(item) {
+        const li = document.createElement('li');
+        (item || []).forEach(function(itemChunk) {
+          appendInlineChunk(li, itemChunk);
+        });
+        listEl.appendChild(li);
+      });
+      editor.appendChild(listEl);
+      return;
+    }
+
+    if (chunk.type === 'image') {
+      flush();
+      appendInlineChunk(editor, chunk);
+      return;
+    }
+
+    if (chunk.type === 'link') {
+      if (!currentLine) { currentLine = document.createElement('div'); }
+      appendInlineChunk(currentLine, chunk);
+      currentLine.appendChild(document.createTextNode(' '));
+      return;
+    }
+
+    const text = chunk.text || '';
+    if (!currentLine) { currentLine = document.createElement('div'); }
+
+    // Preserve imported newlines exactly in the editable surface.
+    const parts = text.split('\n');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (chunk.bold || chunk.color) {
+        const span = document.createElement('span');
+        span.textContent = part;
+        if (chunk.bold) span.style.fontWeight = '700';
+        if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
+        if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
+        if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
+        if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
+        currentLine.appendChild(span);
+      } else {
+        currentLine.appendChild(document.createTextNode(part));
+      }
+
+      if (i < parts.length - 1) {
+        const br = document.createElement('br');
+        br.className = 'rich-break';
+        currentLine.appendChild(br);
+      }
+    }
+  };
+
+  chunks.forEach(function(chunk) {
+    appendBlockChunk(chunk);
   });
   flush();
 }
@@ -1348,29 +1452,77 @@ function extractRichContent(editor) {
     });
   }
 
-  function processNode(node, activeFormatting, parentNode) {
+  function trimTrailingNewlineChunks(output) {
+    while (output.length) {
+      var last = output[output.length - 1];
+      if (!last || last.type !== 'text') break;
+      if (!/\n$/.test(String(last.text || ''))) break;
+      last.text = String(last.text || '').replace(/\n+$/, '');
+      if (last.text) break;
+      output.pop();
+    }
+  }
+
+  function extractListItemContent(listItem) {
+    var itemChunks = [];
+    listItem.childNodes.forEach(function(child) {
+      processNode(child, { bold: false, color: null }, listItem, itemChunks, { inListItem: true });
+    });
+    trimTrailingNewlineChunks(itemChunks);
+    return itemChunks;
+  }
+
+  function processNode(node, activeFormatting, parentNode, output, context) {
+    output = output || chunks;
+    context = context || {};
     const formatting = activeFormatting || { bold: false, color: null };
+
+    if (node && (node.nodeName === 'UL' || node.nodeName === 'OL')) {
+      if (parentNode === editor && nodeHasVisibleContent(node)) {
+        var previousSibling = getPreviousSibling(node, parentNode);
+        if (nodeHasVisibleContent(previousSibling)) {
+          _appendNewlineChunk(output);
+        }
+      }
+
+      var listChunk = {
+        type: 'list',
+        ordered: node.nodeName === 'OL',
+        items: []
+      };
+
+      node.childNodes.forEach(function(child) {
+        if (!child || child.nodeName !== 'LI') return;
+        listChunk.items.push(extractListItemContent(child));
+      });
+
+      if (listChunk.items.length) {
+        output.push(listChunk);
+      }
+      return;
+    }
+
     if (['DIV', 'P', 'LI'].includes(node.nodeName) && parentNode === editor && !isEmptyLineBlock(node)) {
       var previousSibling = getPreviousSibling(node, parentNode);
       if (nodeHasVisibleContent(previousSibling)) {
-        _appendNewlineChunk(chunks);
+        _appendNewlineChunk(output);
       }
     }
 
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent;
-      if (text) _appendTextChunk(chunks, text, formatting.bold, formatting.color);
+      if (text) _appendTextChunk(output, text, formatting.bold, formatting.color);
     } else if (node.nodeName === 'IMG') {
       const src = node.src || '';
       const match = src.match(/^data:image\/(\w+);base64,(.+)$/);
       if (match) {
-        chunks.push({ type: 'image', format: match[1], data: match[2] });
+        output.push({ type: 'image', format: match[1], data: match[2] });
       }
     } else if (node.nodeName === 'A') {
       const url = node.getAttribute('href') || '';
       const text = node.textContent || url;
       if (url || text) {
-        chunks.push({ type: 'link', text, url: sanitiseEditorLinkUrl(url) });
+        output.push({ type: 'link', text, url: sanitiseEditorLinkUrl(url) });
       }
     } else if (node.nodeName === 'SPAN' || node.nodeName === 'B' || node.nodeName === 'STRONG') {
       const nextFormatting = {
@@ -1378,32 +1530,32 @@ function extractRichContent(editor) {
         color: node.dataset.color || formatting.color || null
       };
       node.childNodes.forEach(function(child) {
-        processNode(child, nextFormatting, node);
+        processNode(child, nextFormatting, node, output, context);
       });
     } else if (node.nodeName === 'BR') {
       if (!isEmptyLineBlock(parentNode)) {
         // Each explicit BR comes from a user Enter and should be preserved.
-        _appendNewlineChunk(chunks, true);
+        _appendNewlineChunk(output, true);
       }
     } else {
       node.childNodes.forEach(function(child) {
-        processNode(child, formatting, node);
+        processNode(child, formatting, node, output, context);
       });
-      if (['DIV', 'P', 'LI'].includes(node.nodeName) && node !== editor) {
+      if (['DIV', 'P', 'LI'].includes(node.nodeName) && node !== editor && !context.inListItem) {
         if (isEmptyLineBlock(node)) {
-          _appendNewlineChunk(chunks, true);
+          _appendNewlineChunk(output, true);
           return;
         }
         var lastChild = node.lastChild;
         if (!(lastChild && lastChild.nodeName === 'BR')) {
-          _appendNewlineChunk(chunks);
+          _appendNewlineChunk(output);
         }
       }
     }
   }
 
   editor.childNodes.forEach(function(child) {
-    processNode(child, { bold: false, color: null }, editor);
+    processNode(child, { bold: false, color: null }, editor, chunks, { inListItem: false });
   });
 
   function countTrailingEmptyRootBlocks(root) {
@@ -1661,6 +1813,8 @@ function createSubsectionRow(title, content, isRedFinding, options) {
         <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
         <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
         <button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>
+        <button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>
+        <button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>
         <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
         <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
         <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>
@@ -2520,6 +2674,17 @@ async function compressRichContentForStorage(richContent) {
       continue;
     }
 
+    if (chunk.type === 'list') {
+      out.push({
+        type: 'list',
+        ordered: Boolean(chunk.ordered),
+        items: await Promise.all((chunk.items || []).map(function(item) {
+          return compressRichContentForStorage(item || []);
+        }))
+      });
+      continue;
+    }
+
     if (chunk.type === 'link') {
       const url = sanitiseEditorLinkUrl(chunk.url || '');
       if (!url && !(chunk.text || '').trim()) continue;
@@ -2641,12 +2806,13 @@ function bindRichEditorToolbar(toolbar, editor) {
     setActiveRichEditor(editor);
   });
 
-  toolbar.querySelectorAll('[data-rich-action], [data-rich-color]').forEach(function(btn) {
+  toolbar.querySelectorAll('[data-rich-action], [data-rich-color], [data-rich-list]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       setActiveRichEditor(editor);
 
       const action = btn.dataset.richAction || '';
       const color = btn.dataset.richColor || '';
+      const listKind = btn.dataset.richList || '';
       if (action === 'bold') {
         execFormat('bold', editor);
       } else if (action === 'link') {
@@ -2655,6 +2821,10 @@ function bindRichEditorToolbar(toolbar, editor) {
         execRemoveFormat(editor);
       } else if (action === 'image') {
         handlePasteImageFromClipboard();
+      } else if (listKind === 'unordered') {
+        execList('insertUnorderedList', editor);
+      } else if (listKind === 'ordered') {
+        execList('insertOrderedList', editor);
       } else if (color) {
         execColor(color, editor);
       }
@@ -2713,6 +2883,15 @@ function execColor(color, targetEditor) {
   after.collapse(true);
   sel.removeAllRanges();
   sel.addRange(after);
+}
+
+function execList(cmd, targetEditor) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (editor) {
+    setActiveRichEditor(editor);
+    editor.focus();
+  }
+  document.execCommand(cmd, false, null);
 }
 
 function execRemoveFormat(targetEditor) {
@@ -2868,6 +3047,14 @@ function normaliseMultilineText(value) {
     .replace(/\\r/g, '\n');
 }
 
+function normaliseListItemContent(item) {
+  if (Array.isArray(item)) return normaliseRichContent(item);
+  if (item && typeof item === 'object' && Array.isArray(item.content)) {
+    return normaliseRichContent(item.content);
+  }
+  return [];
+}
+
 function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
@@ -2901,6 +3088,18 @@ function normaliseRichContent(richContent) {
       };
     }
 
+    if (type === 'list') {
+      return {
+        type: 'list',
+        ordered: Boolean(chunk?.ordered),
+        items: Array.isArray(chunk?.items)
+          ? chunk.items.map(function(item) {
+              return normaliseListItemContent(item);
+            })
+          : []
+      };
+    }
+
     return {
       type: 'text',
       text: normaliseMultilineText(chunk?.text || chunk?.content || ''),
@@ -2916,6 +3115,12 @@ function richContentToPlainText(richContent) {
 
   return chunks.map(chunk => {
     if (chunk.type === 'image') return '[image]';
+    if (chunk.type === 'list') {
+      return (chunk.items || []).map(function(item, idx) {
+        var itemText = richContentToPlainText(item);
+        return (chunk.ordered ? String(idx + 1) + '. ' : '• ') + itemText;
+      }).join('\n');
+    }
     return chunk.text || '';
   }).join('');
 }

@@ -27,6 +27,8 @@ var _patternViewerEditMode = false;
 var _activeInlineEdit = null;
 var _inlineEditSaving = false;
 var _stepTitleSaveInFlight = {};
+var _patternEditDraft = null;
+var _patternEditCommitInFlight = false;
 var _openFindingPanels = new Set();
 var _accordionMode = false;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
@@ -375,7 +377,7 @@ function initVoiceCommands() {
     }
   });
 
-  setVoiceCommandsEnabled(true, { silent: true });
+  setVoiceCommandsEnabled(false, { silent: true });
 }
 
 function startVoiceRecognition() {
@@ -1582,31 +1584,22 @@ function renderStepSections(container, step, stepIndex) {
   if (_patternViewerEditMode) {
     const titleEditWrap = document.createElement('div');
     titleEditWrap.className = 'step-title-edit-row';
+    titleEditWrap.dataset.stepIndex = String(stepIndex);
 
     const titleInput = document.createElement('input');
     titleInput.type = 'text';
     titleInput.className = 'form-input step-title-edit-input';
     titleInput.value = getCleanStepTitle(step.stepTitle);
     titleInput.placeholder = 'Step title';
-
-    const saveBusy = Boolean(_stepTitleSaveInFlight[String(stepIndex)]);
-    titleInput.disabled = saveBusy;
-
-    titleInput.addEventListener('keydown', function(e) {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      savePatternStepTitle(stepIndex, titleInput.value);
-    });
-
-    titleInput.addEventListener('blur', function() {
-      savePatternStepTitle(stepIndex, titleInput.value);
+    titleInput.dataset.stepIndex = String(stepIndex);
+    titleInput.addEventListener('input', function() {
+      applyPatternViewerStepTitleDraft(stepIndex, titleInput.value);
     });
 
     const deleteStepBtn = document.createElement('button');
     deleteStepBtn.type = 'button';
     deleteStepBtn.className = 'btn btn-danger btn-sm';
     deleteStepBtn.textContent = 'Delete Step';
-    deleteStepBtn.disabled = saveBusy;
     deleteStepBtn.addEventListener('click', function() {
       handleDeletePatternStep(stepIndex);
     });
@@ -1618,8 +1611,117 @@ function renderStepSections(container, step, stepIndex) {
 
   const searchPatternWrap = document.createElement('div');
   searchPatternWrap.className = 'step-search-pattern-content';
-  renderSearchPatternContent(searchPatternWrap, sections.searchPattern || [], Boolean(step.isRedStep));
+  renderSearchPatternContent(searchPatternWrap, sections.searchPattern || [], Boolean(step.isRedStep), stepIndex);
   container.appendChild(searchPatternWrap);
+}
+
+function areRichContentValuesEqual(left, right) {
+  return JSON.stringify(normaliseRichContent(left || [])) === JSON.stringify(normaliseRichContent(right || []));
+}
+
+function applyPatternViewerStepTitleDraft(stepIndex, nextTitleRaw) {
+  if (!_patternViewerEditMode) return false;
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  if (!pattern || !steps[safeStepIndex]) return false;
+
+  const nextTitle = getCleanStepTitle(nextTitleRaw);
+  if (!nextTitle) return false;
+
+  const currentTitle = String((steps[safeStepIndex] && steps[safeStepIndex].stepTitle) || '').trim();
+  if (currentTitle === nextTitle) return false;
+
+  steps[safeStepIndex].stepTitle = nextTitle;
+  markPatternEditDraftDirty(pattern);
+  return true;
+}
+
+function applyPatternViewerInlineDraft(options) {
+  if (!_patternViewerEditMode) return false;
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const safeStepIndex = Number.isInteger(options && options.stepIndex) ? options.stepIndex : currentStepIndex;
+  const sectionKey = String((options && options.sectionKey) || '').trim();
+  if (!pattern || !steps[safeStepIndex] || !sectionKey) return false;
+
+  const step = steps[safeStepIndex];
+  step.sections = normaliseStepSectionsSafe(step.sections, step.richContent || step.rich_content || []);
+
+  let changed = false;
+  const nextRichContent = normaliseRichContent((options && options.content) || []);
+  const nextIsMarkedRed = Boolean(options && options.isMarkedRed);
+
+  function detachWholeStepLink() {
+    if (String(step.linkedStepId || '').trim()) {
+      step.linkedStepId = '';
+      changed = true;
+    }
+    if (step.linkMeta) {
+      step.linkMeta = null;
+      changed = true;
+    }
+  }
+
+  if (sectionKey === 'searchPattern') {
+    detachWholeStepLink();
+    if (step.sectionLinks && step.sectionLinks.searchPattern) {
+      delete step.sectionLinks.searchPattern;
+      changed = true;
+    }
+
+    const currentSearchPattern = normaliseRichContent(step.sections.searchPattern || []);
+    if (!areRichContentValuesEqual(currentSearchPattern, nextRichContent)) {
+      step.sections.searchPattern = nextRichContent;
+      step.richContent = normaliseRichContent(nextRichContent);
+      changed = true;
+    }
+
+    if (Boolean(step.isRedStep) !== nextIsMarkedRed) {
+      step.isRedStep = nextIsMarkedRed;
+      changed = true;
+    }
+  } else if (sectionKey === 'dontMissPathology') {
+    const safeFindingId = String((options && options.findingId) || '').trim();
+    if (!safeFindingId) return false;
+
+    detachWholeStepLink();
+    const findings = typeof ensureSubsectionMetadata === 'function'
+      ? ensureSubsectionMetadata(step.sections.dontMissPathology || [])
+      : normaliseRichContent(step.sections.dontMissPathology || []);
+    step.sections.dontMissPathology = findings;
+
+    const finding = typeof findStepSubsectionById === 'function'
+      ? findStepSubsectionById(step, safeFindingId)
+      : null;
+    if (!finding) return false;
+
+    const nextTitle = String((options && options.title) || '').trim();
+    if (nextTitle && String(finding.title || '').trim() !== nextTitle) {
+      finding.title = nextTitle;
+      changed = true;
+    }
+
+    if (Boolean(finding.isRedFinding) !== nextIsMarkedRed) {
+      finding.isRedFinding = nextIsMarkedRed;
+      changed = true;
+    }
+
+    if (!areRichContentValuesEqual(finding.content || [], nextRichContent)) {
+      finding.content = nextRichContent;
+      changed = true;
+    }
+
+    if (finding.linkMeta) {
+      finding.linkMeta = null;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    markPatternEditDraftDirty(pattern);
+  }
+  return changed;
 }
 
 async function savePatternStepTitle(stepIndex, nextTitleRaw) {
@@ -1652,6 +1754,13 @@ async function savePatternStepTitle(stepIndex, nextTitleRaw) {
   }
   renderCurrentStep(pattern);
 
+  if (_patternViewerEditMode) {
+    markPatternEditDraftDirty(pattern);
+    _stepTitleSaveInFlight[String(safeStepIndex)] = false;
+    showToast('Step title saved locally. Changes sync when you click Done Editing.');
+    return;
+  }
+
   try {
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
@@ -1661,9 +1770,11 @@ async function savePatternStepTitle(stepIndex, nextTitleRaw) {
       steps: nextSteps
     });
     if (_patternViewerEditMode) {
-      _openStepIndices.delete(safeStepIndex);
+      _openStepIndices.add(safeStepIndex);
+      currentStepIndex = safeStepIndex;
     }
     renderCurrentStep(pattern);
+    queuePatternStepReloadFromFirestore(pattern.id, safeStepIndex, nextSteps[safeStepIndex], 0);
     showToast('Step title updated.');
   } catch (err) {
     console.error(err);
@@ -1713,6 +1824,177 @@ function isStepSectionOpen(key) {
 function rememberStepForPattern(patternId, stepIndex) {
   if (!patternId || patternId !== selectedPatternId) return;
   _preferredStepIndex = typeof stepIndex === 'number' ? stepIndex : null;
+}
+
+function ensurePatternEditDraft(pattern) {
+  var safePattern = pattern || getSelectedPattern();
+  if (!safePattern) return null;
+  var safePatternId = String(safePattern.id || '').trim();
+  if (!safePatternId) return null;
+  if (_patternEditDraft && _patternEditDraft.patternId === safePatternId) {
+    return _patternEditDraft;
+  }
+  _patternEditDraft = {
+    patternId: safePatternId,
+    dirty: false
+  };
+  return _patternEditDraft;
+}
+
+function markPatternEditDraftDirty(pattern) {
+  var draft = ensurePatternEditDraft(pattern);
+  if (!draft) return;
+  draft.dirty = true;
+}
+
+function clearPatternEditDraft() {
+  _patternEditDraft = null;
+}
+
+function hasDirtyPatternEditDraft(patternId) {
+  var safePatternId = String(patternId || '').trim();
+  if (!_patternEditDraft || !_patternEditDraft.dirty) return false;
+  if (!safePatternId) return true;
+  return _patternEditDraft.patternId === safePatternId;
+}
+
+function commitPatternEditDraftIfNeeded() {
+  var pattern = getSelectedPattern();
+  if (!pattern || !_pUid) return Promise.resolve();
+  if (_patternEditCommitInFlight) return Promise.resolve();
+
+  var patternId = String(pattern.id || '').trim();
+  if (!patternId || !hasDirtyPatternEditDraft(patternId)) {
+    return Promise.resolve();
+  }
+
+  _patternEditCommitInFlight = true;
+  updateSidebarButtons(Boolean(selectedPatternId));
+
+  return updatePattern(_pUid, pattern.id, {
+    name: pattern.name,
+    modality: pattern.modality || 'Other',
+    goalSeconds: pattern.goalSeconds,
+    reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+    steps: pattern.steps || []
+  }).then(function() {
+    if (_patternEditDraft && _patternEditDraft.patternId === patternId) {
+      _patternEditDraft.dirty = false;
+    }
+    queuePatternReloadFromFirestore(pattern.id, currentStepIndex, Array.isArray(pattern.steps) ? pattern.steps.length : null, 0);
+    showToast('Saved edits to Firebase.');
+  }).catch(function(err) {
+    console.error(err);
+    showToast('Saved locally, but failed to sync to Firebase. Click Done Editing again to retry.', true);
+  }).finally(function() {
+    _patternEditCommitInFlight = false;
+    updateSidebarButtons(Boolean(selectedPatternId));
+  });
+}
+
+function getStepSyncSignature(step) {
+  try {
+    return JSON.stringify(normaliseStepForViewer(step || {}));
+  } catch (err) {
+    console.warn('Failed to build step sync signature:', err);
+    return '';
+  }
+}
+
+function queuePatternStepReloadFromFirestore(patternId, stepIndex, expectedStep, attempt) {
+  var safePatternId = String(patternId || '').trim();
+  var safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : -1;
+  if (!safePatternId || safeStepIndex < 0 || !_pUid || !appDb) return;
+
+  var maxAttempts = 8;
+  var tryIndex = Number.isInteger(attempt) ? attempt : 0;
+  var expectedSignature = getStepSyncSignature(expectedStep);
+
+  _patternsRef(_pUid).doc(safePatternId).get({ source: 'server' }).then(function(snapshot) {
+    if (!snapshot || !snapshot.exists) return;
+
+    var serverPattern = _normalisePatternDoc(snapshot.data() || {});
+    var serverSteps = Array.isArray(serverPattern.steps) ? serverPattern.steps : [];
+    if (!serverSteps[safeStepIndex]) return;
+
+    var serverSignature = getStepSyncSignature(serverSteps[safeStepIndex]);
+    if (expectedSignature && serverSignature !== expectedSignature) {
+      if (tryIndex >= maxAttempts - 1) return;
+      setTimeout(function() {
+        queuePatternStepReloadFromFirestore(safePatternId, safeStepIndex, expectedStep, tryIndex + 1);
+      }, Math.min(250 * (tryIndex + 1), 1500));
+      return;
+    }
+
+    var selected = getSelectedPattern();
+    if (!selected || String(selected.id || '') !== safePatternId) return;
+
+    selected.steps = serverSteps;
+    if (_patternViewerEditMode) {
+      _openStepIndices.add(safeStepIndex);
+    }
+    renderCurrentStep(selected);
+  }).catch(function(err) {
+    if (tryIndex >= maxAttempts - 1) {
+      console.warn('Unable to reload step from Firestore server:', err);
+      return;
+    }
+    setTimeout(function() {
+      queuePatternStepReloadFromFirestore(safePatternId, safeStepIndex, expectedStep, tryIndex + 1);
+    }, Math.min(250 * (tryIndex + 1), 1500));
+  });
+}
+
+function queuePatternReloadFromFirestore(patternId, preferredStepIndex, expectedStepsLength, attempt) {
+  var safePatternId = String(patternId || '').trim();
+  if (!safePatternId || !_pUid || !appDb) return;
+
+  var maxAttempts = 8;
+  var tryIndex = Number.isInteger(attempt) ? attempt : 0;
+  var expectedLength = Number.isInteger(expectedStepsLength) ? expectedStepsLength : null;
+
+  _patternsRef(_pUid).doc(safePatternId).get({ source: 'server' }).then(function(snapshot) {
+    if (!snapshot || !snapshot.exists) return;
+
+    var serverPattern = _normalisePatternDoc(snapshot.data() || {});
+    var serverSteps = Array.isArray(serverPattern.steps) ? serverPattern.steps : [];
+    if (expectedLength !== null && serverSteps.length !== expectedLength) {
+      if (tryIndex >= maxAttempts - 1) return;
+      setTimeout(function() {
+        queuePatternReloadFromFirestore(safePatternId, preferredStepIndex, expectedLength, tryIndex + 1);
+      }, Math.min(250 * (tryIndex + 1), 1500));
+      return;
+    }
+
+    var selected = getSelectedPattern();
+    if (!selected || String(selected.id || '') !== safePatternId) return;
+
+    selected.steps = serverSteps;
+
+    if (serverSteps.length) {
+      if (Number.isInteger(preferredStepIndex)) {
+        currentStepIndex = Math.max(0, Math.min(preferredStepIndex, serverSteps.length - 1));
+      } else {
+        currentStepIndex = Math.max(0, Math.min(currentStepIndex, serverSteps.length - 1));
+      }
+      if (_patternViewerEditMode) {
+        _openStepIndices.add(currentStepIndex);
+      }
+    } else {
+      currentStepIndex = 0;
+      _openStepIndices = new Set();
+    }
+
+    renderCurrentStep(selected);
+  }).catch(function(err) {
+    if (tryIndex >= maxAttempts - 1) {
+      console.warn('Unable to reload pattern from Firestore server:', err);
+      return;
+    }
+    setTimeout(function() {
+      queuePatternReloadFromFirestore(safePatternId, preferredStepIndex, expectedLength, tryIndex + 1);
+    }, Math.min(250 * (tryIndex + 1), 1500));
+  });
 }
 
 function normaliseSubsectionEntries(content) {
@@ -1913,28 +2195,40 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
 
   nextSteps[currentStepIndex] = nextStep;
 
-  try {
-    const stepsForStorage = typeof prepareStepsForStorage === 'function'
-      ? await prepareStepsForStorage(nextSteps)
-      : nextSteps;
+  if (_patternViewerEditMode) {
+    pattern.steps = nextSteps;
+    _activeInlineEdit = null;
+    _inlineEditSaving = false;
+    _openStepIndices.add(currentStepIndex);
+    renderCurrentStep(pattern);
+    markPatternEditDraftDirty(pattern);
+    if (detachedLiveLink) {
+      showToast((sectionKey === 'searchPattern' ? 'Search pattern' : 'Finding') + ' saved locally. Live link detached; sync runs on Done Editing.');
+    } else {
+      showToast((sectionKey === 'searchPattern' ? 'Search pattern' : 'Finding') + ' saved locally. Sync runs on Done Editing.');
+    }
+    return;
+  }
 
+  try {
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
       modality: pattern.modality || 'Other',
       goalSeconds: pattern.goalSeconds,
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-      steps: stepsForStorage
+      steps: nextSteps
     });
-    pattern.steps = stepsForStorage;
+    pattern.steps = nextSteps;
     if (sectionKey === 'dontMissPathology' && !_patternViewerEditMode) {
       setFindingPanelOpen(findingId, true);
     }
     if (_patternViewerEditMode) {
-      _openStepIndices.delete(currentStepIndex);
+      _openStepIndices.add(currentStepIndex);
     }
     _activeInlineEdit = null;
     _inlineEditSaving = false;
     renderCurrentStep(pattern);
+    queuePatternStepReloadFromFirestore(pattern.id, currentStepIndex, nextSteps[currentStepIndex], 0);
     if (detachedLiveLink) {
       showToast((sectionKey === 'searchPattern' ? 'Search pattern' : 'Finding') + ' updated. Live link detached so your edits persist.');
     } else {
@@ -1951,6 +2245,9 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
 function renderInlineEditForm(container, options) {
   const wrap = document.createElement('div');
   wrap.className = 'step-inline-edit';
+  wrap.dataset.stepIndex = String(Number.isInteger(options && options.stepIndex) ? options.stepIndex : currentStepIndex);
+  wrap.dataset.sectionKey = String((options && options.sectionKey) || '');
+  wrap.dataset.findingId = String((options && options.findingId) || '');
   const supportsRichInlineEdit = typeof populateRichEditor === 'function'
     && typeof extractRichContent === 'function'
     && typeof bindRichEditorToolbar === 'function';
@@ -1971,6 +2268,7 @@ function renderInlineEditForm(container, options) {
     redToggle.className = options.includeTitle ? 'subsection-red-row' : 'step-red-checkbox-row';
     redCheckbox = document.createElement('input');
     redCheckbox.type = 'checkbox';
+    redCheckbox.className = 'step-inline-red-toggle';
     redCheckbox.checked = Boolean(options.isMarkedRed);
     const redLabel = document.createElement('span');
     redLabel.textContent = options.redToggleLabel;
@@ -1993,6 +2291,8 @@ function renderInlineEditForm(container, options) {
       '<button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>',
       '<button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>',
       '<button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>',
+      '<button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>',
+      '<button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>',
       '<button type="button" class="rich-tool rich-tool-font-size" data-rich-font-size="sm" title="Small font">A-</button>',
       '<button type="button" class="rich-tool rich-tool-font-size" data-rich-font-size="md" title="Normal font">A</button>',
       '<button type="button" class="rich-tool rich-tool-font-size" data-rich-font-size="lg" title="Large font">A+</button>',
@@ -2031,37 +2331,40 @@ function renderInlineEditForm(container, options) {
     wrap.appendChild(textarea);
   }
 
-  const actions = document.createElement('div');
-  actions.className = 'step-inline-edit-actions';
+  let syncQueued = false;
+  function queueLocalDraftSync() {
+    if (!_patternViewerEditMode) return;
+    if (syncQueued) return;
+    syncQueued = true;
+    requestAnimationFrame(function() {
+      syncQueued = false;
+      const contentValue = richEditor && typeof extractRichContent === 'function'
+        ? extractRichContent(richEditor)
+        : (textarea ? textarea.value : '');
+      applyPatternViewerInlineDraft({
+        stepIndex: Number.isInteger(options && options.stepIndex) ? options.stepIndex : currentStepIndex,
+        sectionKey: options.sectionKey,
+        findingId: options.findingId,
+        title: titleInput ? titleInput.value : '',
+        content: contentValue,
+        isMarkedRed: redCheckbox ? redCheckbox.checked : false
+      });
+    });
+  }
 
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'btn btn-accent btn-sm';
-  saveBtn.textContent = _inlineEditSaving ? 'Saving...' : 'Save';
-  saveBtn.disabled = _inlineEditSaving;
-  saveBtn.addEventListener('click', function() {
-    const contentValue = richEditor && typeof extractRichContent === 'function'
-      ? extractRichContent(richEditor)
-      : (textarea ? textarea.value : '');
-    saveInlineEdit(
-      options.sectionKey,
-      options.findingId,
-      titleInput ? titleInput.value : '',
-      contentValue,
-      redCheckbox ? redCheckbox.checked : false
-    );
-  });
+  if (titleInput) {
+    titleInput.addEventListener('input', queueLocalDraftSync);
+  }
+  if (redCheckbox) {
+    redCheckbox.addEventListener('change', queueLocalDraftSync);
+  }
+  if (richEditor) {
+    richEditor.addEventListener('input', queueLocalDraftSync);
+  }
+  if (textarea) {
+    textarea.addEventListener('input', queueLocalDraftSync);
+  }
 
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'btn btn-ghost btn-sm';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.disabled = _inlineEditSaving;
-  cancelBtn.addEventListener('click', cancelInlineEdit);
-
-  actions.appendChild(saveBtn);
-  actions.appendChild(cancelBtn);
-  wrap.appendChild(actions);
   container.appendChild(wrap);
 
   if (richEditor) {
@@ -2114,6 +2417,7 @@ function renderNestedSubsections(container, content, stepIndex) {
     panelInner.className = 'step-subsection-content';
     if (isEditing) {
       renderInlineEditForm(panelInner, {
+        stepIndex: safeStepIndex,
         sectionKey: 'dontMissPathology',
         findingId: entry.subsectionId || '',
         includeTitle: true,
@@ -2232,6 +2536,12 @@ async function handleDeletePatternFinding(stepIndex, findingId, findingTitle) {
   _inlineEditSaving = false;
   renderCurrentStep(pattern);
 
+  if (_patternViewerEditMode) {
+    markPatternEditDraftDirty(pattern);
+    showToast('Finding removed locally. Changes sync when you click Done Editing.');
+    return;
+  }
+
   try {
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
@@ -2240,6 +2550,7 @@ async function handleDeletePatternFinding(stepIndex, findingId, findingTitle) {
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
       steps: nextSteps
     });
+    queuePatternStepReloadFromFirestore(pattern.id, safeStepIndex, nextSteps[safeStepIndex], 0);
     showToast('Finding removed from this step.');
   } catch (err) {
     console.error(err);
@@ -2283,7 +2594,7 @@ function renderRichContent(container, richContent) {
   container.textContent = richContentToPlainText(chunks);
 }
 
-function renderSearchPatternContent(container, richContent, isRedStep) {
+function renderSearchPatternContent(container, richContent, isRedStep, stepIndex) {
   if (!_patternViewerEditMode) {
     const chunks = normaliseRichContent(richContent);
     if (chunks.length) {
@@ -2304,6 +2615,7 @@ function renderSearchPatternContent(container, richContent, isRedStep) {
   body.className = 'step-section-inline-body';
 
   renderInlineEditForm(body, {
+    stepIndex: Number.isInteger(stepIndex) ? stepIndex : currentStepIndex,
     sectionKey: 'searchPattern',
     findingId: '',
     includeTitle: false,
@@ -2393,6 +2705,12 @@ async function handleAddPatternStep() {
   rememberStepForPattern(pattern.id, currentStepIndex);
   renderCurrentStep(pattern);
 
+  if (_patternViewerEditMode) {
+    markPatternEditDraftDirty(pattern);
+    showToast('Step added locally. Changes sync when you click Done Editing.');
+    return;
+  }
+
   try {
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
@@ -2401,6 +2719,7 @@ async function handleAddPatternStep() {
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
       steps: nextSteps
     });
+    queuePatternStepReloadFromFirestore(pattern.id, nextStepIndex, nextSteps[nextStepIndex], 0);
     showToast('Step added.');
   } catch (err) {
     console.error(err);
@@ -2469,6 +2788,12 @@ async function handleDeletePatternStep(stepIndex) {
   rememberStepForPattern(pattern.id, currentStepIndex);
   renderCurrentStep(pattern);
 
+  if (_patternViewerEditMode) {
+    markPatternEditDraftDirty(pattern);
+    showToast('Step deleted locally. Changes sync when you click Done Editing.');
+    return;
+  }
+
   try {
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
@@ -2477,6 +2802,7 @@ async function handleDeletePatternStep(stepIndex) {
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
       steps: nextSteps
     });
+    queuePatternReloadFromFirestore(pattern.id, nextStepIndex, nextSteps.length, 0);
     showToast('Step deleted.');
   } catch (err) {
     console.error(err);
@@ -2800,16 +3126,63 @@ function formatDuration(seconds) {
 // ── Sidebar buttons ──────────────────────────────────────────
 function updateSidebarButtons(hasSelection) {
   const editBtn = document.getElementById('btn-edit-pattern');
-  editBtn.disabled = !hasSelection;
-  editBtn.textContent = _patternViewerEditMode ? 'Done Editing' : 'Edit Pattern';
+  const hasUnsyncedDraft = hasDirtyPatternEditDraft(selectedPatternId);
+  editBtn.disabled = !hasSelection || _patternEditCommitInFlight;
+  if (_patternEditCommitInFlight) {
+    editBtn.textContent = 'Syncing...';
+  } else if (_patternViewerEditMode) {
+    editBtn.textContent = 'Done Editing';
+  } else if (hasUnsyncedDraft) {
+    editBtn.textContent = 'Edit Pattern (Unsynced)';
+  } else {
+    editBtn.textContent = 'Edit Pattern';
+  }
   document.getElementById('btn-delete-pattern').disabled = !hasSelection;
   updatePatternStepAddButton();
+}
+
+function flushPatternViewerDraftFromDom() {
+  if (!_patternViewerEditMode) return;
+
+  const titleInputs = Array.from(document.querySelectorAll('.step-title-edit-input[data-step-index]'));
+  titleInputs.forEach(function(inputEl) {
+    const stepIndex = Number(inputEl.dataset.stepIndex);
+    if (!Number.isInteger(stepIndex)) return;
+    applyPatternViewerStepTitleDraft(stepIndex, inputEl.value);
+  });
+
+  const inlineForms = Array.from(document.querySelectorAll('.step-inline-edit[data-step-index][data-section-key]'));
+  inlineForms.forEach(function(formEl) {
+    const stepIndex = Number(formEl.dataset.stepIndex);
+    if (!Number.isInteger(stepIndex)) return;
+
+    const sectionKey = String(formEl.dataset.sectionKey || '');
+    if (!sectionKey) return;
+
+    const titleInput = formEl.querySelector('.step-inline-edit-title');
+    const redToggle = formEl.querySelector('.step-inline-red-toggle');
+    const richEditor = formEl.querySelector('.step-inline-rich-editor');
+    const plainEditor = formEl.querySelector('.step-inline-edit-content');
+    const contentValue = richEditor && typeof extractRichContent === 'function'
+      ? extractRichContent(richEditor)
+      : (plainEditor ? plainEditor.value : '');
+
+    applyPatternViewerInlineDraft({
+      stepIndex: stepIndex,
+      sectionKey: sectionKey,
+      findingId: String(formEl.dataset.findingId || ''),
+      title: titleInput ? titleInput.value : '',
+      content: contentValue,
+      isMarkedRed: redToggle ? redToggle.checked : false
+    });
+  });
 }
 
 function setPatternViewerEditMode(enabled, shouldRender) {
   _patternViewerEditMode = Boolean(enabled);
   if (_patternViewerEditMode) {
     const pattern = getSelectedPattern();
+    ensurePatternEditDraft(pattern);
     const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
     if (steps.length) {
       currentStepIndex = Math.max(0, Math.min(currentStepIndex, steps.length - 1));
@@ -2829,7 +3202,14 @@ function setPatternViewerEditMode(enabled, shouldRender) {
 }
 
 function togglePatternViewerEditMode() {
-  setPatternViewerEditMode(!_patternViewerEditMode, true);
+  if (_patternEditCommitInFlight) return;
+  if (_patternViewerEditMode) {
+    flushPatternViewerDraftFromDom();
+    setPatternViewerEditMode(false, true);
+    commitPatternEditDraftIfNeeded();
+    return;
+  }
+  setPatternViewerEditMode(true, true);
 }
 
 async function handleDeletePattern() {
@@ -3064,6 +3444,14 @@ function normaliseMultilineText(value) {
     .replace(/\\r/g, '\n');
 }
 
+function normaliseListItemContent(item) {
+  if (Array.isArray(item)) return normaliseRichContent(item);
+  if (item && typeof item === 'object' && Array.isArray(item.content)) {
+    return normaliseRichContent(item.content);
+  }
+  return [];
+}
+
 function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
@@ -3094,6 +3482,18 @@ function normaliseRichContent(richContent) {
         isRedFinding: Boolean(chunk?.isRedFinding || chunk?.is_red_finding || chunk?.findingRed),
         linkMeta: normaliseSectionLinkForViewer(chunk?.linkMeta || chunk?.link_meta || null),
         content: normaliseRichContent(chunk?.content || [])
+      };
+    }
+
+    if (type === 'list') {
+      return {
+        type: 'list',
+        ordered: Boolean(chunk?.ordered),
+        items: Array.isArray(chunk?.items)
+          ? chunk.items.map(function(item) {
+              return normaliseListItemContent(item);
+            })
+          : []
       };
     }
 
