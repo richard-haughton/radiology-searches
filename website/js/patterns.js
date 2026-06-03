@@ -1858,6 +1858,36 @@ function hasDirtyPatternEditDraft(patternId) {
   return _patternEditDraft.patternId === safePatternId;
 }
 
+function isFirestorePermissionDeniedError(err) {
+  if (!err) return false;
+  if (String(err.code || '') === 'permission-denied') return true;
+  var msg = String(err.message || err || '').toLowerCase();
+  return msg.indexOf('insufficient privileges') >= 0 || msg.indexOf('permission denied') >= 0;
+}
+
+function withSyncTimeout(promise, timeoutMs) {
+  return new Promise(function(resolve, reject) {
+    var settled = false;
+    var timer = setTimeout(function() {
+      if (settled) return;
+      settled = true;
+      reject(new Error('sync-timeout'));
+    }, Math.max(1000, Number(timeoutMs) || 15000));
+
+    Promise.resolve(promise).then(function(value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    }).catch(function(err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
 function commitPatternEditDraftIfNeeded() {
   var pattern = getSelectedPattern();
   if (!pattern || !_pUid) return Promise.resolve();
@@ -1871,13 +1901,13 @@ function commitPatternEditDraftIfNeeded() {
   _patternEditCommitInFlight = true;
   updateSidebarButtons(Boolean(selectedPatternId));
 
-  return updatePattern(_pUid, pattern.id, {
+  return withSyncTimeout(updatePattern(_pUid, pattern.id, {
     name: pattern.name,
     modality: pattern.modality || 'Other',
     goalSeconds: pattern.goalSeconds,
     reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
     steps: pattern.steps || []
-  }).then(function() {
+  }), 15000).then(function() {
     if (_patternEditDraft && _patternEditDraft.patternId === patternId) {
       _patternEditDraft.dirty = false;
     }
@@ -1885,6 +1915,14 @@ function commitPatternEditDraftIfNeeded() {
     showToast('Saved edits to Firebase.');
   }).catch(function(err) {
     console.error(err);
+    if (isFirestorePermissionDeniedError(err)) {
+      showToast('Saved locally, but Firebase denied sync. Confirm Firestore permissions and signed-in account.', true);
+      return;
+    }
+    if (String(err && err.message || '') === 'sync-timeout') {
+      showToast('Saved locally. Firebase sync is taking too long (offline/network issue). Click Done Editing to retry.', true);
+      return;
+    }
     showToast('Saved locally, but failed to sync to Firebase. Click Done Editing again to retry.', true);
   }).finally(function() {
     _patternEditCommitInFlight = false;

@@ -147,7 +147,6 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('btn-sign-out').addEventListener('click', function() {
-    _modulesInitialised = false;
     appAuth.signOut();
   });
 

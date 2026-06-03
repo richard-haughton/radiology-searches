@@ -8,13 +8,23 @@ var filteredSharedPatterns = [];
 var sharedPatternMap = {};
 var activeDiscoverModality = 'All';
 var _unsubscribeSharedPatterns = null;
+var _unsubscribeUserPatterns = null;
 
 // ── Init ─────────────────────────────────────────────────────
 function initSharePatterns(userId) {
   _shareUid = userId;
 
+  if (typeof _unsubscribeUserPatterns === 'function') {
+    _unsubscribeUserPatterns();
+    _unsubscribeUserPatterns = null;
+  }
+  if (typeof _unsubscribeSharedPatterns === 'function') {
+    _unsubscribeSharedPatterns();
+    _unsubscribeSharedPatterns = null;
+  }
+
   // Load user's own patterns for sharing dropdown
-  subscribePatterns(_shareUid, patterns => {
+  _unsubscribeUserPatterns = subscribePatterns(_shareUid, patterns => {
     userPatterns = patterns;
     updateSharePatternSelect();
   });
@@ -301,6 +311,8 @@ function subscribeSharedPatterns(callback) {
         if (container) {
           container.innerHTML = '<p class="discover-empty">Shared patterns are unavailable until Firestore rules allow access.</p>';
         }
+        // Avoid noisy permission toasts when user is signing out.
+        if (!appAuth || !appAuth.currentUser) return;
         if (typeof showToast === 'function') {
           showToast('Shared patterns need Firestore permissions.', true);
         }
