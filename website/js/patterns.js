@@ -16,6 +16,10 @@ var pendingRecordPatternName = '';
 var pendingRecordSeconds = 0;
 var _unsubscribePatterns = null;
 var _patternSidebarCollapsed = false;
+var _findingsPanelCollapsed = false;
+var _findingsPanelWidth = 360;
+var _findingsPanelResizing = false;
+var _findingsPanelResizeBound = false;
 var _preferredStepIndex = null;
 var _openStepIndices = new Set();
 var _draggingPatternStepIndex = null;
@@ -26,6 +30,7 @@ var _stepTitleSaveInFlight = {};
 var _openFindingPanels = new Set();
 var _accordionMode = false;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
+var STEP_MAIN_SECTION_ORDER = ['searchPattern'];
 var STEP_SECTION_LABELS = {
   dontMissPathology: 'Findings',
   searchPattern: 'Search Pattern'
@@ -134,6 +139,7 @@ function initPatterns(userId) {
   _pUid = userId;
 
   initPatternSidebarToggle();
+  initPatternFindingsPanelToggle();
   loadStepSectionsOpenState();
   loadAccordionModeState();
   loadInlineEditorFontSizePreference();
@@ -795,6 +801,130 @@ function applyPatternSidebarState(collapsed, persist) {
   }
 }
 
+function initPatternFindingsPanelToggle() {
+  const panel = document.getElementById('pattern-findings-panel');
+  const btn = document.getElementById('btn-toggle-pattern-findings-panel');
+  if (!panel || !btn) return;
+
+  const saved = localStorage.getItem('patternFindingsPanelCollapsed');
+  applyPatternFindingsPanelState(saved === '1', false);
+
+  btn.addEventListener('click', () => {
+    applyPatternFindingsPanelState(!_findingsPanelCollapsed, true);
+  });
+
+  bindFindingsPanelResizeHandle();
+  loadPatternFindingsPanelWidth();
+}
+
+function applyPatternFindingsPanelState(collapsed, persist) {
+  const panel = document.getElementById('pattern-findings-panel');
+  const btn = document.getElementById('btn-toggle-pattern-findings-panel');
+  if (!panel || !btn) return;
+
+  _findingsPanelCollapsed = collapsed;
+  panel.classList.toggle('panel-collapsed', collapsed);
+
+  btn.textContent = collapsed ? '>' : '<';
+  btn.title = collapsed ? 'Expand findings window' : 'Minimize findings window';
+  btn.setAttribute('aria-label', collapsed ? 'Expand search pattern findings window' : 'Minimize search pattern findings window');
+  btn.setAttribute('aria-expanded', String(!collapsed));
+
+  if (collapsed) {
+    panel.style.removeProperty('width');
+    panel.style.removeProperty('min-width');
+  } else {
+    applyPatternFindingsPanelWidth(_findingsPanelWidth, false);
+  }
+
+  if (persist) {
+    localStorage.setItem('patternFindingsPanelCollapsed', collapsed ? '1' : '0');
+  }
+}
+
+function clampFindingsPanelWidth(width) {
+  const min = 280;
+  const viewport = window.innerWidth || 1440;
+  const max = Math.max(360, Math.floor(viewport * 0.62));
+  const next = Number(width);
+  if (!Number.isFinite(next)) return 360;
+  return Math.max(min, Math.min(max, Math.round(next)));
+}
+
+function applyPatternFindingsPanelWidth(width, persist) {
+  const panel = document.getElementById('pattern-findings-panel');
+  if (!panel) return;
+
+  if (_findingsPanelCollapsed) {
+    panel.style.removeProperty('width');
+    panel.style.removeProperty('min-width');
+    return;
+  }
+
+  if (window.matchMedia && window.matchMedia('(max-width: 980px)').matches) {
+    panel.style.removeProperty('width');
+    panel.style.removeProperty('min-width');
+    return;
+  }
+
+  _findingsPanelWidth = clampFindingsPanelWidth(width);
+  panel.style.width = _findingsPanelWidth + 'px';
+  panel.style.minWidth = _findingsPanelWidth + 'px';
+
+  if (persist) {
+    localStorage.setItem('patternFindingsPanelWidth', String(_findingsPanelWidth));
+  }
+}
+
+function loadPatternFindingsPanelWidth() {
+  const saved = localStorage.getItem('patternFindingsPanelWidth');
+  applyPatternFindingsPanelWidth(saved || _findingsPanelWidth, false);
+}
+
+function bindFindingsPanelResizeHandle() {
+  if (_findingsPanelResizeBound) return;
+
+  const handle = document.getElementById('pattern-findings-resize-handle');
+  const panel = document.getElementById('pattern-findings-panel');
+  if (!handle || !panel) return;
+
+  function stopResize() {
+    if (!_findingsPanelResizing) return;
+    _findingsPanelResizing = false;
+    document.body.classList.remove('is-resizing-findings-panel');
+    localStorage.setItem('patternFindingsPanelWidth', String(_findingsPanelWidth));
+  }
+
+  function onPointerMove(event) {
+    if (!_findingsPanelResizing || _findingsPanelCollapsed) return;
+    const viewport = window.innerWidth || 1440;
+    const desiredWidth = viewport - event.clientX;
+    applyPatternFindingsPanelWidth(desiredWidth, false);
+  }
+
+  handle.addEventListener('pointerdown', function(event) {
+    if (_findingsPanelCollapsed) return;
+    if (window.matchMedia && window.matchMedia('(max-width: 980px)').matches) return;
+    event.preventDefault();
+    _findingsPanelResizing = true;
+    document.body.classList.add('is-resizing-findings-panel');
+    if (typeof handle.setPointerCapture === 'function') {
+      handle.setPointerCapture(event.pointerId);
+    }
+  });
+
+  handle.addEventListener('pointermove', onPointerMove);
+  handle.addEventListener('pointerup', stopResize);
+  handle.addEventListener('pointercancel', stopResize);
+  window.addEventListener('pointerup', stopResize);
+  window.addEventListener('resize', function() {
+    if (_findingsPanelCollapsed) return;
+    applyPatternFindingsPanelWidth(_findingsPanelWidth, false);
+  });
+
+  _findingsPanelResizeBound = true;
+}
+
 // ── Filter & Render list ─────────────────────────────────────
 function applyFilters() {
   const q = document.getElementById('pattern-filter').value.trim().toLowerCase();
@@ -922,6 +1052,7 @@ function renderCurrentStep(pattern) {
     const emptyMsg = document.createElement('p');
     emptyMsg.textContent = 'This pattern has no steps yet.';
     emptyEl.appendChild(emptyMsg);
+    renderCurrentStepFindings(pattern, null, -1, 0);
 
     if (_patternViewerEditMode) {
       const addBtn = document.createElement('button');
@@ -1110,11 +1241,23 @@ function renderCurrentStep(pattern) {
   });
 
   contentEl.appendChild(list);
+  renderCurrentStepFindings(pattern, currentStep, currentStepIndex, steps.length);
 
   const activeItem = list.querySelector(`[data-step-index="${currentStepIndex}"]`);
   if (activeItem && _openStepIndices.has(currentStepIndex)) {
     requestAnimationFrame(() => {
-      activeItem.scrollIntoView({ block: 'nearest' });
+      const viewer = document.getElementById('step-viewer');
+      const header = document.getElementById('step-header');
+      if (!viewer) {
+        activeItem.scrollIntoView({ block: 'start' });
+        return;
+      }
+
+      const viewerRect = viewer.getBoundingClientRect();
+      const itemRect = activeItem.getBoundingClientRect();
+      const headerHeight = header && header.style.display !== 'none' ? header.offsetHeight : 0;
+      const targetTop = viewer.scrollTop + (itemRect.top - viewerRect.top) - headerHeight - 8;
+      viewer.scrollTo({ top: Math.max(0, targetTop) });
     });
   }
 
@@ -1123,6 +1266,61 @@ function renderCurrentStep(pattern) {
   }
 
   syncInlineToolbarOffset();
+}
+
+function renderCurrentStepFindings(pattern, step, stepIndex, stepsLength) {
+  const contentEl = document.getElementById('pattern-findings-content');
+  if (!contentEl) return;
+
+  const safePattern = pattern || null;
+  const safeStep = step || null;
+  const displayStepIndex = Number.isInteger(stepIndex) && stepIndex >= 0 ? stepIndex : -1;
+
+  contentEl.innerHTML = '';
+  contentEl.classList.toggle('step-content-edit-mode', Boolean(_patternViewerEditMode));
+
+  if (!safeStep) {
+    const empty = document.createElement('p');
+    empty.className = 'step-section-empty';
+    empty.textContent = safePattern ? 'Select a step to view findings.' : 'Select a pattern to see findings.';
+    contentEl.appendChild(empty);
+    return;
+  }
+
+  const sections = normaliseStepSectionsSafe(safeStep.sections, safeStep.richContent || []);
+  const findings = sections.dontMissPathology || [];
+
+  if (findings.length) {
+    renderNestedSubsections(contentEl, findings, displayStepIndex);
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'step-section-empty';
+    empty.textContent = 'No findings yet.';
+    contentEl.appendChild(empty);
+  }
+
+  if (_patternViewerEditMode) {
+    const actions = document.createElement('div');
+    actions.className = 'pattern-findings-actions';
+
+    const addFindingBtn = document.createElement('button');
+    addFindingBtn.type = 'button';
+    addFindingBtn.className = 'btn btn-ghost btn-sm';
+    addFindingBtn.textContent = 'Add Finding';
+    addFindingBtn.addEventListener('click', function() {
+      if (typeof openCreateFindingModal === 'function') {
+        openCreateFindingModal({
+          patternId: safePattern && safePattern.id ? safePattern.id : selectedPatternId,
+          stepIndex: displayStepIndex >= 0 ? displayStepIndex : currentStepIndex
+        });
+      } else {
+        showToast('Finding creation is unavailable right now.', true);
+      }
+    });
+
+    actions.appendChild(addFindingBtn);
+    contentEl.appendChild(actions);
+  }
 }
 
 function moveStepIndexOrder(length, fromIndex, toIndex) {
@@ -1418,80 +1616,10 @@ function renderStepSections(container, step, stepIndex) {
     container.appendChild(titleEditWrap);
   }
 
-  STEP_SECTION_ORDER.forEach(key => {
-    const sectionWrap = document.createElement('section');
-    sectionWrap.className = 'step-section';
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'step-section-toggle';
-    const isOpen = isStepSectionOpen(key);
-    btn.setAttribute('aria-expanded', String(isOpen));
-    btn.innerHTML = `
-      <span>${STEP_SECTION_LABELS[key] || key}</span>
-      <span class="step-section-chevron" aria-hidden="true">${isOpen ? '▾' : '▸'}</span>
-    `;
-
-    const panel = document.createElement('div');
-    panel.className = 'step-section-panel';
-    if (!isOpen) panel.style.display = 'none';
-
-    const panelInner = document.createElement('div');
-    panelInner.className = 'step-section-content';
-    const content = sections[key] || [];
-    if (key === 'searchPattern') {
-      renderSearchPatternContent(panelInner, content, Boolean(step.isRedStep));
-    } else if (content.length) {
-      if (SECTION_WITH_SUBSECTIONS_KEYS.indexOf(key) !== -1) {
-        renderNestedSubsections(panelInner, content, stepIndex);
-      } else {
-        renderRichContent(panelInner, content);
-      }
-    } else {
-      const empty = document.createElement('p');
-      empty.className = 'step-section-empty';
-      empty.textContent = 'No content yet.';
-      panelInner.appendChild(empty);
-    }
-
-    if (key === 'dontMissPathology' && _patternViewerEditMode) {
-      const actions = document.createElement('div');
-      actions.className = 'step-section-actions';
-
-      const addFindingBtn = document.createElement('button');
-      addFindingBtn.type = 'button';
-      addFindingBtn.className = 'btn btn-ghost step-section-action-btn';
-      addFindingBtn.textContent = 'Add Finding';
-      addFindingBtn.addEventListener('click', function() {
-        if (typeof openCreateFindingModal === 'function') {
-          openCreateFindingModal({
-            patternId: selectedPatternId,
-            stepIndex: stepIndex
-          });
-        } else {
-          showToast('Finding creation is unavailable right now.', true);
-        }
-      });
-
-      actions.appendChild(addFindingBtn);
-      panelInner.appendChild(actions);
-    }
-
-    panel.appendChild(panelInner);
-
-    btn.addEventListener('click', () => {
-      const nextOpen = !isStepSectionOpen(key);
-      setStepSectionOpenState(key, nextOpen);
-      btn.setAttribute('aria-expanded', String(nextOpen));
-      panel.style.display = nextOpen ? '' : 'none';
-      const chevron = btn.querySelector('.step-section-chevron');
-      if (chevron) chevron.textContent = nextOpen ? '▾' : '▸';
-    });
-
-    sectionWrap.appendChild(btn);
-    sectionWrap.appendChild(panel);
-    container.appendChild(sectionWrap);
-  });
+  const searchPatternWrap = document.createElement('div');
+  searchPatternWrap.className = 'step-search-pattern-content';
+  renderSearchPatternContent(searchPatternWrap, sections.searchPattern || [], Boolean(step.isRedStep));
+  container.appendChild(searchPatternWrap);
 }
 
 async function savePatternStepTitle(stepIndex, nextTitleRaw) {
@@ -2196,12 +2324,13 @@ function clearStepView() {
   document.getElementById('step-content').style.display = 'none';
   _openStepIndices = new Set();
   updateExpandAllButton(0);
+  setPatternViewerEditMode(false, false);
+  renderCurrentStepFindings(null, null, -1, 0);
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = 'none';
   stopTimer();
   timerGoalSeconds = null;
   renderGoalStatus();
-  setPatternViewerEditMode(false, false);
 }
 
 function updatePatternStepAddButton() {

@@ -271,6 +271,136 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
+}
+.patterns-workspace {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  overflow: hidden;
+  min-height: 0;
+}
+.step-viewer {
+  flex: 1;
+  min-width: 0;
+}
+.pattern-findings-panel {
+  position: relative;
+  width: 360px;
+  min-width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--line);
+  background: rgba(255,255,255,0.72);
+  box-shadow: inset 1px 0 0 rgba(18, 48, 34, 0.05);
+  transition: width 180ms ease, min-width 180ms ease, background 180ms ease, opacity 180ms ease;
+}
+.pattern-findings-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 2;
+  background: transparent;
+}
+.pattern-findings-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: rgba(16, 36, 24, 0.12);
+  transition: background var(--transition);
+}
+.pattern-findings-resize-handle:hover::after {
+  background: rgba(18, 95, 73, 0.45);
+}
+.pattern-findings-panel.panel-collapsed {
+  width: 40px;
+  min-width: 40px;
+}
+.pattern-findings-panel.panel-collapsed .pattern-findings-resize-handle {
+  display: none;
+}
+.pattern-findings-panel.panel-collapsed .pattern-findings-header {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 12px 6px;
+  gap: 8px;
+}
+.pattern-findings-panel.panel-collapsed .pattern-findings-header-text,
+.pattern-findings-panel.panel-collapsed .pattern-findings-body {
+  display: none;
+}
+.pattern-findings-panel.panel-collapsed .pattern-findings-toggle {
+  width: 28px;
+}
+.pattern-findings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,0.86);
+  flex-shrink: 0;
+}
+.pattern-findings-header-text {
+  min-width: 0;
+}
+.pattern-findings-eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.pattern-findings-title {
+  font-size: 1.06rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.pattern-findings-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.92);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.pattern-findings-toggle:hover {
+  background: #f0f6f2;
+  color: var(--ink);
+}
+.pattern-findings-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.pattern-findings-content {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px 16px 16px 18px;
+}
+.pattern-findings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .timer-bar {
@@ -805,6 +935,28 @@ body {
 .step-section-inline-body {
   flex: 1;
   min-width: 0;
+}
+
+@media (max-width: 980px) {
+  .patterns-workspace {
+    flex-direction: column;
+  }
+
+  .pattern-findings-panel {
+    width: auto;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .pattern-findings-resize-handle {
+    display: none;
+  }
+
+  .pattern-findings-panel.panel-collapsed {
+    width: auto;
+    min-width: 0;
+  }
 }
 
 /* ============================================================
@@ -2239,6 +2391,20 @@ html.dark .rich-tool-white {
 html.dark .rich-editor              { background: #14241b; border-color: #2b4337; color: #d8ead9; }
 html.dark .rich-editor:focus        { border-color: #4b7a5f; }
 html.dark .rich-editor.rich-editor-readonly { background: #2a4438; border-color: #3e6551; }
+html.dark .pattern-findings-panel    { background: #16271d; border-color: #2b4337; }
+html.dark .pattern-findings-resize-handle::after { background: rgba(138, 184, 157, 0.24); }
+html.dark .pattern-findings-resize-handle:hover::after { background: rgba(138, 184, 157, 0.58); }
+html.dark .pattern-findings-header   { background: #1b2f24; border-bottom-color: #2b4337; }
+html.dark .pattern-findings-eyebrow  { color: #99baa8; }
+html.dark .pattern-findings-title     { color: #d6ead8; }
+html.dark .pattern-findings-toggle    { background: #203528; border-color: #2b4337; color: #8ab89d; }
+html.dark .pattern-findings-toggle:hover { background: #284333; color: #d6ead8; }
+
+body.is-resizing-findings-panel,
+body.is-resizing-findings-panel * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
 
 /* Clear visual distinction in edit mode: lighter green surface while editable. */
 html.dark .step-content.step-content-edit-mode .step-section,
