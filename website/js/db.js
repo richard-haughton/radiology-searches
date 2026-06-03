@@ -338,7 +338,7 @@ function _buildLeanPatternStepsForStorage(steps) {
   var cloned = JSON.parse(JSON.stringify(steps || []));
   return cloned.map(function(step) {
     var nextStep = Object.assign({}, step);
-    var sections = normaliseStepSections(nextStep.sections, nextStep.richContent || []);
+    var sections = cloneStepSectionsForStorage(nextStep.sections, nextStep.richContent || []);
     sections.dontMissPathology = (sections.dontMissPathology || []).map(function(item) {
       if (!item || item.type !== 'subsection') return item;
       return Object.assign({}, item, {
