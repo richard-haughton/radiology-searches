@@ -15,6 +15,44 @@ function stripStepTitleNumbering(title) {
 
 var STEP_SECTION_KEYS = ['searchPattern', 'dontMissPathology', 'measurements', 'hyperlinks', 'images'];
 var FINDINGS_BATCH_SIZE = 400;
+var FIRESTORE_WRITE_COOLDOWN_MS = 30000;
+var _firestoreWriteBlockedUntil = 0;
+
+function _isFirestoreWriteOverloadError(err) {
+  if (!err) return false;
+  var code = String(err.code || '').toLowerCase();
+  if (code === 'resource-exhausted') return true;
+  var msg = String(err.message || err || '').toLowerCase();
+  if (msg.indexOf('write stream exhausted') >= 0) return true;
+  if (msg.indexOf('queued writes') >= 0) return true;
+  if (msg.indexOf('maximum allowed queued writes') >= 0) return true;
+  if (msg.indexOf('resource exhausted') >= 0) return true;
+  return false;
+}
+
+function _makeFirestoreWriteCooldownError(waitMs) {
+  var ms = Math.max(0, Number(waitMs) || 0);
+  var err = new Error('Firestore write queue is overloaded. Please retry in ' + (Math.ceil(ms / 1000) || 1) + 's.');
+  err.code = 'resource-exhausted';
+  err.retryAfterMs = ms;
+  err.isWriteCooldown = true;
+  return err;
+}
+
+function _runFirestoreWrite(workFn) {
+  var now = Date.now();
+  if (_firestoreWriteBlockedUntil > now) {
+    return Promise.reject(_makeFirestoreWriteCooldownError(_firestoreWriteBlockedUntil - now));
+  }
+  return Promise.resolve().then(function() {
+    return workFn();
+  }).catch(function(err) {
+    if (_isFirestoreWriteOverloadError(err)) {
+      _firestoreWriteBlockedUntil = Date.now() + FIRESTORE_WRITE_COOLDOWN_MS;
+    }
+    throw err;
+  });
+}
 
 function _normaliseFindingName(name) {
   return String(name || '')
@@ -405,7 +443,7 @@ function _commitFindingOps(uid, ops) {
       }
     });
 
-    return batch.commit().then(function() {
+    return _runFirestoreWrite(function() { return batch.commit(); }).then(function() {
       return commitChunk(index + FINDINGS_BATCH_SIZE);
     });
   }
@@ -879,16 +917,20 @@ function updatePattern(uid, patternId, data) {
 
 function updatePatternGoalSeconds(uid, patternId, goalSeconds) {
   var normalisedGoal = _normaliseGoalSeconds(goalSeconds, null);
-  return _patternsRef(uid).doc(patternId).update({
-    goalSeconds: normalisedGoal,
-    updatedAt: _now()
+  return _runFirestoreWrite(function() {
+    return _patternsRef(uid).doc(patternId).update({
+      goalSeconds: normalisedGoal,
+      updatedAt: _now()
+    });
   });
 }
 
 function updatePatternReportConfig(uid, patternId, reportConfig) {
-  return _patternsRef(uid).doc(patternId).update({
-    reportConfig: reportConfig && typeof reportConfig === 'object' ? reportConfig : null,
-    updatedAt: _now()
+  return _runFirestoreWrite(function() {
+    return _patternsRef(uid).doc(patternId).update({
+      reportConfig: reportConfig && typeof reportConfig === 'object' ? reportConfig : null,
+      updatedAt: _now()
+    });
   });
 }
 
@@ -1073,7 +1115,7 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
         updatedAt: _now()
       });
     });
-    return batch.commit().then(function() { return commitChunk(i + CHUNK); });
+    return _runFirestoreWrite(function() { return batch.commit(); }).then(function() { return commitChunk(i + CHUNK); });
   }
 
   return commitChunk(0).then(function() { return patternsToUpdate.length; });
@@ -1229,19 +1271,25 @@ function upsertReportTemplate(uid, templateId, data) {
   }
 
   if (templateId) {
-    return _reportTemplatesRef(uid).doc(templateId).set(payload, { merge: true }).then(function() {
+    return _runFirestoreWrite(function() {
+      return _reportTemplatesRef(uid).doc(templateId).set(payload, { merge: true });
+    }).then(function() {
       return templateId;
     });
   }
 
   payload.createdAt = _now();
-  return _reportTemplatesRef(uid).add(payload).then(function(ref) {
+  return _runFirestoreWrite(function() {
+    return _reportTemplatesRef(uid).add(payload);
+  }).then(function(ref) {
     return ref.id;
   });
 }
 
 function deleteReportTemplate(uid, templateId) {
-  return _reportTemplatesRef(uid).doc(templateId).delete();
+  return _runFirestoreWrite(function() {
+    return _reportTemplatesRef(uid).doc(templateId).delete();
+  });
 }
 
 // ── Study Log ─────────────────────────────────────────────────
@@ -1254,18 +1302,22 @@ function subscribeStudyLog(uid, callback) {
 
 function addStudyLogEntry(uid, data) {
   var today = new Date().toISOString().split('T')[0];
-  return _studyLogRef(uid).add({
-    study: data.study,
-    seconds: data.seconds,
-    duration: data.duration,
-    rvu: (data.rvu !== null && data.rvu !== undefined && data.rvu !== '') ? Number(data.rvu) : null,
-    timestamp: _now(),
-    date: today
+  return _runFirestoreWrite(function() {
+    return _studyLogRef(uid).add({
+      study: data.study,
+      seconds: data.seconds,
+      duration: data.duration,
+      rvu: (data.rvu !== null && data.rvu !== undefined && data.rvu !== '') ? Number(data.rvu) : null,
+      timestamp: _now(),
+      date: today
+    });
   }).then(function(ref) { return ref.id; });
 }
 
 function deleteStudyLogEntry(uid, logId) {
-  return _studyLogRef(uid).doc(logId).delete();
+  return _runFirestoreWrite(function() {
+    return _studyLogRef(uid).doc(logId).delete();
+  });
 }
 
 function updateStudyLogEntry(uid, logId, data) {
@@ -1275,7 +1327,9 @@ function updateStudyLogEntry(uid, logId, data) {
     duration: data.duration,
     rvu: (data.rvu !== null && data.rvu !== undefined && data.rvu !== '') ? Number(data.rvu) : null
   };
-  return _studyLogRef(uid).doc(logId).update(updateData);
+  return _runFirestoreWrite(function() {
+    return _studyLogRef(uid).doc(logId).update(updateData);
+  });
 }
 
 // ── Batch imports ─────────────────────────────────────────────
@@ -1298,7 +1352,7 @@ function batchImportPatterns(uid, patterns, onProgress) {
         updatedAt: firebase.firestore.Timestamp.now()
       });
     });
-    return batch.commit().then(function() {
+    return _runFirestoreWrite(function() { return batch.commit(); }).then(function() {
       done += chunk.length;
       if (onProgress) onProgress(done, patterns.length);
       return nextChunk(i + CHUNK);
@@ -1330,7 +1384,7 @@ function batchImportStudyLog(uid, rows, onProgress) {
         timestamp: ts
       });
     });
-    return batch.commit().then(function() {
+    return _runFirestoreWrite(function() { return batch.commit(); }).then(function() {
       done += chunk.length;
       if (onProgress) onProgress(done, rows.length);
       return nextChunk(i + CHUNK);

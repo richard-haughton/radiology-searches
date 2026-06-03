@@ -2597,6 +2597,11 @@ async function savePattern() {
   } catch (err) {
     console.error(err);
     const message = String(err && err.message ? err.message : err || '');
+    if (String(err && err.code || '') === 'resource-exhausted') {
+      const waitMs = Number(err && err.retryAfterMs);
+      const waitText = Number.isFinite(waitMs) && waitMs > 0 ? ` Retry in ${Math.ceil(waitMs / 1000)}s.` : '';
+      showToast('Firebase write queue is overloaded.' + waitText, true);
+    } else
     if (/exceeds the maximum allowed size|cannot be written because its size/i.test(message)) {
       showToast('Failed to save: pattern is still too large. Try fewer/smaller images in this step.', true);
     } else {

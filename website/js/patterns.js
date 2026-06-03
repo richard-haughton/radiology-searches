@@ -1915,6 +1915,12 @@ function commitPatternEditDraftIfNeeded() {
     showToast('Saved edits to Firebase.');
   }).catch(function(err) {
     console.error(err);
+    if (String(err && err.code || '') === 'resource-exhausted') {
+      var waitMs = Number(err && err.retryAfterMs);
+      var waitText = Number.isFinite(waitMs) && waitMs > 0 ? (' Retry in ' + Math.ceil(waitMs / 1000) + 's.') : '';
+      showToast('Saved locally, but Firebase write queue is overloaded.' + waitText, true);
+      return;
+    }
     if (isFirestorePermissionDeniedError(err)) {
       showToast('Saved locally, but Firebase denied sync. Confirm Firestore permissions and signed-in account.', true);
       return;
