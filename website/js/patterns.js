@@ -47,16 +47,7 @@ var _stepSectionsOpenState = {
 };
 var _inlineToolbarOffsetBound = false;
 var _inlineEditorFontSize = 'md';
-var _voiceRecognition = null;
-var _voiceRecognitionEnabled = false;
-var _voiceRecognitionRestartTimer = null;
 var _yellowMarkedStepKeys = new Set();
-
-var VOICE_COMMAND_PREFIXES = [
-  'radiology',
-  'assistant',
-  'searches'
-];
 
 function getCleanStepTitle(title) {
   if (typeof stripStepTitleNumbering === 'function') {
@@ -175,6 +166,7 @@ function initPatterns(userId) {
   });
 
   // Timer controls
+  document.getElementById('btn-start-timer').addEventListener('click', handleStartTimer);
   document.getElementById('btn-record-study').addEventListener('click', openRecordModal);
   document.getElementById('btn-stop-timer').addEventListener('click', stopTimer);
   document.getElementById('btn-save-study-goal').addEventListener('click', saveStudyGoal);
@@ -184,6 +176,7 @@ function initPatterns(userId) {
       saveStudyGoal();
     }
   });
+  updateTimerActionButtons();
 
   // Record modal
   document.getElementById('btn-record-confirm').addEventListener('click', confirmRecord);
@@ -214,367 +207,6 @@ function initPatterns(userId) {
 
   // Keyboard navigation
   document.addEventListener('keydown', handleKeydown);
-
-  bindVoiceToggleButton();
-
-  // Voice command navigation
-  initVoiceCommands();
-}
-
-function isVoiceRecognitionSupported() {
-  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
-}
-
-function updateVoiceToggleButton() {
-  var btn = document.getElementById('btn-voice-toggle');
-  if (!btn) return;
-
-  if (!isVoiceRecognitionSupported()) {
-    btn.disabled = true;
-    btn.textContent = 'Mic Unavailable';
-    btn.title = 'Voice commands are not supported in this browser.';
-    btn.setAttribute('aria-pressed', 'false');
-    btn.classList.remove('btn-accent');
-    btn.classList.add('btn-ghost');
-    return;
-  }
-
-  btn.disabled = false;
-  btn.textContent = _voiceRecognitionEnabled ? 'Mic On' : 'Mic Off';
-  btn.title = _voiceRecognitionEnabled ? 'Turn voice commands off' : 'Turn voice commands on';
-  btn.setAttribute('aria-pressed', _voiceRecognitionEnabled ? 'true' : 'false');
-  btn.classList.toggle('btn-accent', _voiceRecognitionEnabled);
-  btn.classList.toggle('btn-ghost', !_voiceRecognitionEnabled);
-}
-
-function bindVoiceToggleButton() {
-  var btn = document.getElementById('btn-voice-toggle');
-  if (!btn) return;
-
-  updateVoiceToggleButton();
-  btn.addEventListener('click', function() {
-    if (!isVoiceRecognitionSupported()) {
-      showToast('Voice commands are not supported in this browser.', true);
-      return;
-    }
-    setVoiceCommandsEnabled(!_voiceRecognitionEnabled, { silent: false });
-  });
-}
-
-function setVoiceCommandsEnabled(enabled, options) {
-  var opts = options || {};
-  var nextEnabled = Boolean(enabled);
-
-  if (nextEnabled) {
-    if (!_voiceRecognition) {
-      initVoiceCommands();
-    }
-    if (!_voiceRecognition) {
-      updateVoiceToggleButton();
-      if (!opts.silent) {
-        showToast('Voice commands are not supported in this browser.', true);
-      }
-      return;
-    }
-
-    _voiceRecognitionEnabled = true;
-    updateVoiceToggleButton();
-    startVoiceRecognition();
-    if (!opts.silent) {
-      showToast('Voice commands enabled.');
-    }
-    return;
-  }
-
-  _voiceRecognitionEnabled = false;
-  clearTimeout(_voiceRecognitionRestartTimer);
-  _voiceRecognitionRestartTimer = null;
-  if (_voiceRecognition) {
-    try {
-      _voiceRecognition.stop();
-    } catch (_) {
-      // no-op
-    }
-  }
-  updateVoiceToggleButton();
-  if (!opts.silent) {
-    showToast('Voice commands disabled.');
-  }
-}
-
-function initVoiceCommands() {
-  var RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!RecognitionCtor) {
-    updateVoiceToggleButton();
-    return;
-  }
-
-  if (_voiceRecognition) {
-    updateVoiceToggleButton();
-    return;
-  }
-
-  var recognition = new RecognitionCtor();
-  recognition.continuous = true;
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 3;
-  recognition.lang = 'en-US';
-
-  recognition.addEventListener('result', handleVoiceRecognitionResult);
-  recognition.addEventListener('end', function() {
-    if (!_voiceRecognitionEnabled) return;
-    queueVoiceRecognitionRestart();
-  });
-  recognition.addEventListener('error', function(evt) {
-    // Avoid aggressive restart loops when permission or capture is unavailable.
-    var code = String((evt && evt.error) || '').trim();
-    if (code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture') {
-      _voiceRecognitionEnabled = false;
-        updateVoiceToggleButton();
-      if (code === 'not-allowed' || code === 'service-not-allowed') {
-        showToast('Voice commands were blocked by browser permissions.', true);
-      }
-      return;
-    }
-    if (_voiceRecognitionEnabled) {
-      queueVoiceRecognitionRestart();
-    }
-  });
-
-  _voiceRecognition = recognition;
-  updateVoiceToggleButton();
-
-  window.addEventListener('focus', function() {
-    if (_voiceRecognitionEnabled) {
-      queueVoiceRecognitionRestart();
-    }
-  });
-
-  window.addEventListener('blur', function() {
-    if (!_voiceRecognitionEnabled || !_voiceRecognition) return;
-    clearTimeout(_voiceRecognitionRestartTimer);
-    _voiceRecognitionRestartTimer = null;
-    try {
-      _voiceRecognition.stop();
-    } catch (_) {
-      // no-op
-    }
-  });
-
-  document.addEventListener('visibilitychange', function() {
-    if (!_voiceRecognition) return;
-    if (document.visibilityState === 'visible') {
-      if (_voiceRecognitionEnabled) {
-        queueVoiceRecognitionRestart();
-      }
-      return;
-    }
-
-    try {
-      _voiceRecognition.stop();
-    } catch (_) {
-      // no-op
-    }
-  });
-
-  setVoiceCommandsEnabled(false, { silent: true });
-}
-
-function startVoiceRecognition() {
-  if (!_voiceRecognition) return;
-  if (!document.hasFocus() || document.visibilityState !== 'visible') return;
-
-  _voiceRecognitionEnabled = true;
-  clearTimeout(_voiceRecognitionRestartTimer);
-  _voiceRecognitionRestartTimer = null;
-  try {
-    _voiceRecognition.start();
-  } catch (_) {
-    // Ignore InvalidStateError when already started.
-  }
-}
-
-function queueVoiceRecognitionRestart() {
-  if (!_voiceRecognitionEnabled || !_voiceRecognition) return;
-  clearTimeout(_voiceRecognitionRestartTimer);
-  _voiceRecognitionRestartTimer = setTimeout(function() {
-    if (!document.hasFocus() || document.visibilityState !== 'visible') return;
-    try {
-      _voiceRecognition.start();
-    } catch (_) {
-      // Ignore InvalidStateError when already started.
-    }
-  }, 350);
-}
-
-function refreshVoiceRecognitionSession() {
-  if (!_voiceRecognitionEnabled || !_voiceRecognition) return;
-  clearTimeout(_voiceRecognitionRestartTimer);
-  _voiceRecognitionRestartTimer = null;
-  try {
-    _voiceRecognition.stop();
-  } catch (_) {
-    // no-op
-  }
-  queueVoiceRecognitionRestart();
-}
-
-function handleVoiceRecognitionResult(event) {
-  if (!event || !event.results) return;
-
-  for (var i = event.resultIndex; i < event.results.length; i += 1) {
-    var result = event.results[i];
-    if (!result || !result.isFinal || !result[0]) continue;
-    var transcript = String(result[0].transcript || '').trim();
-    if (!transcript) continue;
-    if (handleVoiceCommandTranscript(transcript)) {
-      refreshVoiceRecognitionSession();
-      return;
-    }
-  }
-}
-
-function normaliseVoiceCommandText(text) {
-  var cleaned = String(text || '').toLowerCase();
-  cleaned = cleaned
-    .replace(/[.,!?;:]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  for (var i = 0; i < VOICE_COMMAND_PREFIXES.length; i += 1) {
-    var prefix = VOICE_COMMAND_PREFIXES[i] + ' ';
-    if (cleaned.indexOf(prefix) === 0) {
-      cleaned = cleaned.slice(prefix.length).trim();
-      break;
-    }
-  }
-
-  return cleaned;
-}
-
-function canHandleVoiceCommandsNow() {
-  if (!document.hasFocus() || document.visibilityState !== 'visible') return false;
-  var panel = document.getElementById('panel-patterns');
-  if (!panel || !panel.classList.contains('active')) return false;
-
-  var active = document.activeElement;
-  if (!active) return true;
-  var tag = String(active.tagName || '').toUpperCase();
-  var isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
-  return !isEditing;
-}
-
-function handleVoiceCommandTranscript(transcript) {
-  if (!canHandleVoiceCommandsNow()) return false;
-  var text = normaliseVoiceCommandText(transcript);
-  if (!text) return false;
-
-  if (text === 'mark' || text === 'mark step' || text === 'mark current step') {
-    if (markCurrentStepYellow()) {
-      showToast('Marked current step in yellow.');
-    }
-    return true;
-  }
-
-  if (text.indexOf('mark ') === 0) {
-    var markTarget = text.replace(/^mark\s+/i, '').trim();
-    if (!markTarget || markTarget === 'current step') {
-      if (markCurrentStepYellow()) {
-        showToast('Marked current step in yellow.');
-      }
-      return true;
-    }
-
-    if (markStepYellowByTarget(markTarget)) {
-      showToast('Marked matching step in yellow.');
-    } else {
-      showToast('Could not find a matching step to mark.', true);
-    }
-    return true;
-  }
-
-  if (text === 'next' || text === 'next step') {
-    navigateStep(1, { wrap: true });
-    return true;
-  }
-
-  if (text === 'previous' || text === 'previous step' || text === 'back' || text === 'prior step') {
-    navigateStep(-1, { wrap: true });
-    return true;
-  }
-
-  if (text.indexOf('set goal') === 0) {
-    handleSetGoalVoiceCommand(text);
-    return true;
-  }
-
-  if (text === 'reset timer' || text === 'restart timer' || text === 'reset study timer' || text === 'start timer over') {
-    resetStudyTimerFromVoice();
-    return true;
-  }
-
-  if (text === 'record' || text === 'record study' || text === 'record this study' || text === 'save study') {
-    openRecordModal();
-    return true;
-  }
-
-  if (text.indexOf('go to') === 0) {
-    handleGoToVoiceCommand(text);
-    return true;
-  }
-
-  return false;
-}
-
-function extractMinutesFromVoiceText(text) {
-  var match = String(text || '').match(/(?:set\s+goal\s*)(\d+(?:\.\d+)?)/i);
-  if (!match) return null;
-  var minutes = Number(match[1]);
-  if (!Number.isFinite(minutes) || minutes <= 0) return null;
-  return minutes;
-}
-
-function handleSetGoalVoiceCommand(text) {
-  var input = document.getElementById('timer-goal-minutes');
-  if (!input) return;
-
-  var minutes = extractMinutesFromVoiceText(text);
-  if (minutes === null) {
-    var prompted = window.prompt('Set goal time in minutes:', input.value || '');
-    if (prompted === null) return;
-    minutes = Number(String(prompted || '').trim());
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      showToast('Goal minutes must be a positive number.', true);
-      return;
-    }
-  }
-
-  input.value = String(Math.max(1, Math.round(minutes)));
-  saveStudyGoal();
-}
-
-function resetStudyTimerFromVoice() {
-  var pattern = getSelectedPattern();
-  if (!pattern) {
-    showToast('Select a pattern before resetting the timer.', true);
-    return;
-  }
-
-  clearYellowStepMarks();
-
-  if (timerRunning) {
-    timerSeconds = 0;
-    timerStartWallTime = Date.now();
-    updateTimerDisplay();
-    renderCurrentStep(pattern);
-    showToast('Timer reset.');
-    return;
-  }
-
-  stopTimer();
-  startTimer(pattern);
-  renderCurrentStep(pattern);
-  showToast('Timer started at 0:00.');
 }
 
 function extractStepSearchText(step, fallbackNumber) {
@@ -617,60 +249,6 @@ function parseGoToTarget(text) {
   }
 
   return { type: 'query', value: cleaned.toLowerCase() };
-}
-
-function handleGoToVoiceCommand(text) {
-  var pattern = getSelectedPattern();
-  if (!pattern) return;
-
-  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
-  if (!steps.length) return;
-
-  var tail = String(text || '').replace(/^go\s+to\s*/i, '').trim();
-  if (!tail) {
-    showToast('Say "go to" followed by a step number or phrase.', true);
-    return;
-  }
-
-  var target = parseGoToTarget(tail);
-  if (target.type === 'index') {
-    if (target.value < 0 || target.value >= steps.length) {
-      showToast('Step number is out of range.', true);
-      return;
-    }
-    currentStepIndex = target.value;
-    _openStepIndices = new Set([target.value]);
-    renderCurrentStep(pattern);
-    focusCurrentStepToggle(target.value);
-    return;
-  }
-
-  if (target.type === 'query') {
-    var queryWords = target.value.split(/\s+/).filter(Boolean);
-    var bestIndex = -1;
-
-    for (var i = 0; i < steps.length; i += 1) {
-      var step = resolveLinkedStep(steps[i]);
-      var haystack = extractStepSearchText(step, i + 1);
-      var matched = queryWords.every(function(word) {
-        return haystack.indexOf(word) !== -1;
-      });
-      if (matched) {
-        bestIndex = i;
-        break;
-      }
-    }
-
-    if (bestIndex < 0) {
-      showToast('Could not find a matching step for that command.', true);
-      return;
-    }
-
-    currentStepIndex = bestIndex;
-    _openStepIndices = new Set([bestIndex]);
-    renderCurrentStep(pattern);
-    focusCurrentStepToggle(bestIndex);
-  }
 }
 
 function focusCurrentStepToggle(stepIndex) {
@@ -978,10 +556,12 @@ function loadPattern(id, preferredStepIndex) {
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
     currentStepIndex = Math.max(0, Math.min(preferredStepIndex, steps.length - 1));
-    _openStepIndices = _patternViewerEditMode ? new Set() : new Set([currentStepIndex]);
+    _openStepIndices = _patternViewerEditMode ? new Set([currentStepIndex]) : new Set([currentStepIndex]);
   } else {
     currentStepIndex = 0;
-    _openStepIndices = _patternViewerEditMode ? new Set() : (steps.length ? new Set([0]) : new Set());
+    _openStepIndices = _patternViewerEditMode
+      ? (steps.length ? new Set([currentStepIndex]) : new Set())
+      : (steps.length ? new Set([0]) : new Set());
   }
   updateSidebarButtons(true);
 
@@ -1000,6 +580,7 @@ function loadPattern(id, preferredStepIndex) {
       if (timerBar) timerBar.style.display = '';
     }
     updateTimerDisplay();
+    updateTimerActionButtons();
   }
 
   renderCurrentStep(pattern);
@@ -1366,7 +947,9 @@ async function reorderPatternSteps(pattern, fromIndex, toIndex) {
   const nextCurrentStepIndex = order.indexOf(previousCurrentStepIndex);
 
   pattern.steps = nextSteps;
-  _openStepIndices = _patternViewerEditMode ? new Set() : remapOpenStepIndices(order, previousOpenIndices);
+  _openStepIndices = _patternViewerEditMode
+    ? (nextCurrentStepIndex >= 0 ? new Set([nextCurrentStepIndex]) : new Set())
+    : remapOpenStepIndices(order, previousOpenIndices);
   if (!_patternViewerEditMode && movedStepNextIndex >= 0) {
     _openStepIndices.delete(movedStepNextIndex);
   }
@@ -2972,7 +2555,18 @@ function updateExpandAllButton(stepCount) {
 }
 
 // ── Timer ────────────────────────────────────────────────────
+function handleStartTimer() {
+  const pattern = getSelectedPattern();
+  if (!pattern) {
+    showToast('Select a pattern before starting the timer.', true);
+    return;
+  }
+
+  startTimer(pattern);
+}
+
 function startTimer(pattern) {
+  stopTimer();
   clearYellowStepMarks();
   const patternName = pattern && pattern.name ? pattern.name : '';
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
@@ -2984,6 +2578,7 @@ function startTimer(pattern) {
   timerStartWallTime = Date.now();
   timerRunning = true;
   updateTimerDisplay();
+  updateTimerActionButtons();
   timerInterval = setInterval(() => {
     timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
     updateTimerDisplay();
@@ -2992,7 +2587,9 @@ function startTimer(pattern) {
 
 function stopTimer() {
   clearInterval(timerInterval);
+  timerInterval = null;
   timerRunning = false;
+  updateTimerActionButtons();
 }
 
 function updateTimerDisplay() {
@@ -3002,6 +2599,17 @@ function updateTimerDisplay() {
   timerDisplay.classList.toggle('timer-display-over-goal', overGoal);
   applyTimerGoalTheme();
   renderGoalStatus();
+}
+
+function updateTimerActionButtons() {
+  const startButton = document.getElementById('btn-start-timer');
+  const stopButton = document.getElementById('btn-stop-timer');
+  const recordButton = document.getElementById('btn-record-study');
+  const hasPattern = Boolean(getSelectedPattern());
+
+  if (startButton) startButton.disabled = !hasPattern || timerRunning;
+  if (stopButton) stopButton.disabled = !timerRunning;
+  if (recordButton) recordButton.disabled = !hasPattern;
 }
 
 function applyTimerGoalTheme() {
@@ -3140,6 +2748,7 @@ async function confirmRecord() {
   const rvu = document.getElementById('record-rvu-input').value;
   document.getElementById('modal-record').style.display = 'none';
   const recordedSeconds = pendingRecordSeconds;
+  const pattern = getSelectedPattern();
 
   try {
     await addStudyLogEntry(_pUid, {
@@ -3150,13 +2759,18 @@ async function confirmRecord() {
     });
     timerSeconds = 0;
     clearYellowStepMarks();
-    const pattern = getSelectedPattern();
-    if (pattern) renderCurrentStep(pattern);
-    updateTimerDisplay();
+    if (pattern) {
+      startTimer(pattern);
+      renderCurrentStep(pattern);
+    } else {
+      updateTimerDisplay();
+      updateTimerActionButtons();
+    }
     pendingRecordSeconds = 0;
     showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(recordedSeconds)}`);
   } catch (err) {
     console.error(err);
+    updateTimerActionButtons();
     showToast('Failed to save study record.', true);
   }
 }
@@ -3276,7 +2890,23 @@ async function handleDeletePattern() {
 }
 
 // ── Keyboard navigation ──────────────────────────────────────
+function isAnyModalOverlayOpen() {
+  var overlays = document.querySelectorAll('.modal-overlay');
+  for (var i = 0; i < overlays.length; i += 1) {
+    var overlay = overlays[i];
+    if (!overlay) continue;
+    if (overlay.style && overlay.style.display === 'none') continue;
+    var computed = window.getComputedStyle ? window.getComputedStyle(overlay) : null;
+    if (computed && computed.display === 'none') continue;
+    return true;
+  }
+  return false;
+}
+
 function handleKeydown(e) {
+  // Keep modal keyboard behavior self-contained (Tab should move within modal fields).
+  if (isAnyModalOverlayOpen()) return;
+
   // Only when not inside an input/textarea/contenteditable
   const tag = e.target.tagName;
   const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||

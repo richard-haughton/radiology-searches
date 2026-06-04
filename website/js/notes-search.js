@@ -868,6 +868,16 @@ function bindFindingsCreateModal() {
   if (stepSelect) stepSelect.addEventListener('change', updateFindingsCreateStatusForSelection);
   if (toolbarEl && contentEl && typeof bindRichEditorToolbar === 'function') {
     bindRichEditorToolbar(toolbarEl, contentEl);
+
+    // Keep tab flow inside the create modal: toolbar -> editor.
+    toolbarEl.addEventListener('keydown', function(e) {
+      if (e.key !== 'Tab' || e.shiftKey) return;
+      e.preventDefault();
+      if (typeof setActiveRichEditor === 'function') {
+        setActiveRichEditor(contentEl);
+      }
+      contentEl.focus();
+    });
   }
   if (contentEl && typeof attachRichEditorFocusHandlers === 'function') {
     attachRichEditorFocusHandlers(contentEl);
