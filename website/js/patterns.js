@@ -1528,6 +1528,119 @@ function getStepSyncSignature(step) {
   }
 }
 
+function collectFindingIdsFromStepsForSync(steps) {
+  var seen = {};
+  var ids = [];
+
+  (steps || []).forEach(function(step) {
+    var sections = normaliseStepSectionsSafe(step && step.sections, step && (step.richContent || step.rich_content) || []);
+    var findings = sections && Array.isArray(sections.dontMissPathology) ? sections.dontMissPathology : [];
+
+    findings.forEach(function(item) {
+      if (!item || item.type !== 'subsection') return;
+      var findingId = String(item.findingId || '').trim();
+      if (!findingId || seen[findingId]) return;
+      seen[findingId] = 1;
+      ids.push(findingId);
+    });
+  });
+
+  return ids;
+}
+
+function loadFindingsMapForSync(uid, findingIds) {
+  var safeUid = String(uid || '').trim();
+  var uniqueIds = (findingIds || []).filter(function(id, index, list) {
+    return id && list.indexOf(id) === index;
+  });
+
+  if (!safeUid || !uniqueIds.length) return Promise.resolve({});
+
+  var refs = uniqueIds.map(function(id) {
+    return _findingsRef(safeUid).doc(id);
+  });
+
+  function toMap(entries) {
+    var out = {};
+    (entries || []).forEach(function(entry) {
+      if (!entry || !entry.exists || !entry.id || !entry.data) return;
+      out[entry.id] = {
+        id: entry.id,
+        name: String((entry.data && entry.data.name) || '').trim(),
+        isRedFinding: Boolean(entry.data && entry.data.isRedFinding),
+        content: normaliseRichContent((entry.data && entry.data.content) || [])
+      };
+    });
+    return out;
+  }
+
+  if (typeof appDb.getAll === 'function') {
+    return appDb.getAll.apply(appDb, refs).then(function() {
+      var snapshots = Array.prototype.slice.call(arguments);
+      return snapshots.map(function(doc, index) {
+        return {
+          id: uniqueIds[index],
+          exists: Boolean(doc && doc.exists),
+          data: doc && doc.exists ? (doc.data() || {}) : null
+        };
+      });
+    }).then(toMap);
+  }
+
+  return Promise.all(refs.map(function(ref, index) {
+    return ref.get({ source: 'server' }).then(function(doc) {
+      return {
+        id: uniqueIds[index],
+        exists: Boolean(doc && doc.exists),
+        data: doc && doc.exists ? (doc.data() || {}) : null
+      };
+    });
+  })).then(toMap);
+}
+
+function hydrateServerStepsWithFindings(steps, findingsById) {
+  return (steps || []).map(function(step) {
+    var nextStep = Object.assign({}, step);
+    var sections = normaliseStepSectionsSafe(step && step.sections, step && (step.richContent || step.rich_content) || []);
+    var findings = Array.isArray(sections.dontMissPathology) ? sections.dontMissPathology : [];
+
+    sections.dontMissPathology = findings.map(function(item) {
+      if (!item || item.type !== 'subsection') return item;
+      var findingId = String(item.findingId || '').trim();
+      var finding = findingId ? findingsById[findingId] : null;
+      if (!finding) return item;
+      return Object.assign({}, item, {
+        title: finding.name || item.title,
+        isRedFinding: Boolean(finding.isRedFinding),
+        content: normaliseRichContent(finding.content || [])
+      });
+    });
+
+    nextStep.sections = sections;
+    nextStep.richContent = normaliseRichContent((sections && sections.searchPattern) || nextStep.richContent || nextStep.rich_content || []);
+    return nextStep;
+  });
+}
+
+function loadHydratedPatternStepsFromServer(patternId) {
+  var safePatternId = String(patternId || '').trim();
+  if (!safePatternId || !_pUid || !appDb) return Promise.resolve(null);
+
+  return _patternsRef(_pUid).doc(safePatternId).get({ source: 'server' }).then(function(snapshot) {
+    if (!snapshot || !snapshot.exists) return null;
+
+    var serverPattern = _normalisePatternDoc(snapshot.data() || {});
+    var serverSteps = Array.isArray(serverPattern.steps) ? serverPattern.steps : [];
+    var findingIds = collectFindingIdsFromStepsForSync(serverSteps);
+
+    if (!findingIds.length) return serverSteps;
+
+    return loadFindingsMapForSync(_pUid, findingIds).then(function(findingsById) {
+      return hydrateServerStepsWithFindings(serverSteps, findingsById || {});
+    });
+  });
+}
+
 function queuePatternStepReloadFromFirestore(patternId, stepIndex, expectedStep, attempt) {
   var safePatternId = String(patternId || '').trim();
   var safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : -1;
@@ -1537,11 +1650,8 @@ function queuePatternStepReloadFromFirestore(patternId, stepIndex, expectedStep,
   var tryIndex = Number.isInteger(attempt) ? attempt : 0;
   var expectedSignature = getStepSyncSignature(expectedStep);
 
-  _patternsRef(_pUid).doc(safePatternId).get({ source: 'server' }).then(function(snapshot) {
-    if (!snapshot || !snapshot.exists) return;
-
-    var serverPattern = _normalisePatternDoc(snapshot.data() || {});
-    var serverSteps = Array.isArray(serverPattern.steps) ? serverPattern.steps : [];
+  loadHydratedPatternStepsFromServer(safePatternId).then(function(serverSteps) {
+    serverSteps = Array.isArray(serverSteps) ? serverSteps : [];
     if (!serverSteps[safeStepIndex]) return;
 
     var serverSignature = getStepSyncSignature(serverSteps[safeStepIndex]);
@@ -1580,11 +1690,8 @@ function queuePatternReloadFromFirestore(patternId, preferredStepIndex, expected
   var tryIndex = Number.isInteger(attempt) ? attempt : 0;
   var expectedLength = Number.isInteger(expectedStepsLength) ? expectedStepsLength : null;
 
-  _patternsRef(_pUid).doc(safePatternId).get({ source: 'server' }).then(function(snapshot) {
-    if (!snapshot || !snapshot.exists) return;
-
-    var serverPattern = _normalisePatternDoc(snapshot.data() || {});
-    var serverSteps = Array.isArray(serverPattern.steps) ? serverPattern.steps : [];
+  loadHydratedPatternStepsFromServer(safePatternId).then(function(serverSteps) {
+    serverSteps = Array.isArray(serverSteps) ? serverSteps : [];
     if (expectedLength !== null && serverSteps.length !== expectedLength) {
       if (tryIndex >= maxAttempts - 1) return;
       setTimeout(function() {
@@ -3152,6 +3259,7 @@ function normaliseRichContent(richContent) {
       return {
         type: 'subsection',
         subsectionId: String(chunk?.subsectionId || chunk?.subsection_id || '').trim(),
+        findingId: String(chunk?.findingId || chunk?.finding_id || '').trim(),
         title: normaliseMultilineText(chunk?.title || chunk?.name || ''),
         isRedFinding: Boolean(chunk?.isRedFinding || chunk?.is_red_finding || chunk?.findingRed),
         linkMeta: normaliseSectionLinkForViewer(chunk?.linkMeta || chunk?.link_meta || null),

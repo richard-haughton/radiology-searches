@@ -1282,24 +1282,20 @@ function openSearchResultPreview(result) {
   if (!modal || !titleEl || !bodyEl) return;
 
   // Populate header
-  titleEl.textContent = resolved.patternName || 'Pattern';
+  titleEl.textContent = result.subsectionTitle || 'Finding';
   if (metaEl) {
-    var subsection = result.subsectionTitle ? (' — ' + result.subsectionTitle) : '';
-    metaEl.textContent = 'Step ' + (resolved.stepIndex + 1) + ': ' + resolved.stepTitle + subsection;
+    metaEl.textContent = (resolved.patternName || 'Pattern') + ' | Step ' + (resolved.stepIndex + 1) + ': ' + resolved.stepTitle;
   }
 
-  // Render step content
+  // Render finding content for the selected search result.
   bodyEl.innerHTML = '';
-  var pattern = (typeof allPatterns !== 'undefined' ? allPatterns : []).find(function(p) {
-    return String((p && p.id) || '') === String(resolved.patternId);
-  });
-  var step = pattern && (pattern.steps || [])[resolved.stepIndex];
-  if (step && typeof renderStepSections === 'function') {
-    renderStepSections(bodyEl, step);
+  var findingContent = normaliseRichContent((result && result.content) || []);
+  if (findingContent.length && typeof renderRichContent === 'function') {
+    renderRichContent(bodyEl, findingContent);
   } else {
     var fallback = document.createElement('p');
     fallback.style.color = 'var(--ink-soft)';
-    fallback.textContent = result.text || 'No content available.';
+    fallback.textContent = String(result.contentText || result.text || '').trim() || 'No finding content available.';
     bodyEl.appendChild(fallback);
   }
 
