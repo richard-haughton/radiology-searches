@@ -1712,6 +1712,22 @@ function loadFindingsMapForSync(uid, findingIds) {
 
   if (!safeUid || !uniqueIds.length) return Promise.resolve({});
 
+  function parseFindingContentForSync(raw) {
+    if (Array.isArray(raw)) return normaliseRichContent(raw);
+    if (typeof raw === 'string') {
+      try {
+        var parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? normaliseRichContent(parsed) : [];
+      } catch (err) {
+        return [];
+      }
+    }
+    if (raw && typeof raw === 'object' && Array.isArray(raw.content)) {
+      return normaliseRichContent(raw.content);
+    }
+    return [];
+  }
+
   var refs = uniqueIds.map(function(id) {
     return _findingsRef(safeUid).doc(id);
   });
@@ -1724,7 +1740,7 @@ function loadFindingsMapForSync(uid, findingIds) {
         id: entry.id,
         name: String((entry.data && entry.data.name) || '').trim(),
         isRedFinding: Boolean(entry.data && entry.data.isRedFinding),
-        content: normaliseRichContent((entry.data && entry.data.content) || [])
+        content: parseFindingContentForSync(entry.data && entry.data.content)
       };
     });
     return out;
