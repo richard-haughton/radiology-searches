@@ -1067,15 +1067,69 @@ function buildFindingContentFromText(text, isRedFinding) {
   return buildFindingContentFromRichContent([{ type: 'text', text: value, bold: false, color: null }], isRedFinding);
 }
 
-function buildFindingContentFromRichContent(content, isRedFinding) {
-  var rich = normaliseRichContent(content || []);
-  if (!rich.length) return [];
+function sanitizeFindingContentForFirestore(content) {
+  var chunks = normaliseRichContent(content || []);
+  var out = [];
 
-  return rich.map(function(chunk) {
+  function appendRichChunks(items) {
+    (items || []).forEach(function(item) {
+      if (!item) return;
+      if (item.type === 'list') {
+        appendListChunk(item);
+        return;
+      }
+      if (item.type === 'subsection') {
+        appendRichChunks(item.content || []);
+        return;
+      }
+      out.push(item);
+    });
+  }
+
+  function appendListChunk(listChunk) {
+    (listChunk.items || []).forEach(function(item, idx) {
+      if (idx > 0) {
+        out.push({ type: 'text', text: '\n', bold: false, color: null });
+      }
+      out.push({
+        type: 'text',
+        text: (listChunk.ordered ? String(idx + 1) + '. ' : '• '),
+        bold: false,
+        color: null
+      });
+      appendRichChunks(Array.isArray(item) ? item : (item && item.content) || []);
+    });
+  }
+
+  appendRichChunks(chunks);
+  return out;
+}
+
+function buildFindingContentFromRichContent(content, isRedFinding) {
+  var linear = sanitizeFindingContentForFirestore(content || []);
+  if (!linear.length) return [];
+
+  var tinted = linear.map(function(chunk) {
     if (!chunk || chunk.type !== 'text') return chunk;
     if (!isRedFinding || chunk.color) return chunk;
     return Object.assign({}, chunk, { color: 'red' });
   });
+
+  return typeof cloneRichContentForStorage === 'function'
+    ? cloneRichContentForStorage(tinted)
+    : tinted;
+}
+
+async function prepareFindingContentForSave(content, isRedFinding) {
+  var safeContent = buildFindingContentFromRichContent(content || [], isRedFinding);
+  if (typeof compressRichContentForStorage === 'function') {
+    try {
+      safeContent = await compressRichContentForStorage(safeContent);
+    } catch (err) {
+      console.warn('Finding content compression failed; saving uncompressed content.', err);
+    }
+  }
+  return safeContent;
 }
 
 async function applyCreatedFindingToSelectedStep() {
@@ -1098,7 +1152,6 @@ async function applyCreatedFindingToSelectedStep() {
     ? hasAnyRichContent(content)
     : Boolean(String(contentEl.textContent || '').trim());
   var isRedFinding = Boolean(redEl.checked);
-  var contentForStorage = buildFindingContentFromRichContent(content, isRedFinding);
   if (!title) {
     statusEl.textContent = 'Finding title is required.';
     titleEl.focus();
@@ -1119,6 +1172,7 @@ async function applyCreatedFindingToSelectedStep() {
     statusEl.textContent = isEditing ? 'Saving finding...' : 'Creating finding...';
 
     try {
+      var contentForStorage = await prepareFindingContentForSave(content, isRedFinding);
       await upsertFinding(_notesSearchUid, _findingsEditingFindingId, {
         name: title,
         content: contentForStorage,
@@ -1196,6 +1250,7 @@ async function applyCreatedFindingToSelectedStep() {
 
   try {
     var stepsByPatternId = {};
+    var contentForStorage = await prepareFindingContentForSave(content, isRedFinding);
 
     targets.forEach(function(target) {
       var pattern = getPatternById(target.patternId);

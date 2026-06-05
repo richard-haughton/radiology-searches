@@ -3559,6 +3559,30 @@ function normaliseListItemContent(item) {
   return [];
 }
 
+function normaliseImageDataPayload(value) {
+  if (typeof value === 'string') {
+    var safe = String(value || '').trim();
+    var match = safe.match(/^data:image\/[^;]+;base64,(.+)$/i);
+    return match ? String(match[1] || '').trim() : safe;
+  }
+  if (value && typeof value === 'object') {
+    if (typeof value.data === 'string') return normaliseImageDataPayload(value.data);
+    if (typeof value.base64 === 'string') return normaliseImageDataPayload(value.base64);
+    if (typeof value.image_data === 'string') return normaliseImageDataPayload(value.image_data);
+    if (typeof value.dataUrl === 'string') return normaliseImageDataPayload(value.dataUrl);
+  }
+  return '';
+}
+
+function normaliseImageFormatValue(format, data) {
+  var safeFormat = String(format || '').trim().toLowerCase();
+  if (safeFormat) return safeFormat;
+  var raw = String(data || '').trim();
+  var match = raw.match(/^data:image\/([^;]+);base64,/i);
+  if (match && match[1]) return String(match[1]).trim().toLowerCase();
+  return 'png';
+}
+
 function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
@@ -3566,10 +3590,11 @@ function normaliseRichContent(richContent) {
     const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : ((chunk?.title || chunk?.name) && Array.isArray(chunk?.content) ? 'subsection' : 'text')));
 
     if (type === 'image') {
+      const imageData = chunk?.data ?? chunk?.image_data;
       return {
         type: 'image',
-        format: chunk?.format || chunk?.image_format || 'png',
-        data: chunk?.data || chunk?.image_data || ''
+        format: normaliseImageFormatValue(chunk?.format || chunk?.image_format, imageData),
+        data: normaliseImageDataPayload(imageData)
       };
     }
 

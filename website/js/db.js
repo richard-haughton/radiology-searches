@@ -82,6 +82,68 @@ function _normaliseFindingLink(raw) {
   };
 }
 
+function _extractImageDataUrlPayload(raw) {
+  var safe = String(raw || '').trim();
+  var match = safe.match(/^data:image\/[^;]+;base64,(.+)$/i);
+  return match ? String(match[1] || '').trim() : safe;
+}
+
+function _normaliseImageFormat(rawFormat, rawData) {
+  var format = String(rawFormat || '').trim().toLowerCase();
+  if (format) return format;
+
+  var dataUrl = String(rawData || '').trim();
+  var match = dataUrl.match(/^data:image\/([^;]+);base64,/i);
+  if (match && match[1]) {
+    return String(match[1]).trim().toLowerCase();
+  }
+
+  return 'png';
+}
+
+function _normaliseImageData(rawData) {
+  if (typeof rawData === 'string') {
+    return _extractImageDataUrlPayload(rawData);
+  }
+
+  if (rawData && typeof rawData === 'object') {
+    var nested = rawData.data;
+    if (typeof nested === 'string') return _extractImageDataUrlPayload(nested);
+
+    nested = rawData.base64;
+    if (typeof nested === 'string') return _extractImageDataUrlPayload(nested);
+
+    nested = rawData.image_data;
+    if (typeof nested === 'string') return _extractImageDataUrlPayload(nested);
+
+    nested = rawData.dataUrl;
+    if (typeof nested === 'string') return _extractImageDataUrlPayload(nested);
+  }
+
+  return '';
+}
+
+function _isPlainObject(value) {
+  return Boolean(value) && Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function _sanitizeFirestoreValue(value, inArray) {
+  if (Array.isArray(value)) {
+    var nextArray = value.map(function(item) {
+      return _sanitizeFirestoreValue(item, true);
+    });
+    return inArray ? { content: nextArray } : nextArray;
+  }
+
+  if (!_isPlainObject(value)) return value;
+
+  var out = {};
+  Object.keys(value).forEach(function(key) {
+    out[key] = _sanitizeFirestoreValue(value[key], false);
+  });
+  return out;
+}
+
 function _makeFindingLinkKey(link) {
   var safe = _normaliseFindingLink(link);
   if (!safe) return '';
@@ -186,10 +248,28 @@ function _modalitiesFromFindingLinks(links) {
 
 function _normaliseFindingDoc(doc) {
   var links = _filterFindingStudyLinks(doc && doc.links);
+  var rawContent = doc && doc.content;
+  var content = [];
+
+  if (Array.isArray(rawContent)) {
+    content = cloneRichContentForStorage(rawContent);
+  } else if (typeof rawContent === 'string') {
+    try {
+      var parsedContent = JSON.parse(rawContent);
+      if (Array.isArray(parsedContent)) {
+        content = cloneRichContentForStorage(parsedContent);
+      }
+    } catch (err) {
+      content = [];
+    }
+  } else if (rawContent && typeof rawContent === 'object' && Array.isArray(rawContent.content)) {
+    content = cloneRichContentForStorage(rawContent.content);
+  }
+
   return {
     name: String((doc && doc.name) || '').trim(),
     nameKey: _normaliseFindingName(doc && doc.nameKey ? doc.nameKey : (doc && doc.name)),
-    content: cloneRichContentForStorage((doc && doc.content) || []),
+    content: content,
     isRedFinding: Boolean(doc && doc.isRedFinding),
     modalities: _modalitiesFromFindingLinks(links),
     links: links,
@@ -373,7 +453,7 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
         data: {
           name: existing.name || '',
           nameKey: existing.nameKey || _normaliseFindingName(existing.name || ''),
-          content: cloneRichContentForStorage(existing.content || []),
+          content: JSON.stringify(cloneRichContentForStorage(existing.content || [])),
           isRedFinding: Boolean(existing.isRedFinding),
           modalities: _modalitiesFromFindingLinks(baseLinks),
           links: baseLinks,
@@ -392,7 +472,7 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
       data: {
         name: nextFinding.name || (existing && existing.name) || '',
         nameKey: nextFinding.nameKey || (existing && existing.nameKey) || _normaliseFindingName(nextFinding.name || ''),
-        content: cloneRichContentForStorage(nextFinding.content || []),
+        content: JSON.stringify(cloneRichContentForStorage(nextFinding.content || [])),
         isRedFinding: Boolean(nextFinding.isRedFinding),
         modalities: _modalitiesFromFindingLinks(mergedLinks),
         links: mergedLinks,
@@ -427,15 +507,15 @@ function _commitFindingOps(uid, ops) {
         return;
       }
       if (op.type === 'set') {
-        batch.set(_findingsRef(uid).doc(op.id), op.data, { merge: op.merge !== false });
+        batch.set(_findingsRef(uid).doc(op.id), _sanitizeFirestoreValue(op.data, false), { merge: op.merge !== false });
         return;
       }
       if (op.type === 'createPattern') {
-        batch.set(op.ref, op.data);
+        batch.set(op.ref, _sanitizeFirestoreValue(op.data, false));
         return;
       }
       if (op.type === 'updatePattern') {
-        batch.update(op.ref, op.data);
+        batch.update(op.ref, _sanitizeFirestoreValue(op.data, false));
         return;
       }
       if (op.type === 'deletePattern') {
@@ -635,10 +715,11 @@ function normaliseStepSections(sections, fallbackRichContent) {
         ? chunk.type
         : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
+        var imageData = chunk && (chunk.data || chunk.image_data);
         return {
           type: 'image',
-          format: (chunk && (chunk.format || chunk.image_format)) || 'png',
-          data: (chunk && (chunk.data || chunk.image_data)) || ''
+          format: _normaliseImageFormat(chunk && (chunk.format || chunk.image_format), imageData),
+          data: _normaliseImageData(imageData)
         };
       }
       if (type === 'link') {
@@ -723,10 +804,11 @@ function _normalisePatternDoc(doc) {
         ? chunk.type
         : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
+        var imageData = chunk && (chunk.data || chunk.image_data);
         return {
           type: 'image',
-          format: (chunk && (chunk.format || chunk.image_format)) || 'png',
-          data: (chunk && (chunk.data || chunk.image_data)) || ''
+          format: _normaliseImageFormat(chunk && (chunk.format || chunk.image_format), imageData),
+          data: _normaliseImageData(imageData)
         };
       }
       if (type === 'link') {
@@ -856,6 +938,8 @@ function createPattern(uid, data) {
       updatedAt: _now()
     };
 
+    payload = _sanitizeFirestoreValue(payload, false);
+
     _replaceArrayContents(rawSteps, firestoreSteps);
     return _commitPatternAndFindingMutations(uid, ref, payload, findingMutations, true).then(function() {
       return patternId;
@@ -890,6 +974,8 @@ function updatePattern(uid, patternId, data) {
       if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
         payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
       }
+
+      payload = _sanitizeFirestoreValue(payload, false);
 
       var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds);
       _replaceArrayContents(rawSteps, firestoreSteps);
@@ -937,10 +1023,11 @@ function updatePatternReportConfig(uid, patternId, reportConfig) {
 function cloneRichContentForStorage(richContent) {
   return (richContent || []).map(function(chunk) {
     if (chunk && chunk.type === 'image') {
+      var imageData = chunk.data || chunk.image_data;
       return {
         type: 'image',
-        format: chunk.format || 'png',
-        data: chunk.data || ''
+        format: _normaliseImageFormat(chunk.format || chunk.image_format, imageData),
+        data: _normaliseImageData(imageData)
       };
     }
     if (chunk && chunk.type === 'link') {
@@ -1223,7 +1310,7 @@ function upsertFinding(uid, findingId, data) {
     return {
       name: safeName,
       nameKey: _normaliseFindingName(safeName),
-      content: safeContent,
+      content: JSON.stringify(safeContent),
       isRedFinding: isRedFinding,
       modalities: _modalitiesFromFindingLinks(links),
       links: links,
@@ -1236,6 +1323,7 @@ function upsertFinding(uid, findingId, data) {
     var requestedRef = _findingsRef(safeUid).doc(requestedId);
     return requestedRef.get().then(function(existingDoc) {
       var payload = buildPayload(existingDoc);
+      payload = _sanitizeFirestoreValue(payload, false);
       return _runFirestoreWrite(function() {
         return requestedRef.set(payload, { merge: false });
       }).then(function() {
@@ -1248,6 +1336,7 @@ function upsertFinding(uid, findingId, data) {
     var randomRef = _findingsRef(safeUid).doc();
     var randomId = randomRef.id;
     var randomPayload = buildPayload(null);
+    randomPayload = _sanitizeFirestoreValue(randomPayload, false);
     return _runFirestoreWrite(function() {
       return randomRef.set(randomPayload, { merge: false });
     }).then(function() {
@@ -1259,6 +1348,7 @@ function upsertFinding(uid, findingId, data) {
   return candidateRef.get().then(function(existingDoc) {
     if (!existingDoc.exists) {
       var payload = buildPayload(null);
+      payload = _sanitizeFirestoreValue(payload, false);
       return _runFirestoreWrite(function() {
         return candidateRef.set(payload, { merge: false });
       }).then(function() {
@@ -1270,6 +1360,7 @@ function upsertFinding(uid, findingId, data) {
     var suffixId = defaultId + '__' + suffixRef.id.slice(0, 6);
     var finalRef = _findingsRef(safeUid).doc(suffixId);
     var finalPayload = buildPayload(null);
+    finalPayload = _sanitizeFirestoreValue(finalPayload, false);
     return _runFirestoreWrite(function() {
       return finalRef.set(finalPayload, { merge: false });
     }).then(function() {
