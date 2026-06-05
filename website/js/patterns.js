@@ -30,7 +30,10 @@ var _stepTitleSaveInFlight = {};
 var _patternEditDraft = null;
 var _patternEditCommitInFlight = false;
 var _openFindingPanels = new Set();
+var _draggingPatternFinding = null;
 var _accordionMode = false;
+var _patternListContextMenu = null;
+var _patternListContextPatternId = null;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var STEP_MAIN_SECTION_ORDER = ['searchPattern'];
 var STEP_SECTION_LABELS = {
@@ -41,6 +44,7 @@ var ACCORDION_MODE_STATE_KEY = 'patternStepAccordionMode';
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
+var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
   searchPattern: true,
   dontMissPathology: false
@@ -160,10 +164,21 @@ function initPatterns(userId) {
   });
 
   // Pattern selection
-  document.getElementById('pattern-select').addEventListener('change', e => {
+  const patternSelect = document.getElementById('pattern-select');
+  patternSelect.addEventListener('change', e => {
     const id = e.target.value;
     loadPattern(id);
   });
+  patternSelect.addEventListener('contextmenu', handlePatternListContextMenu);
+  patternSelect.addEventListener('mousedown', function(e) {
+    if (e.button !== 2) return;
+    const target = e.target;
+    if (target && target.tagName === 'OPTION') {
+      patternSelect.value = target.value;
+      loadPattern(target.value);
+    }
+  });
+  initPatternListContextMenu();
 
   // Timer controls
   document.getElementById('btn-start-timer').addEventListener('click', handleStartTimer);
@@ -197,7 +212,6 @@ function initPatterns(userId) {
     }
   });
   document.getElementById('btn-add-pattern-step').addEventListener('click', handleAddPatternStep);
-  document.getElementById('btn-delete-pattern').addEventListener('click', handleDeletePattern);
 
   // HDF5 import
   document.getElementById('btn-import-h5').addEventListener('click', () => {
@@ -556,7 +570,17 @@ function loadPattern(id, preferredStepIndex) {
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
     currentStepIndex = Math.max(0, Math.min(preferredStepIndex, steps.length - 1));
-    _openStepIndices = _patternViewerEditMode ? new Set([currentStepIndex]) : new Set([currentStepIndex]);
+    if (wasSamePattern) {
+      const preservedOpenIndices = new Set();
+      _openStepIndices.forEach(function(index) {
+        if (Number.isInteger(index) && index >= 0 && index < steps.length) {
+          preservedOpenIndices.add(index);
+        }
+      });
+      _openStepIndices = preservedOpenIndices;
+    } else {
+      _openStepIndices = new Set([currentStepIndex]);
+    }
   } else {
     currentStepIndex = 0;
     _openStepIndices = _patternViewerEditMode
@@ -671,6 +695,13 @@ function renderCurrentStep(pattern) {
       item.classList.remove('drag-over-after');
       item.classList.remove('is-dragging');
     });
+    list.classList.remove('list-drag-over-end');
+  }
+
+  function clearFindingDropTargetState() {
+    Array.from(list.querySelectorAll('.step-item')).forEach(function(item) {
+      item.classList.remove('finding-drop-target');
+    });
   }
 
   steps.forEach((rawStep, idx) => {
@@ -774,9 +805,21 @@ function renderCurrentStep(pattern) {
 
     item.addEventListener('dragover', e => {
       if (!_patternViewerEditMode) return;
+      if (_draggingPatternFinding) {
+        if (idx === _draggingPatternFinding.fromStepIndex) {
+          item.classList.remove('finding-drop-target');
+          return;
+        }
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        item.classList.add('finding-drop-target');
+        return;
+      }
       if (_draggingPatternStepIndex === null || _draggingPatternStepIndex === idx) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+      list.classList.remove('list-drag-over-end');
 
       const rect = item.getBoundingClientRect();
       const before = (e.clientY - rect.top) < (rect.height / 2);
@@ -784,13 +827,28 @@ function renderCurrentStep(pattern) {
       item.classList.toggle('drag-over-after', !before);
     });
 
-    item.addEventListener('dragleave', () => {
+    item.addEventListener('dragleave', e => {
+      if (item.contains(e.relatedTarget)) return;
+      item.classList.remove('finding-drop-target');
       item.classList.remove('drag-over-before');
       item.classList.remove('drag-over-after');
     });
 
     item.addEventListener('drop', e => {
       if (!_patternViewerEditMode) return;
+      if (_draggingPatternFinding) {
+        e.preventDefault();
+        item.classList.remove('finding-drop-target');
+        clearDragOverState();
+        clearFindingDropTargetState();
+
+        const dragging = _draggingPatternFinding;
+        _draggingPatternFinding = null;
+
+        if (idx === dragging.fromStepIndex) return;
+        movePatternFindingBetweenSteps(dragging.fromStepIndex, idx, dragging.findingId, dragging.findingTitle || 'Finding');
+        return;
+      }
       if (_draggingPatternStepIndex === null) return;
       e.preventDefault();
 
@@ -810,13 +868,30 @@ function renderCurrentStep(pattern) {
 
   list.addEventListener('dragover', e => {
     if (!_patternViewerEditMode) return;
+    if (_draggingPatternFinding) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      return;
+    }
     if (_draggingPatternStepIndex === null || e.target !== list) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    list.classList.add('list-drag-over-end');
+  });
+
+  list.addEventListener('dragleave', e => {
+    if (list.contains(e.relatedTarget)) return;
+    list.classList.remove('list-drag-over-end');
   });
 
   list.addEventListener('drop', e => {
     if (!_patternViewerEditMode) return;
+    if (_draggingPatternFinding) {
+      e.preventDefault();
+      clearFindingDropTargetState();
+      _draggingPatternFinding = null;
+      return;
+    }
     if (_draggingPatternStepIndex === null || e.target !== list) return;
     e.preventDefault();
     clearDragOverState();
@@ -874,7 +949,7 @@ function renderCurrentStepFindings(pattern, step, stepIndex, stepsLength) {
   const findings = sections.dontMissPathology || [];
 
   if (findings.length) {
-    renderNestedSubsections(contentEl, findings, displayStepIndex);
+    renderNestedSubsections(contentEl, findings, displayStepIndex, Number.isInteger(stepsLength) ? stepsLength : 0);
   } else {
     const empty = document.createElement('p');
     empty.className = 'step-section-empty';
@@ -947,12 +1022,7 @@ async function reorderPatternSteps(pattern, fromIndex, toIndex) {
   const nextCurrentStepIndex = order.indexOf(previousCurrentStepIndex);
 
   pattern.steps = nextSteps;
-  _openStepIndices = _patternViewerEditMode
-    ? (nextCurrentStepIndex >= 0 ? new Set([nextCurrentStepIndex]) : new Set())
-    : remapOpenStepIndices(order, previousOpenIndices);
-  if (!_patternViewerEditMode && movedStepNextIndex >= 0) {
-    _openStepIndices.delete(movedStepNextIndex);
-  }
+  _openStepIndices = new Set();
   currentStepIndex = nextCurrentStepIndex >= 0 ? nextCurrentStepIndex : 0;
   rememberStepForPattern(pattern.id, currentStepIndex);
   _draggingPatternStepIndex = null;
@@ -975,6 +1045,92 @@ async function reorderPatternSteps(pattern, fromIndex, toIndex) {
     rememberStepForPattern(pattern.id, currentStepIndex);
     renderCurrentStep(pattern);
     showToast('Failed to save step order.', true);
+  }
+}
+
+async function movePatternFindingBetweenSteps(fromStepIndex, toStepIndex, findingId, findingTitle) {
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const sourceIndex = Number(fromStepIndex);
+  const targetIndex = Number(toStepIndex);
+  const safeFindingId = String(findingId || '').trim();
+  if (!pattern || !_pUid || !_patternViewerEditMode || !safeFindingId) return;
+  if (!Number.isInteger(sourceIndex) || !Number.isInteger(targetIndex)) return;
+  if (sourceIndex < 0 || sourceIndex >= steps.length || targetIndex < 0 || targetIndex >= steps.length) return;
+  if (sourceIndex === targetIndex) return;
+
+  const previousSteps = JSON.parse(JSON.stringify(steps));
+  const previousStepIndex = currentStepIndex;
+  const previousOpen = new Set(_openStepIndices);
+
+  const nextSteps = JSON.parse(JSON.stringify(steps));
+  const sourceStep = nextSteps[sourceIndex] || {};
+  const targetStep = nextSteps[targetIndex] || {};
+
+  sourceStep.sections = normaliseStepSectionsSafe(sourceStep.sections, sourceStep.richContent || sourceStep.rich_content || []);
+  targetStep.sections = normaliseStepSectionsSafe(targetStep.sections, targetStep.richContent || targetStep.rich_content || []);
+
+  const sourceFindings = typeof ensureSubsectionMetadata === 'function'
+    ? ensureSubsectionMetadata(sourceStep.sections.dontMissPathology || [])
+    : normaliseRichContent(sourceStep.sections.dontMissPathology || []);
+  const targetFindings = typeof ensureSubsectionMetadata === 'function'
+    ? ensureSubsectionMetadata(targetStep.sections.dontMissPathology || [])
+    : normaliseRichContent(targetStep.sections.dontMissPathology || []);
+
+  const findingIndex = sourceFindings.findIndex(function(item) {
+    return item
+      && item.type === 'subsection'
+      && String(item.subsectionId || '').trim() === safeFindingId;
+  });
+
+  if (findingIndex < 0) {
+    showToast('Finding could not be found.', true);
+    return;
+  }
+
+  const movedFinding = sourceFindings.splice(findingIndex, 1)[0];
+  targetFindings.push(movedFinding);
+
+  sourceStep.sections.dontMissPathology = sourceFindings;
+  targetStep.sections.dontMissPathology = targetFindings;
+  sourceStep.richContent = normaliseRichContent(sourceStep.sections.searchPattern || []);
+  targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
+
+  nextSteps[sourceIndex] = sourceStep;
+  nextSteps[targetIndex] = targetStep;
+
+  pattern.steps = nextSteps;
+  currentStepIndex = targetIndex;
+  _openStepIndices = new Set([targetIndex]);
+  rememberStepForPattern(pattern.id, currentStepIndex);
+  setFindingPanelOpen(safeFindingId, false, sourceIndex);
+  setFindingPanelOpen(safeFindingId, true, targetIndex);
+  renderCurrentStep(pattern);
+
+  if (_patternViewerEditMode) {
+    markPatternEditDraftDirty(pattern);
+    showToast('Finding moved locally. Changes sync when you click Done Editing.');
+    return;
+  }
+
+  try {
+    await updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: nextSteps
+    });
+    queuePatternReloadFromFirestore(pattern.id, targetIndex, nextSteps.length, 0);
+    showToast('Finding moved.');
+  } catch (err) {
+    console.error(err);
+    pattern.steps = previousSteps;
+    currentStepIndex = previousStepIndex;
+    _openStepIndices = previousOpen;
+    rememberStepForPattern(pattern.id, currentStepIndex);
+    renderCurrentStep(pattern);
+    showToast('Failed to move finding.', true);
   }
 }
 
@@ -1455,7 +1611,7 @@ function withSyncTimeout(promise, timeoutMs) {
       if (settled) return;
       settled = true;
       reject(new Error('sync-timeout'));
-    }, Math.max(1000, Number(timeoutMs) || 15000));
+    }, Math.max(1000, Number(timeoutMs) || PATTERN_SYNC_TIMEOUT_MS));
 
     Promise.resolve(promise).then(function(value) {
       if (settled) return;
@@ -1490,7 +1646,7 @@ function commitPatternEditDraftIfNeeded() {
     goalSeconds: pattern.goalSeconds,
     reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
     steps: pattern.steps || []
-  }), 15000).then(function() {
+  }), PATTERN_SYNC_TIMEOUT_MS).then(function() {
     if (_patternEditDraft && _patternEditDraft.patternId === patternId) {
       _patternEditDraft.dirty = false;
     }
@@ -2111,8 +2267,11 @@ function renderInlineEditForm(container, options) {
   }
 }
 
-function renderNestedSubsections(container, content, stepIndex) {
+function renderNestedSubsections(container, content, stepIndex, stepsLength) {
   const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  const canDragAcrossSteps = _patternViewerEditMode
+    && Number.isInteger(stepsLength)
+    && stepsLength > 1;
   const entries = normaliseSubsectionEntries(content).filter(entry => {
     return (entry.title || '').trim() || (entry.content || []).length;
   });
@@ -2133,6 +2292,49 @@ function renderNestedSubsections(container, content, stepIndex) {
 
     const header = document.createElement('div');
     header.className = 'step-subsection-header';
+
+    if (_patternViewerEditMode && entry.subsectionId) {
+      const dragHandle = document.createElement('span');
+      dragHandle.className = 'finding-drag-handle';
+      dragHandle.setAttribute('aria-hidden', 'true');
+      dragHandle.textContent = '||';
+      dragHandle.title = canDragAcrossSteps
+        ? 'Drag to move into another step'
+        : 'Add more steps to move findings';
+      dragHandle.draggable = canDragAcrossSteps;
+      if (!canDragAcrossSteps) {
+        dragHandle.classList.add('is-disabled');
+      }
+
+      dragHandle.addEventListener('dragstart', function(e) {
+        if (!canDragAcrossSteps) {
+          e.preventDefault();
+          return;
+        }
+
+        _draggingPatternFinding = {
+          fromStepIndex: safeStepIndex,
+          findingId: String(entry.subsectionId || '').trim(),
+          findingTitle: String(entry.title || '').trim()
+        };
+        wrap.classList.add('is-dragging-finding');
+
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', _draggingPatternFinding.findingId);
+        }
+      });
+
+      dragHandle.addEventListener('dragend', function() {
+        _draggingPatternFinding = null;
+        wrap.classList.remove('is-dragging-finding');
+        Array.from(document.querySelectorAll('.step-item.finding-drop-target')).forEach(function(item) {
+          item.classList.remove('finding-drop-target');
+        });
+      });
+
+      header.appendChild(dragHandle);
+    }
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -2902,8 +3104,127 @@ function updateSidebarButtons(hasSelection) {
   } else {
     editBtn.textContent = 'Edit Pattern';
   }
-  document.getElementById('btn-delete-pattern').disabled = !hasSelection;
   updatePatternStepAddButton();
+}
+
+function initPatternListContextMenu() {
+  if (_patternListContextMenu) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'pattern-list-context-menu';
+  menu.id = 'pattern-list-context-menu';
+  menu.style.display = 'none';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.type = 'button';
+  renameBtn.className = 'pattern-list-context-menu-item';
+  renameBtn.textContent = 'Edit Pattern Name';
+  renameBtn.addEventListener('click', async function() {
+    const targetId = _patternListContextPatternId;
+    hidePatternListContextMenu();
+    if (!targetId) return;
+    await handleRenamePattern(targetId);
+  });
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'pattern-list-context-menu-item is-danger';
+  deleteBtn.textContent = 'Delete Pattern';
+  deleteBtn.addEventListener('click', async function() {
+    const targetId = _patternListContextPatternId;
+    hidePatternListContextMenu();
+    if (!targetId) return;
+    await handleDeletePattern(targetId);
+  });
+
+  menu.appendChild(renameBtn);
+  menu.appendChild(deleteBtn);
+  document.body.appendChild(menu);
+  _patternListContextMenu = menu;
+
+  document.addEventListener('click', function() {
+    hidePatternListContextMenu();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') hidePatternListContextMenu();
+  });
+  window.addEventListener('resize', hidePatternListContextMenu);
+}
+
+function showPatternListContextMenu(clientX, clientY, patternId) {
+  if (!_patternListContextMenu) return;
+  _patternListContextPatternId = patternId;
+
+  _patternListContextMenu.style.display = 'block';
+  _patternListContextMenu.style.visibility = 'hidden';
+  _patternListContextMenu.style.left = '0px';
+  _patternListContextMenu.style.top = '0px';
+
+  const rect = _patternListContextMenu.getBoundingClientRect();
+  const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+  const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+  const left = Math.min(Math.max(8, clientX), maxLeft);
+  const top = Math.min(Math.max(8, clientY), maxTop);
+
+  _patternListContextMenu.style.left = left + 'px';
+  _patternListContextMenu.style.top = top + 'px';
+  _patternListContextMenu.style.visibility = 'visible';
+}
+
+function hidePatternListContextMenu() {
+  _patternListContextPatternId = null;
+  if (!_patternListContextMenu) return;
+  _patternListContextMenu.style.display = 'none';
+}
+
+function handlePatternListContextMenu(e) {
+  const select = document.getElementById('pattern-select');
+  if (!select) return;
+
+  const target = e.target;
+  const targetId = target && target.tagName === 'OPTION' ? target.value : select.value;
+  if (!targetId) return;
+
+  e.preventDefault();
+
+  if (select.value !== targetId) {
+    select.value = targetId;
+    loadPattern(targetId);
+  }
+
+  showPatternListContextMenu(e.clientX, e.clientY, targetId);
+}
+
+async function handleRenamePattern(patternId) {
+  const targetId = patternId || selectedPatternId;
+  if (!targetId) return;
+
+  const pattern = allPatterns.find(function(item) { return item.id === targetId; });
+  if (!pattern) return;
+
+  const renamed = window.prompt('Edit pattern name', String(pattern.name || ''));
+  if (renamed === null) return;
+
+  const nextName = String(renamed).trim();
+  if (!nextName) {
+    showToast('Pattern name cannot be blank.', true);
+    return;
+  }
+  if (nextName === pattern.name) return;
+
+  try {
+    await updatePattern(_pUid, targetId, {
+      name: nextName,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: Array.isArray(pattern.steps) ? pattern.steps : []
+    });
+    showToast('Pattern renamed.');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to rename pattern.', true);
+  }
 }
 
 function flushPatternViewerDraftFromDom() {
@@ -2977,18 +3298,23 @@ function togglePatternViewerEditMode() {
   setPatternViewerEditMode(true, true);
 }
 
-async function handleDeletePattern() {
-  const pattern = getSelectedPattern();
+async function handleDeletePattern(patternId) {
+  const targetId = patternId || selectedPatternId;
+  if (!targetId) return;
+
+  const pattern = allPatterns.find(function(item) { return item.id === targetId; });
   if (!pattern) return;
 
   const ok = await showConfirm('Delete Pattern', `Delete "${pattern.name}"? This cannot be undone.`);
   if (!ok) return;
 
   try {
-    await deletePattern(_pUid, selectedPatternId);
-    selectedPatternId = null;
-    clearStepView();
-    updateSidebarButtons(false);
+    await deletePattern(_pUid, targetId);
+    if (selectedPatternId === targetId) {
+      selectedPatternId = null;
+      clearStepView();
+      updateSidebarButtons(false);
+    }
     showToast('Pattern deleted.');
   } catch (err) {
     console.error(err);

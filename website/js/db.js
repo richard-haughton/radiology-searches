@@ -1203,6 +1203,81 @@ function deleteFinding(uid, findingId) {
   });
 }
 
+function upsertFinding(uid, findingId, data) {
+  var safeUid = String(uid || '').trim();
+  if (!safeUid) return Promise.reject(new Error('Missing user id.'));
+
+  var safeName = String((data && data.name) || '').trim();
+  if (!safeName) return Promise.reject(new Error('Finding title is required.'));
+
+  var requestedId = String(findingId || '').trim();
+  var defaultId = _makeFindingId(safeName);
+
+  function buildPayload(existingDoc) {
+    var existing = existingDoc && existingDoc.exists ? _normaliseFindingDoc(existingDoc.data() || {}) : null;
+    var links = existing ? _filterFindingStudyLinks(existing.links || []) : [];
+    var safeContent = cloneRichContentForStorage((data && data.content) || (existing && existing.content) || []);
+    var hasRedFlag = Object.prototype.hasOwnProperty.call(data || {}, 'isRedFinding');
+    var isRedFinding = hasRedFlag ? Boolean(data && data.isRedFinding) : Boolean(existing && existing.isRedFinding);
+
+    return {
+      name: safeName,
+      nameKey: _normaliseFindingName(safeName),
+      content: safeContent,
+      isRedFinding: isRedFinding,
+      modalities: _modalitiesFromFindingLinks(links),
+      links: links,
+      updatedAt: _now(),
+      createdAt: existing && existing.createdAt ? existing.createdAt : _now()
+    };
+  }
+
+  if (requestedId) {
+    var requestedRef = _findingsRef(safeUid).doc(requestedId);
+    return requestedRef.get().then(function(existingDoc) {
+      var payload = buildPayload(existingDoc);
+      return _runFirestoreWrite(function() {
+        return requestedRef.set(payload, { merge: false });
+      }).then(function() {
+        return requestedId;
+      });
+    });
+  }
+
+  if (!defaultId) {
+    var randomRef = _findingsRef(safeUid).doc();
+    var randomId = randomRef.id;
+    var randomPayload = buildPayload(null);
+    return _runFirestoreWrite(function() {
+      return randomRef.set(randomPayload, { merge: false });
+    }).then(function() {
+      return randomId;
+    });
+  }
+
+  var candidateRef = _findingsRef(safeUid).doc(defaultId);
+  return candidateRef.get().then(function(existingDoc) {
+    if (!existingDoc.exists) {
+      var payload = buildPayload(null);
+      return _runFirestoreWrite(function() {
+        return candidateRef.set(payload, { merge: false });
+      }).then(function() {
+        return defaultId;
+      });
+    }
+
+    var suffixRef = _findingsRef(safeUid).doc();
+    var suffixId = defaultId + '__' + suffixRef.id.slice(0, 6);
+    var finalRef = _findingsRef(safeUid).doc(suffixId);
+    var finalPayload = buildPayload(null);
+    return _runFirestoreWrite(function() {
+      return finalRef.set(finalPayload, { merge: false });
+    }).then(function() {
+      return suffixId;
+    });
+  });
+}
+
 // ── Report Templates ─────────────────────────────────────────
 function _normaliseReportTemplateDoc(doc) {
   return {
