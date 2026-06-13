@@ -1386,6 +1386,7 @@ function applyPatternViewerInlineDraft(options) {
 
   const step = steps[safeStepIndex];
   step.sections = normaliseStepSectionsSafe(step.sections, step.richContent || step.rich_content || []);
+  const forceApply = Boolean(options && options.force);
 
   let changed = false;
   const nextRichContent = normaliseRichContent((options && options.content) || []);
@@ -1410,13 +1411,13 @@ function applyPatternViewerInlineDraft(options) {
     }
 
     const currentSearchPattern = normaliseRichContent(step.sections.searchPattern || []);
-    if (!areRichContentValuesEqual(currentSearchPattern, nextRichContent)) {
+    if (forceApply || !areRichContentValuesEqual(currentSearchPattern, nextRichContent)) {
       step.sections.searchPattern = nextRichContent;
       step.richContent = normaliseRichContent(nextRichContent);
       changed = true;
     }
 
-    if (Boolean(step.isRedStep) !== nextIsMarkedRed) {
+    if (forceApply || Boolean(step.isRedStep) !== nextIsMarkedRed) {
       step.isRedStep = nextIsMarkedRed;
       changed = true;
     }
@@ -1436,17 +1437,17 @@ function applyPatternViewerInlineDraft(options) {
     if (!finding) return false;
 
     const nextTitle = String((options && options.title) || '').trim();
-    if (nextTitle && String(finding.title || '').trim() !== nextTitle) {
+    if (nextTitle && (forceApply || String(finding.title || '').trim() !== nextTitle)) {
       finding.title = nextTitle;
       changed = true;
     }
 
-    if (Boolean(finding.isRedFinding) !== nextIsMarkedRed) {
+    if (forceApply || Boolean(finding.isRedFinding) !== nextIsMarkedRed) {
       finding.isRedFinding = nextIsMarkedRed;
       changed = true;
     }
 
-    if (!areRichContentValuesEqual(finding.content || [], nextRichContent)) {
+    if (forceApply || !areRichContentValuesEqual(finding.content || [], nextRichContent)) {
       finding.content = nextRichContent;
       changed = true;
     }
@@ -1650,7 +1651,6 @@ function commitPatternEditDraftIfNeeded() {
     if (_patternEditDraft && _patternEditDraft.patternId === patternId) {
       _patternEditDraft.dirty = false;
     }
-    queuePatternReloadFromFirestore(pattern.id, currentStepIndex, Array.isArray(pattern.steps) ? pattern.steps.length : null, 0);
     showToast('Saved edits to Firebase.');
   }).catch(function(err) {
     console.error(err);
@@ -3275,7 +3275,8 @@ function flushPatternViewerDraftFromDom() {
       findingId: String(formEl.dataset.findingId || ''),
       title: titleInput ? titleInput.value : '',
       content: contentValue,
-      isMarkedRed: redToggle ? redToggle.checked : false
+      isMarkedRed: redToggle ? redToggle.checked : false,
+      force: true
     });
   });
 }

@@ -22,6 +22,51 @@ var NOTES_SEARCH_STOP_WORDS = {
   derivation: 1, derivations: 1, related: 1, similar: 1, about: 1
 };
 
+var NOTES_SEARCH_ALIASES = {
+  'pe': ['pulmonary embolism'],
+  'pulmonary embolism': ['pe'],
+  'dvt': ['deep venous thrombosis', 'deep vein thrombosis'],
+  'deep venous thrombosis': ['dvt'],
+  'deep vein thrombosis': ['dvt'],
+  'pna': ['pneumonia'],
+  'pneumonia': ['pna'],
+  'sbo': ['small bowel obstruction'],
+  'small bowel obstruction': ['sbo'],
+  'lbo': ['large bowel obstruction'],
+  'large bowel obstruction': ['lbo'],
+  'appy': ['appendicitis', 'appendix'],
+  'appendicitis': ['appy'],
+  'chole': ['cholecystitis'],
+  'cholecystitis': ['chole'],
+  'ich': ['intracranial hemorrhage', 'intracranial haemorrhage'],
+  'intracranial hemorrhage': ['ich'],
+  'intracranial haemorrhage': ['ich'],
+  'sah': ['subarachnoid hemorrhage', 'subarachnoid haemorrhage'],
+  'subarachnoid hemorrhage': ['sah'],
+  'subarachnoid haemorrhage': ['sah'],
+  'sdh': ['subdural hematoma', 'subdural haematoma'],
+  'subdural hematoma': ['sdh'],
+  'subdural haematoma': ['sdh'],
+  'edh': ['epidural hematoma', 'epidural haematoma'],
+  'epidural hematoma': ['edh'],
+  'epidural haematoma': ['edh'],
+  'fx': ['fracture'],
+  'fracture': ['fx'],
+  'cva': ['stroke', 'infarct'],
+  'stroke': ['cva'],
+  'infarct': ['cva'],
+  'aaa': ['abdominal aortic aneurysm'],
+  'abdominal aortic aneurysm': ['aaa'],
+  'ptx': ['pneumothorax'],
+  'pneumothorax': ['ptx'],
+  'us': ['ultrasound'],
+  'ultrasound': ['us'],
+  'cta': ['ct angiography'],
+  'ct angiography': ['cta'],
+  'mra': ['mr angiography'],
+  'mr angiography': ['mra']
+};
+
 function initNotesSearch(userId) {
   _notesSearchUid = userId;
   bindNotesSearchUi();
@@ -205,6 +250,7 @@ function makeRecord(findingId, title, modalities, contentText, searchText, conte
   var tokens = tokeniseForSearch(normalText);
   var tokenSet = {};
   var stems = {};
+  var titleNormal = normaliseSearchText(title || '');
   var linkedPatternNamesText = buildLinkedPatternNamesText(links);
   var linkedPatternTokens = {};
   var linkedPatternStems = {};
@@ -246,10 +292,32 @@ function makeRecord(findingId, title, modalities, contentText, searchText, conte
     linkedPatternNamesText: linkedPatternNamesText,
     linkedPatternTokens: linkedPatternTokens,
     linkedPatternStems: linkedPatternStems,
+    titleNormal: titleNormal,
     normalText: normalText,
     tokens: tokenSet,
     stems: stems
   };
+}
+
+function expandSearchAliases(text) {
+  var normal = normaliseSearchText(text || '');
+  if (!normal) return '';
+
+  var extras = [];
+  var seen = {};
+
+  Object.keys(NOTES_SEARCH_ALIASES).forEach(function(key) {
+    if (!key) return;
+    if (normal.indexOf(key) === -1) return;
+    (NOTES_SEARCH_ALIASES[key] || []).forEach(function(alias) {
+      var safeAlias = normaliseSearchText(alias || '');
+      if (!safeAlias || seen[safeAlias]) return;
+      seen[safeAlias] = 1;
+      extras.push(safeAlias);
+    });
+  });
+
+  return extras.length ? (normal + ' ' + extras.join(' ')) : normal;
 }
 
 function buildLinkedPatternNamesText(links) {
@@ -452,10 +520,11 @@ function getQueryTerms(query) {
 }
 
 function searchNotesRecords(query, records) {
-  var normalQuery = normaliseSearchText(query);
+  var expandedQuery = expandSearchAliases(query || '');
+  var normalQuery = normaliseSearchText(expandedQuery);
   if (!normalQuery) return [];
 
-  var queryTerms = getQueryTerms(query);
+  var queryTerms = getQueryTerms(expandedQuery);
   if (!queryTerms.length) {
     queryTerms = [{ token: normalQuery, variants: [normalQuery] }];
   }
@@ -484,9 +553,14 @@ function scoreRecordMatch(record, normalQuery, queryTerms) {
   var patternMatchedTerms = 0;
   var score = 0;
   var hasDirectPatternMatch = false;
+  var hasDirectTitleMatch = false;
 
   if (text.indexOf(normalQuery) !== -1) {
     score += 24;
+  }
+  if (record.titleNormal && record.titleNormal.indexOf(normalQuery) !== -1) {
+    hasDirectTitleMatch = true;
+    score += 30;
   }
   if (patternText && patternText.indexOf(normalQuery) !== -1) {
     hasDirectPatternMatch = true;
@@ -539,13 +613,16 @@ function scoreRecordMatch(record, normalQuery, queryTerms) {
     if (hasPatternMatch) patternMatchedTerms++;
   });
 
-  // Require at least one meaningful term and strong coverage for multi-term queries.
-  if (!matchedTerms && !patternMatchedTerms && !hasDirectPatternMatch) return 0;
+  // Require at least one meaningful term, but allow partial multi-term matches
+  // when there is a strong title/body hit to improve recall for clinical phrasing.
+  if (!matchedTerms && !patternMatchedTerms && !hasDirectPatternMatch && !hasDirectTitleMatch) return 0;
+
+  var anyDirect = hasDirectPatternMatch || hasDirectTitleMatch || text.indexOf(normalQuery) !== -1;
+  var totalMatched = matchedTerms + patternMatchedTerms;
   if (
     queryTerms.length > 1 &&
-    matchedTerms < Math.max(1, queryTerms.length - 1) &&
-    patternMatchedTerms < queryTerms.length &&
-    !hasDirectPatternMatch
+    !anyDirect &&
+    totalMatched < Math.min(2, queryTerms.length)
   ) return 0;
 
   if (record.sectionKey === 'dontMissPathology') score += 2;
@@ -1068,53 +1145,14 @@ function buildFindingContentFromText(text, isRedFinding) {
 }
 
 function sanitizeFindingContentForFirestore(content) {
-  var chunks = normaliseRichContent(content || []);
-  var out = [];
-
-  function appendRichChunks(items) {
-    (items || []).forEach(function(item) {
-      if (!item) return;
-      if (item.type === 'list') {
-        appendListChunk(item);
-        return;
-      }
-      if (item.type === 'subsection') {
-        appendRichChunks(item.content || []);
-        return;
-      }
-      out.push(item);
-    });
-  }
-
-  function appendListChunk(listChunk) {
-    (listChunk.items || []).forEach(function(item, idx) {
-      if (idx > 0) {
-        out.push({ type: 'text', text: '\n', bold: false, color: null });
-      }
-      out.push({
-        type: 'text',
-        text: (listChunk.ordered ? String(idx + 1) + '. ' : '• '),
-        bold: false,
-        color: null
-      });
-      appendRichChunks(Array.isArray(item) ? item : (item && item.content) || []);
-    });
-  }
-
-  appendRichChunks(chunks);
-  return out;
+  return normaliseRichContent(content || []);
 }
 
 function buildFindingContentFromRichContent(content, isRedFinding) {
   var linear = sanitizeFindingContentForFirestore(content || []);
   if (!linear.length) return [];
-
-  var tinted = linear.map(function(chunk) {
-    if (!chunk || chunk.type !== 'text') return chunk;
-    if (!isRedFinding || chunk.color) return chunk;
-    return Object.assign({}, chunk, { color: 'red' });
-  });
-
+  // Keep explicit text styling intact; red-display behavior is driven by isRedFinding.
+  var tinted = linear;
   return typeof cloneRichContentForStorage === 'function'
     ? cloneRichContentForStorage(tinted)
     : tinted;
@@ -1347,8 +1385,11 @@ async function applyFindingToSelectedStep() {
 
   var isRedFinding = Boolean(redEl.checked);
 
-  var nextText = buildFindingInsertText(_findingsAddContext);
-  if (!nextText) {
+  var sourceContent = normaliseRichContent((_findingsAddContext && _findingsAddContext.content) || []);
+  var hasSourceContent = typeof hasAnyRichContent === 'function'
+    ? hasAnyRichContent(sourceContent)
+    : Boolean(flattenRichContentToText(sourceContent, true).trim());
+  if (!hasSourceContent) {
     statusEl.textContent = 'This finding has no text to add.';
     return;
   }
@@ -1365,7 +1406,7 @@ async function applyFindingToSelectedStep() {
       type: 'subsection',
       title: String(_findingsAddContext.subsectionTitle || _findingsAddContext.stepTitle || 'Finding').trim() || 'Finding',
       isRedFinding: isRedFinding,
-      content: buildFindingContentFromText(nextText, isRedFinding)
+      content: buildFindingContentFromRichContent(sourceContent, isRedFinding)
     });
     targetStep.richContent = normaliseRichContent(targetStep.sections.searchPattern || []);
     targetSteps[targetIndex] = targetStep;
