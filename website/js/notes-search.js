@@ -992,11 +992,8 @@ function bindFindingsCreateModal() {
   if (contentEl && typeof handleEditorPaste === 'function') {
     contentEl.addEventListener('paste', handleEditorPaste);
   }
-  if (modal) {
-    modal.addEventListener('click', function(e) {
-      if (e.target === modal) closeCreateFindingModal();
-    });
-  }
+  // Do not close on backdrop click: pointer drags while selecting text can end
+  // outside the modal and accidentally dismiss in-progress edits.
 }
 
 function openCreateFindingModal(sourceContext) {
