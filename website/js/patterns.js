@@ -1358,6 +1358,37 @@ function areRichContentValuesEqual(left, right) {
   return JSON.stringify(normaliseRichContent(left || [])) === JSON.stringify(normaliseRichContent(right || []));
 }
 
+function stripFindingRedTextColor(content) {
+  function walk(items) {
+    return normaliseRichContent(items || []).map(function(chunk) {
+      if (!chunk) return chunk;
+
+      if (chunk.type === 'subsection') {
+        return Object.assign({}, chunk, {
+          content: walk(chunk.content || [])
+        });
+      }
+
+      if (chunk.type === 'list') {
+        return Object.assign({}, chunk, {
+          items: (chunk.items || []).map(function(item) {
+            var listContent = Array.isArray(item) ? item : (item && item.content) || [];
+            return walk(listContent);
+          })
+        });
+      }
+
+      if (chunk.type === 'text' && String(chunk.color || '').toLowerCase() === 'red') {
+        return Object.assign({}, chunk, { color: null });
+      }
+
+      return chunk;
+    });
+  }
+
+  return walk(content || []);
+}
+
 function applyPatternViewerStepTitleDraft(stepIndex, nextTitleRaw) {
   if (!_patternViewerEditMode) return false;
   const pattern = getSelectedPattern();
@@ -1447,8 +1478,9 @@ function applyPatternViewerInlineDraft(options) {
       changed = true;
     }
 
-    if (forceApply || !areRichContentValuesEqual(finding.content || [], nextRichContent)) {
-      finding.content = nextRichContent;
+    var safeFindingContent = nextIsMarkedRed ? stripFindingRedTextColor(nextRichContent) : nextRichContent;
+    if (forceApply || !areRichContentValuesEqual(finding.content || [], safeFindingContent)) {
+      finding.content = safeFindingContent;
       changed = true;
     }
 
@@ -2092,7 +2124,7 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
 
     finding.title = String(nextTitle || '').trim();
     finding.isRedFinding = Boolean(nextIsMarkedRed);
-    finding.content = nextRichContent;
+    finding.content = nextIsMarkedRed ? stripFindingRedTextColor(nextRichContent) : nextRichContent;
     if (finding.linkMeta) {
       finding.linkMeta = null;
       detachedLiveLink = true;
@@ -2367,6 +2399,9 @@ function renderNestedSubsections(container, content, stepIndex, stepsLength) {
 
     const panelInner = document.createElement('div');
     panelInner.className = 'step-subsection-content';
+    const displayContent = entry.isRedFinding
+      ? stripFindingRedTextColor(entry.content || [])
+      : (entry.content || []);
     if (isEditing) {
       renderInlineEditForm(panelInner, {
         stepIndex: safeStepIndex,
@@ -2374,12 +2409,12 @@ function renderNestedSubsections(container, content, stepIndex, stepsLength) {
         findingId: entry.subsectionId || '',
         includeTitle: true,
         title: entry.title || '',
-        content: entry.content || [],
+        content: displayContent,
         isMarkedRed: Boolean(entry.isRedFinding),
         redToggleLabel: 'Show this finding in red in main display'
       });
-    } else if ((entry.content || []).length) {
-      renderRichContent(panelInner, entry.content);
+    } else if (displayContent.length) {
+      renderRichContent(panelInner, displayContent);
     } else {
       const empty = document.createElement('p');
       empty.className = 'step-section-empty';

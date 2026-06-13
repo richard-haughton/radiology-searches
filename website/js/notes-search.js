@@ -1145,11 +1145,42 @@ function sanitizeFindingContentForFirestore(content) {
   return normaliseRichContent(content || []);
 }
 
+function stripFindingRedTextColor(content) {
+  function walk(items) {
+    return normaliseRichContent(items || []).map(function(chunk) {
+      if (!chunk) return chunk;
+
+      if (chunk.type === 'subsection') {
+        return Object.assign({}, chunk, {
+          content: walk(chunk.content || [])
+        });
+      }
+
+      if (chunk.type === 'list') {
+        return Object.assign({}, chunk, {
+          items: (chunk.items || []).map(function(item) {
+            var listContent = Array.isArray(item) ? item : (item && item.content) || [];
+            return walk(listContent);
+          })
+        });
+      }
+
+      if (chunk.type === 'text' && String(chunk.color || '').toLowerCase() === 'red') {
+        return Object.assign({}, chunk, { color: null });
+      }
+
+      return chunk;
+    });
+  }
+
+  return walk(content || []);
+}
+
 function buildFindingContentFromRichContent(content, isRedFinding) {
   var linear = sanitizeFindingContentForFirestore(content || []);
   if (!linear.length) return [];
-  // Keep explicit text styling intact; red-display behavior is driven by isRedFinding.
-  var tinted = linear;
+  // Red-flagged findings should mark the container, not tint the entire text red.
+  var tinted = isRedFinding ? stripFindingRedTextColor(linear) : linear;
   return typeof cloneRichContentForStorage === 'function'
     ? cloneRichContentForStorage(tinted)
     : tinted;
