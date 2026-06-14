@@ -805,15 +805,51 @@ function resolveFindingsCreateSourceContext(sourceContext) {
   };
 }
 
+function resolveCurrentFindingsTargetContext() {
+  if (typeof selectedPatternId === 'undefined') return null;
+  var activePatternId = String(selectedPatternId || '').trim();
+  if (!activePatternId) return null;
+
+  var pattern = getPatternById(activePatternId);
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) return null;
+
+  var preferredIndex = (typeof currentStepIndex === 'number') ? currentStepIndex : 0;
+  var stepIndex = resolveStepIndexForPattern(pattern, '', preferredIndex);
+  if (stepIndex < 0 || !pattern.steps[stepIndex]) return null;
+
+  var step = pattern.steps[stepIndex] || {};
+  return {
+    patternId: String(pattern.id || ''),
+    patternName: pattern.name || 'Untitled Pattern',
+    stepId: String(step.stepId || ''),
+    stepTitle: String(step.stepTitle || '').trim() || 'Untitled Step',
+    stepIndex: stepIndex
+  };
+}
+
 function updateFindingsCreateStatusForSelection() {
   var statusEl = document.getElementById('findings-create-status');
   var patternSelect = document.getElementById('findings-create-pattern-select');
   var stepSelect = document.getElementById('findings-create-step-select');
+  var addCurrentCheckbox = document.getElementById('findings-create-add-current-step');
   if (!statusEl) return;
 
   if (!_findingsCreateContext) {
     if (_findingsEditingFindingId) {
       statusEl.textContent = 'Save changes to update this finding in the Findings library.';
+    } else if (addCurrentCheckbox && addCurrentCheckbox.checked) {
+      var currentContext = resolveCurrentFindingsTargetContext();
+      if (!currentContext) {
+        statusEl.textContent = 'This finding will be saved to the Findings library. No active Search Pattern step is selected right now.';
+      } else {
+        statusEl.textContent = 'This finding will be saved to the Findings library and added to: '
+          + currentContext.patternName
+          + ' | Step '
+          + (currentContext.stepIndex + 1)
+          + ': '
+          + currentContext.stepTitle
+          + '.';
+      }
     } else {
       statusEl.textContent = 'This finding will be saved to the Findings library only. It will not be added to a search pattern step.';
     }
@@ -856,16 +892,28 @@ function updateFindingsCreateStatusForSelection() {
 function updateFindingsCreateLocationControlsVisibility() {
   var patternSelect = document.getElementById('findings-create-pattern-select');
   var stepSelect = document.getElementById('findings-create-step-select');
+  var addCurrentRow = document.getElementById('findings-create-add-current-row');
+  var addCurrentCheckbox = document.getElementById('findings-create-add-current-step');
   if (!patternSelect || !stepSelect) return;
 
   var patternLabel = patternSelect.closest('label');
   var stepLabel = stepSelect.closest('label');
   var showControls = Boolean(_findingsCreateContext) && !_findingsEditingFindingId;
+  var showAddCurrent = !_findingsEditingFindingId && !_findingsCreateContext;
 
   if (patternLabel) patternLabel.style.display = showControls ? '' : 'none';
   if (stepLabel) stepLabel.style.display = showControls ? '' : 'none';
   patternSelect.disabled = !showControls;
   stepSelect.disabled = !showControls;
+
+  if (addCurrentRow) addCurrentRow.style.display = showAddCurrent ? '' : 'none';
+  if (addCurrentCheckbox) {
+    var canUseCurrentTarget = Boolean(resolveCurrentFindingsTargetContext());
+    addCurrentCheckbox.disabled = !showAddCurrent || !canUseCurrentTarget;
+    if (!showAddCurrent || !canUseCurrentTarget) {
+      addCurrentCheckbox.checked = false;
+    }
+  }
 }
 
 function bindFindingsAddModal() {
@@ -963,6 +1011,7 @@ function bindFindingsCreateModal() {
   var applyBtn = document.getElementById('btn-findings-create-apply');
   var patternSelect = document.getElementById('findings-create-pattern-select');
   var stepSelect = document.getElementById('findings-create-step-select');
+  var addCurrentCheckbox = document.getElementById('findings-create-add-current-step');
   var contentEl = document.getElementById('findings-create-content');
   var toolbarEl = document.getElementById('findings-create-toolbar');
   if (closeBtn) closeBtn.addEventListener('click', closeCreateFindingModal);
@@ -970,6 +1019,7 @@ function bindFindingsCreateModal() {
   if (applyBtn) applyBtn.addEventListener('click', applyCreatedFindingToSelectedStep);
   if (patternSelect) patternSelect.addEventListener('change', populateFindingsCreateStepSelect);
   if (stepSelect) stepSelect.addEventListener('change', updateFindingsCreateStatusForSelection);
+  if (addCurrentCheckbox) addCurrentCheckbox.addEventListener('change', updateFindingsCreateStatusForSelection);
   if (toolbarEl && contentEl && typeof bindRichEditorToolbar === 'function') {
     bindRichEditorToolbar(toolbarEl, contentEl);
 
@@ -1003,6 +1053,7 @@ function openCreateFindingModal(sourceContext) {
   var titleEl = document.getElementById('findings-create-title');
   var contentEl = document.getElementById('findings-create-content');
   var redEl = document.getElementById('findings-create-red');
+  var addCurrentCheckbox = document.getElementById('findings-create-add-current-step');
   var patternSelect = document.getElementById('findings-create-pattern-select');
   var applyBtn = document.getElementById('btn-findings-create-apply');
   var statusEl = document.getElementById('findings-create-status');
@@ -1037,6 +1088,7 @@ function openCreateFindingModal(sourceContext) {
     contentEl.innerHTML = '';
   }
   redEl.checked = false;
+  if (addCurrentCheckbox) addCurrentCheckbox.checked = false;
 
   updateFindingsCreateLocationControlsVisibility();
   if (_findingsCreateContext) {
@@ -1204,6 +1256,7 @@ async function applyCreatedFindingToSelectedStep() {
   var titleEl = document.getElementById('findings-create-title');
   var contentEl = document.getElementById('findings-create-content');
   var redEl = document.getElementById('findings-create-red');
+  var addCurrentCheckbox = document.getElementById('findings-create-add-current-step');
   var patternSelect = document.getElementById('findings-create-pattern-select');
   var stepSelect = document.getElementById('findings-create-step-select');
   var applyBtn = document.getElementById('btn-findings-create-apply');
@@ -1231,8 +1284,17 @@ async function applyCreatedFindingToSelectedStep() {
   }
 
   var isEditing = Boolean(_findingsEditingFindingId);
+  var addToCurrentChecked = Boolean(addCurrentCheckbox && addCurrentCheckbox.checked);
+  var impliedCreateContext = (!isEditing && !_findingsCreateContext && addToCurrentChecked)
+    ? resolveCurrentFindingsTargetContext()
+    : null;
 
-  if (!_findingsCreateContext || isEditing) {
+  if (addToCurrentChecked && !impliedCreateContext && !_findingsCreateContext && !isEditing) {
+    statusEl.textContent = 'Select a Search Pattern step first, then try again.';
+    return;
+  }
+
+  if ((!_findingsCreateContext && !impliedCreateContext) || isEditing) {
     applyBtn.disabled = true;
     applyBtn.textContent = isEditing ? 'Saving...' : 'Creating...';
     statusEl.textContent = isEditing ? 'Saving finding...' : 'Creating finding...';
@@ -1257,13 +1319,15 @@ async function applyCreatedFindingToSelectedStep() {
     return;
   }
 
-  var primaryPattern = getPatternById(_findingsCreateContext.patternId);
+  var createContext = _findingsCreateContext || impliedCreateContext;
+
+  var primaryPattern = getPatternById(createContext.patternId);
   if (!primaryPattern) {
     statusEl.textContent = 'Current pattern is no longer available. Refresh and try again.';
     return;
   }
 
-  var primaryIndex = resolveStepIndexForPattern(primaryPattern, _findingsCreateContext.stepId, _findingsCreateContext.stepIndex);
+  var primaryIndex = resolveStepIndexForPattern(primaryPattern, createContext.stepId, createContext.stepIndex);
   if (primaryIndex < 0 || !primaryPattern.steps[primaryIndex]) {
     statusEl.textContent = 'Current step is no longer available. Refresh and try again.';
     return;
@@ -1373,7 +1437,7 @@ async function applyCreatedFindingToSelectedStep() {
 
     showToast(targets.length > 1
       ? 'Finding created in current step and additional step.'
-      : 'Finding created in current step.');
+      : (impliedCreateContext ? 'Finding created and added to current step.' : 'Finding created in current step.'));
     closeCreateFindingModal();
   } catch (err) {
     console.error(err);
