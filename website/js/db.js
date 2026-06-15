@@ -233,6 +233,25 @@ function _mergeFindingLinks(baseLinks, incomingLinks) {
   return merged;
 }
 
+function _richContentHasMaterial(content) {
+  var chunks = Array.isArray(content) ? content : [];
+  for (var i = 0; i < chunks.length; i++) {
+    var chunk = chunks[i] || {};
+    if (chunk.type === 'text' && String(chunk.text || '').trim()) return true;
+    if (chunk.type === 'image' && String(chunk.data || '').trim()) return true;
+    if (chunk.type === 'link' && (String(chunk.text || '').trim() || String(chunk.url || '').trim())) return true;
+    if (chunk.type === 'subsection' && (String(chunk.title || '').trim() || _richContentHasMaterial(chunk.content || []))) return true;
+    if (chunk.type === 'list') {
+      var items = Array.isArray(chunk.items) ? chunk.items : [];
+      for (var j = 0; j < items.length; j++) {
+        var itemContent = _normaliseListItemContent(items[j]);
+        if (_richContentHasMaterial(itemContent)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function _modalitiesFromFindingLinks(links) {
   var seen = {};
   var modalities = [];
@@ -313,13 +332,15 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
       item.findingId = findingId;
       item.subsectionId = subsectionId;
       item.title = title || ('Findings Section ' + (itemIndex + 1));
+      var incomingContent = cloneRichContentForStorage(item.content || []);
+      var incomingHasContent = _richContentHasMaterial(incomingContent);
 
       if (!findingsById[findingId]) {
         findingsById[findingId] = {
           id: findingId,
           name: item.title,
           nameKey: _normaliseFindingName(item.title),
-          content: cloneRichContentForStorage(item.content || []),
+          content: incomingContent,
           isRedFinding: Boolean(item.isRedFinding),
           links: []
         };
@@ -327,7 +348,9 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
         // Overwrite semantics: latest occurrence in this save payload wins.
         findingsById[findingId].name = item.title;
         findingsById[findingId].nameKey = _normaliseFindingName(item.title);
-        findingsById[findingId].content = cloneRichContentForStorage(item.content || []);
+        if (incomingHasContent || !_richContentHasMaterial(findingsById[findingId].content || [])) {
+          findingsById[findingId].content = incomingContent;
+        }
         findingsById[findingId].isRedFinding = Boolean(item.isRedFinding);
       }
 
@@ -466,13 +489,17 @@ function _buildFindingMutations(patternId, extractedFindings, existingFindings, 
     }
 
     var mergedLinks = _mergeFindingLinks(baseLinks, nextFinding.links || []);
+    var nextContent = cloneRichContentForStorage(nextFinding.content || []);
+    if (!_richContentHasMaterial(nextContent) && existing && _richContentHasMaterial(existing.content || [])) {
+      nextContent = cloneRichContentForStorage(existing.content || []);
+    }
     mutations.push({
       type: 'set',
       id: findingId,
       data: {
         name: nextFinding.name || (existing && existing.name) || '',
         nameKey: nextFinding.nameKey || (existing && existing.nameKey) || _normaliseFindingName(nextFinding.name || ''),
-        content: JSON.stringify(cloneRichContentForStorage(nextFinding.content || [])),
+        content: JSON.stringify(nextContent),
         isRedFinding: Boolean(nextFinding.isRedFinding),
         modalities: _modalitiesFromFindingLinks(mergedLinks),
         links: mergedLinks,
@@ -863,6 +890,7 @@ function _normalisePatternDoc(doc) {
     modality: doc.modality || 'Other',
     steps: steps,
     goalSeconds: _normaliseGoalSeconds(doc.goalSeconds, doc.goalMinutes),
+    pathologyGoalSeconds: _normaliseGoalSeconds(doc.pathologyGoalSeconds, doc.pathologyGoalMinutes),
     updatedAt: doc.updatedAt || null
   };
 }
@@ -918,6 +946,7 @@ function subscribeFindings(uid, callback) {
 
 function createPattern(uid, data) {
   var goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
+  var pathologyGoalSeconds = _normaliseGoalSeconds(data.pathologyGoalSeconds, data.pathologyGoalMinutes);
   var ref = _patternsRef(uid).doc();
   var patternId = ref.id;
   var rawSteps = Array.isArray(data.steps) ? data.steps : [];
@@ -935,6 +964,7 @@ function createPattern(uid, data) {
       steps: firestoreSteps,
       reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
       goalSeconds: goalSeconds,
+      pathologyGoalSeconds: pathologyGoalSeconds,
       updatedAt: _now()
     };
 
@@ -974,6 +1004,9 @@ function updatePattern(uid, patternId, data) {
       if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
         payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
       }
+      if (Object.prototype.hasOwnProperty.call(data, 'pathologyGoalSeconds') || Object.prototype.hasOwnProperty.call(data, 'pathologyGoalMinutes')) {
+        payload.pathologyGoalSeconds = _normaliseGoalSeconds(data.pathologyGoalSeconds, data.pathologyGoalMinutes);
+      }
 
       payload = _sanitizeFirestoreValue(payload, false);
 
@@ -1006,6 +1039,18 @@ function updatePatternGoalSeconds(uid, patternId, goalSeconds) {
   return _runFirestoreWrite(function() {
     return _patternsRef(uid).doc(patternId).update({
       goalSeconds: normalisedGoal,
+      updatedAt: _now()
+    });
+  });
+}
+
+function updatePatternGoalTimes(uid, patternId, goalSeconds, pathologyGoalSeconds) {
+  var normalisedGoal = _normaliseGoalSeconds(goalSeconds, null);
+  var normalisedPathologyGoal = _normaliseGoalSeconds(pathologyGoalSeconds, null);
+  return _runFirestoreWrite(function() {
+    return _patternsRef(uid).doc(patternId).update({
+      goalSeconds: normalisedGoal,
+      pathologyGoalSeconds: normalisedPathologyGoal,
       updatedAt: _now()
     });
   });
@@ -1515,6 +1560,7 @@ function batchImportPatterns(uid, patterns, onProgress) {
         modality: p.modality || 'Other',
         steps: p.steps || [],
         goalSeconds: _normaliseGoalSeconds(p.goalSeconds, p.goalMinutes),
+        pathologyGoalSeconds: _normaliseGoalSeconds(p.pathologyGoalSeconds, p.pathologyGoalMinutes),
         updatedAt: firebase.firestore.Timestamp.now()
       });
     });

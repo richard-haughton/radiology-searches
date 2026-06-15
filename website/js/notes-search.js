@@ -1511,6 +1511,7 @@ async function applyFindingToSelectedStep() {
       name: targetPattern.name || 'Untitled Pattern',
       modality: targetPattern.modality || 'Other',
       goalSeconds: targetPattern.goalSeconds,
+      reportConfig: targetPattern.reportConfig || null,
       steps: preparedSteps
     });
 

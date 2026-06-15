@@ -536,6 +536,20 @@ body {
   color: var(--timer-text);
   background: var(--timer-input-bg);
 }
+.timer-goal-mode-input {
+  width: 108px;
+}
+.timer-voice-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--timer-soft);
+  font-weight: 700;
+}
+.timer-voice-toggle input {
+  accent-color: var(--timer-accent-1);
+}
 .timer-goal-status {
   font-size: 0.82rem;
   color: var(--timer-soft);

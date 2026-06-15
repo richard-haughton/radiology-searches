@@ -11,6 +11,11 @@ var timerSeconds = 0;
 var timerStartWallTime = null;
 var timerRunning = false;
 var timerGoalSeconds = null;
+var _timerGoalMode = 'normal';
+var _voiceModeEnabled = false;
+var _timerStepEnteredAtSeconds = 0;
+var _timerActiveStepKey = '';
+var _timerStepSecondsByPattern = {};
 var activeModality = 'All';
 var pendingRecordPatternName = '';
 var pendingRecordSeconds = 0;
@@ -44,6 +49,8 @@ var ACCORDION_MODE_STATE_KEY = 'patternStepAccordionMode';
 var SECTION_WITH_SUBSECTIONS_KEYS = ['dontMissPathology'];
 var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
+var TIMER_GOAL_MODE_STATE_KEY = 'patternTimerGoalMode';
+var TIMER_VOICE_MODE_STATE_KEY = 'patternTimerVoiceMode';
 var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
   searchPattern: true,
@@ -131,6 +138,172 @@ function bindInlineRichFontSizeControls(toolbar, editor) {
   });
 }
 
+function normaliseTimerGoalMode(value) {
+  var mode = String(value || '').trim().toLowerCase();
+  return mode === 'pathology' ? 'pathology' : 'normal';
+}
+
+function loadTimerPreferences() {
+  _timerGoalMode = normaliseTimerGoalMode(localStorage.getItem(TIMER_GOAL_MODE_STATE_KEY));
+  _voiceModeEnabled = localStorage.getItem(TIMER_VOICE_MODE_STATE_KEY) === '1';
+}
+
+function getGoalSecondsForMode(pattern, mode) {
+  var safePattern = pattern || null;
+  var safeMode = normaliseTimerGoalMode(mode);
+  if (!safePattern) return null;
+  if (safeMode === 'pathology') {
+    return normaliseGoalSeconds(safePattern.pathologyGoalSeconds);
+  }
+  return normaliseGoalSeconds(safePattern.goalSeconds);
+}
+
+function getPatternStepSecondsOverride(patternId) {
+  var safePatternId = String(patternId || '').trim();
+  if (!safePatternId) return null;
+  var override = Number(_timerStepSecondsByPattern[safePatternId]);
+  if (!Number.isFinite(override) || override <= 0) return null;
+  return Math.round(override);
+}
+
+function setPatternStepSecondsOverride(patternId, seconds) {
+  var safePatternId = String(patternId || '').trim();
+  if (!safePatternId) return;
+
+  var nextValue = Number(seconds);
+  if (!Number.isFinite(nextValue) || nextValue <= 0) {
+    delete _timerStepSecondsByPattern[safePatternId];
+    return;
+  }
+
+  _timerStepSecondsByPattern[safePatternId] = Math.round(nextValue);
+}
+
+function getDefaultStepSeconds(pattern) {
+  var safePattern = pattern || getSelectedPattern();
+  if (!safePattern) return null;
+
+  var steps = Array.isArray(safePattern.steps) ? safePattern.steps : [];
+  if (!steps.length) return null;
+
+  var goal = getGoalSecondsForMode(safePattern, _timerGoalMode);
+  if (goal === null) return null;
+  return Math.max(1, Math.round(goal / steps.length));
+}
+
+function getEffectiveStepSeconds(pattern) {
+  var safePattern = pattern || getSelectedPattern();
+  if (!safePattern) return null;
+
+  var override = getPatternStepSecondsOverride(safePattern.id);
+  if (override !== null) return override;
+
+  return getDefaultStepSeconds(safePattern);
+}
+
+function syncTimerControlsFromState() {
+  var pattern = getSelectedPattern();
+  var normalInput = document.getElementById('timer-goal-minutes');
+  var pathologyInput = document.getElementById('timer-pathology-goal-minutes');
+  var modeSelect = document.getElementById('timer-goal-mode');
+  var stepInput = document.getElementById('timer-step-seconds');
+  var voiceToggle = document.getElementById('timer-voice-mode');
+
+  var normalGoal = pattern ? normaliseGoalSeconds(pattern.goalSeconds) : null;
+  var pathologyGoal = pattern ? normaliseGoalSeconds(pattern.pathologyGoalSeconds) : null;
+
+  if (normalInput) {
+    normalInput.value = normalGoal === null ? '' : String(Math.max(1, Math.round(normalGoal / 60)));
+  }
+  if (pathologyInput) {
+    pathologyInput.value = pathologyGoal === null ? '' : String(Math.max(1, Math.round(pathologyGoal / 60)));
+  }
+  if (modeSelect) {
+    modeSelect.value = _timerGoalMode;
+  }
+  if (stepInput) {
+    var override = pattern ? getPatternStepSecondsOverride(pattern.id) : null;
+    stepInput.value = override === null ? '' : String(override);
+    stepInput.disabled = _timerGoalMode !== 'normal';
+    if (_timerGoalMode !== 'normal') {
+      stepInput.title = 'Step pacing is only used in Normal mode.';
+    } else {
+      var computed = getDefaultStepSeconds(pattern);
+      stepInput.title = computed === null
+        ? 'Set a Normal goal to get automatic per-step pacing.'
+        : 'Leave blank to use auto pacing (' + formatTimerClock(computed) + ' per step).';
+    }
+  }
+  if (voiceToggle) {
+    voiceToggle.checked = _voiceModeEnabled;
+  }
+}
+
+function getActiveStepAnnouncement(step, stepIndex) {
+  var safeIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  var title = step && getCleanStepTitle(step.stepTitle);
+  return title ? title : ('Step ' + String(safeIndex + 1));
+}
+
+function speakActiveStep(step, stepIndex) {
+  if (!_voiceModeEnabled) return;
+  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
+
+  var text = getActiveStepAnnouncement(step, stepIndex);
+  if (!text) return;
+
+  window.speechSynthesis.cancel();
+  var utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+  window.speechSynthesis.speak(utterance);
+}
+
+function handleActiveStepChanged(pattern, stepIndex, step, options) {
+  var safePattern = pattern || getSelectedPattern();
+  var safeIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
+  var safeStep = step || null;
+  var safePatternId = safePattern ? String(safePattern.id || '').trim() : '';
+  var key = safePatternId && safeStep ? (safePatternId + '::' + String(safeIndex)) : '';
+  var changed = key && key !== _timerActiveStepKey;
+
+  if (!key) {
+    _timerActiveStepKey = '';
+    _timerStepEnteredAtSeconds = timerSeconds;
+    return;
+  }
+
+  if (!changed) return;
+
+  _timerActiveStepKey = key;
+  _timerStepEnteredAtSeconds = timerSeconds;
+
+  if (!(options && options.silentVoice)) {
+    speakActiveStep(safeStep, safeIndex);
+  }
+}
+
+function maybeAutoAdvanceStep() {
+  if (!timerRunning) return;
+  if (_timerGoalMode !== 'normal') return;
+
+  var pattern = getSelectedPattern();
+  if (!pattern) return;
+
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (steps.length < 2) return;
+  if (currentStepIndex >= steps.length - 1) return;
+
+  var perStepSeconds = getEffectiveStepSeconds(pattern);
+  if (perStepSeconds === null) return;
+
+  var elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  if (elapsedOnStep < perStepSeconds) return;
+
+  navigateStep(1);
+}
+
 // ── Init ─────────────────────────────────────────────────────
 function initPatterns(userId) {
   _pUid = userId;
@@ -140,6 +313,7 @@ function initPatterns(userId) {
   loadStepSectionsOpenState();
   loadAccordionModeState();
   loadInlineEditorFontSizePreference();
+  loadTimerPreferences();
   initPatternViewControls();
   bindInlineToolbarOffsetSync();
 
@@ -191,6 +365,40 @@ function initPatterns(userId) {
       saveStudyGoal();
     }
   });
+  document.getElementById('timer-pathology-goal-minutes').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveStudyGoal();
+    }
+  });
+  document.getElementById('timer-goal-mode').addEventListener('change', e => {
+    _timerGoalMode = normaliseTimerGoalMode(e.target && e.target.value);
+    localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerGoalMode);
+    const pattern = getSelectedPattern();
+    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+    _timerStepEnteredAtSeconds = timerSeconds;
+    syncTimerControlsFromState();
+    updateTimerDisplay();
+  });
+  document.getElementById('timer-step-seconds').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    saveStepSecondsOverride();
+  });
+  document.getElementById('timer-step-seconds').addEventListener('blur', saveStepSecondsOverride);
+  document.getElementById('timer-voice-mode').addEventListener('change', e => {
+    _voiceModeEnabled = Boolean(e.target && e.target.checked);
+    localStorage.setItem(TIMER_VOICE_MODE_STATE_KEY, _voiceModeEnabled ? '1' : '0');
+    if (!_voiceModeEnabled && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+    const pattern = getSelectedPattern();
+    const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+    const activeStep = steps[currentStepIndex] || null;
+    speakActiveStep(activeStep, currentStepIndex);
+  });
+  syncTimerControlsFromState();
   updateTimerActionButtons();
 
   // Record modal
@@ -593,11 +801,13 @@ function loadPattern(id, preferredStepIndex) {
     // Reset timer only when switching to a different pattern.
     stopTimer();
     timerSeconds = 0;
+    _timerActiveStepKey = '';
+    _timerStepEnteredAtSeconds = 0;
     startTimer(pattern);
   } else {
     // Keep elapsed time when reloading the same pattern after background updates.
-    timerGoalSeconds = normaliseGoalSeconds(pattern && pattern.goalSeconds);
-    syncGoalInputFromState();
+    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+    syncTimerControlsFromState();
     document.getElementById('timer-pattern-name').textContent = (pattern && pattern.name) ? pattern.name : '';
     if (timerRunning) {
       const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
@@ -669,6 +879,7 @@ function renderCurrentStep(pattern) {
       addBtn.addEventListener('click', handleAddPatternStep);
       emptyEl.appendChild(addBtn);
     }
+    handleActiveStepChanged(pattern, -1, null, { silentVoice: true });
     return;
   }
 
@@ -680,6 +891,7 @@ function renderCurrentStep(pattern) {
 
   document.getElementById('step-counter').textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
   const currentStep = steps[currentStepIndex] || steps[0] || null;
+  handleActiveStepChanged(pattern, currentStepIndex, currentStep);
   document.getElementById('step-title').textContent = (currentStep && getCleanStepTitle(currentStep.stepTitle))
     ? getCleanStepTitle(currentStep.stepTitle)
     : 'Untitled Step';
@@ -2629,6 +2841,9 @@ function clearStepView() {
   if (timerBar) timerBar.style.display = 'none';
   stopTimer();
   timerGoalSeconds = null;
+  _timerActiveStepKey = '';
+  _timerStepEnteredAtSeconds = 0;
+  syncTimerControlsFromState();
   renderGoalStatus();
 }
 
@@ -2932,16 +3147,19 @@ function startTimer(pattern) {
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = '';
   document.getElementById('timer-pattern-name').textContent = patternName;
-  timerGoalSeconds = normaliseGoalSeconds(pattern && pattern.goalSeconds);
-  syncGoalInputFromState();
+  timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+  syncTimerControlsFromState();
   timerSeconds = 0;
   timerStartWallTime = Date.now();
+  _timerStepEnteredAtSeconds = 0;
+  _timerActiveStepKey = '';
   timerRunning = true;
   updateTimerDisplay();
   updateTimerActionButtons();
   timerInterval = setInterval(() => {
     timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
     updateTimerDisplay();
+    maybeAutoAdvanceStep();
   }, 1000);
 }
 
@@ -3009,63 +3227,140 @@ function renderGoalStatus() {
   const statusEl = document.getElementById('timer-goal-status');
   if (!statusEl) return;
 
+  const modeLabel = _timerGoalMode === 'pathology' ? 'Pathology mode' : 'Normal mode';
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const perStepSeconds = getEffectiveStepSeconds(pattern);
+  const isFinalStep = steps.length > 0 && currentStepIndex >= steps.length - 1;
+  const stepElapsed = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+
   if (timerGoalSeconds === null) {
-    statusEl.textContent = 'No goal set';
+    if (_timerGoalMode === 'normal' && perStepSeconds !== null && steps.length > 0) {
+      statusEl.textContent = modeLabel + ' • no goal set • auto step ' + formatTimerClock(perStepSeconds);
+    } else {
+      statusEl.textContent = modeLabel + ' • no goal set';
+    }
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   if (timerSeconds <= timerGoalSeconds) {
     const remaining = timerGoalSeconds - timerSeconds;
-    statusEl.textContent = `Goal ${formatTimerClock(timerGoalSeconds)} • ${formatTimerClock(remaining)} left`;
+    var message = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left';
+    if (_timerGoalMode === 'normal' && perStepSeconds !== null && steps.length > 0) {
+      if (isFinalStep) {
+        message += ' • final step';
+      } else {
+        var stepRemaining = Math.max(0, perStepSeconds - stepElapsed);
+        message += ' • next step in ' + formatTimerClock(stepRemaining);
+      }
+    }
+    statusEl.textContent = message;
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   const overBy = timerSeconds - timerGoalSeconds;
-  statusEl.textContent = `Goal ${formatTimerClock(timerGoalSeconds)} • over by ${formatTimerClock(overBy)}`;
+  var overMessage = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy);
+  if (_timerGoalMode === 'normal' && perStepSeconds !== null && steps.length > 0) {
+    if (isFinalStep) {
+      overMessage += ' • final step';
+    } else {
+      var stepRemainingOver = Math.max(0, perStepSeconds - stepElapsed);
+      overMessage += ' • next step in ' + formatTimerClock(stepRemainingOver);
+    }
+  }
+  statusEl.textContent = overMessage;
   statusEl.classList.add('timer-goal-over');
 }
 
 function syncGoalInputFromState() {
-  const input = document.getElementById('timer-goal-minutes');
-  if (!input) return;
-  input.value = timerGoalSeconds === null ? '' : String(Math.max(1, Math.round(timerGoalSeconds / 60)));
+  syncTimerControlsFromState();
 }
 
 async function saveStudyGoal() {
   const pattern = getSelectedPattern();
   if (!pattern || !_pUid) return;
 
-  const input = document.getElementById('timer-goal-minutes');
-  const raw = (input && input.value || '').trim();
+  const normalInput = document.getElementById('timer-goal-minutes');
+  const pathologyInput = document.getElementById('timer-pathology-goal-minutes');
+  const rawNormal = (normalInput && normalInput.value || '').trim();
+  const rawPathology = (pathologyInput && pathologyInput.value || '').trim();
 
-  let nextGoalSeconds = null;
-  if (raw !== '') {
+  function parseGoalMinutes(raw, label) {
+    if (raw === '') return null;
     const minutes = Number(raw);
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      showToast('Goal minutes must be a positive number.', true);
-      return;
+      throw new Error(label + ' must be a positive number.');
     }
-    nextGoalSeconds = Math.round(minutes * 60);
+    return Math.round(minutes * 60);
+  }
+
+  let nextNormalGoalSeconds = null;
+  let nextPathologyGoalSeconds = null;
+  try {
+    nextNormalGoalSeconds = parseGoalMinutes(rawNormal, 'Normal goal minutes');
+    nextPathologyGoalSeconds = parseGoalMinutes(rawPathology, 'Pathology goal minutes');
+  } catch (parseErr) {
+    showToast(parseErr.message, true);
+    return;
   }
 
   try {
-    await updatePatternGoalSeconds(_pUid, pattern.id, nextGoalSeconds);
-    pattern.goalSeconds = nextGoalSeconds;
-    timerGoalSeconds = nextGoalSeconds;
-    syncGoalInputFromState();
+    if (typeof updatePatternGoalTimes === 'function') {
+      await updatePatternGoalTimes(_pUid, pattern.id, nextNormalGoalSeconds, nextPathologyGoalSeconds);
+    } else {
+      await updatePattern(_pUid, pattern.id, {
+        name: pattern.name,
+        modality: pattern.modality || 'Other',
+        reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+        goalSeconds: nextNormalGoalSeconds,
+        pathologyGoalSeconds: nextPathologyGoalSeconds,
+        steps: pattern.steps || []
+      });
+    }
+
+    pattern.goalSeconds = nextNormalGoalSeconds;
+    pattern.pathologyGoalSeconds = nextPathologyGoalSeconds;
+    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+    syncTimerControlsFromState();
     updateTimerDisplay();
 
-    if (nextGoalSeconds === null) {
-      showToast(`Cleared goal for "${pattern.name}".`);
-    } else {
-      showToast(`Saved goal for "${pattern.name}": ${formatTimerClock(nextGoalSeconds)}.`);
-    }
+    const normalSummary = nextNormalGoalSeconds === null ? 'Normal cleared' : ('Normal ' + formatTimerClock(nextNormalGoalSeconds));
+    const pathologySummary = nextPathologyGoalSeconds === null ? 'Pathology cleared' : ('Pathology ' + formatTimerClock(nextPathologyGoalSeconds));
+    showToast('Saved goals for "' + pattern.name + '": ' + normalSummary + ' • ' + pathologySummary + '.');
   } catch (err) {
     console.error(err);
-    showToast('Failed to save goal time.', true);
+    showToast('Failed to save goal times.', true);
   }
+}
+
+function saveStepSecondsOverride() {
+  const pattern = getSelectedPattern();
+  const input = document.getElementById('timer-step-seconds');
+  if (!pattern || !input) return;
+
+  const raw = String(input.value || '').trim();
+  if (raw === '') {
+    setPatternStepSecondsOverride(pattern.id, null);
+    syncTimerControlsFromState();
+    renderGoalStatus();
+    showToast('Using automatic per-step pacing for this pattern.');
+    return;
+  }
+
+  const seconds = Number(raw);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    showToast('Step seconds must be a positive number.', true);
+    syncTimerControlsFromState();
+    return;
+  }
+
+  setPatternStepSecondsOverride(pattern.id, seconds);
+  _timerStepEnteredAtSeconds = timerSeconds;
+  syncTimerControlsFromState();
+  renderGoalStatus();
+  showToast('Step pacing set to ' + formatTimerClock(Math.round(seconds)) + ' per step.');
 }
 
 // ── Record modal ─────────────────────────────────────────────
