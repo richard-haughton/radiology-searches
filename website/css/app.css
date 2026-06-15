@@ -520,6 +520,9 @@ body {
   --timer-accent-hover-2: #a9291f;
   --timer-shadow: 0 0 0 1px rgba(161, 34, 25, 0.34), 0 8px 18px rgba(115, 26, 20, 0.24);
 }
+.timer-bar.timer-goal-double {
+  animation: timer-goal-double-flash 0.85s steps(2, end) infinite;
+}
 .timer-info { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .timer-label { font-weight: 700; font-size: 0.9rem; color: var(--timer-text); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timer-display { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--timer-strong); font-family: var(--font-mono); }
@@ -578,6 +581,17 @@ body {
 }
 .timer-bar .btn-accent:hover {
   background: linear-gradient(135deg, var(--timer-accent-hover-1), var(--timer-accent-hover-2));
+}
+
+@keyframes timer-goal-double-flash {
+  0%, 100% {
+    background: var(--timer-bg);
+    border-bottom-color: var(--timer-border);
+  }
+  50% {
+    background: #ff5e52;
+    border-bottom-color: #7f120d;
+  }
 }
 
 .step-viewer {

@@ -14,6 +14,7 @@ var timerGoalSeconds = null;
 var _timerGoalMode = 'normal';
 var _voiceModeEnabled = false;
 var _timerActiveStepKey = '';
+var _timerAutoAdvanceBaseStepIndex = 0;
 var activeModality = 'All';
 var pendingRecordPatternName = '';
 var pendingRecordSeconds = 0;
@@ -3066,12 +3067,14 @@ function startTimer(pattern) {
   timerSeconds = 0;
   timerStartWallTime = Date.now();
   _timerActiveStepKey = '';
+  _timerAutoAdvanceBaseStepIndex = currentStepIndex;
   timerRunning = true;
   updateTimerDisplay();
   updateTimerActionButtons();
   timerInterval = setInterval(() => {
     timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
     updateTimerDisplay();
+    maybeAutoAdvanceStep();
   }, 1000);
 }
 
@@ -3079,6 +3082,7 @@ function stopTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
   timerRunning = false;
+  _timerAutoAdvanceBaseStepIndex = 0;
   updateTimerActionButtons();
 }
 
@@ -3106,10 +3110,15 @@ function applyTimerGoalTheme() {
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (!timerBar) return;
 
-  timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red');
+  timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red', 'timer-goal-double');
   if (timerGoalSeconds === null) return;
 
   const progress = timerSeconds / timerGoalSeconds;
+  if (progress >= 2) {
+    timerBar.classList.add('timer-goal-red', 'timer-goal-double');
+    return;
+  }
+
   if (progress <= (2 / 3)) {
     timerBar.classList.add('timer-goal-green');
     return;
@@ -3121,6 +3130,29 @@ function applyTimerGoalTheme() {
   }
 
   timerBar.classList.add('timer-goal-red');
+}
+
+function maybeAutoAdvanceStep() {
+  if (!timerRunning) return;
+  if (_timerGoalMode !== 'normal') return;
+
+  var pattern = getSelectedPattern();
+  if (!pattern) return;
+
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (steps.length < 2) return;
+
+  var goal = normaliseGoalSeconds(pattern.goalSeconds);
+  if (goal === null) return;
+
+  var perStepSeconds = Math.max(1, Math.round(goal / steps.length));
+  var targetIndex = Math.min(steps.length - 1, _timerAutoAdvanceBaseStepIndex + Math.floor(timerSeconds / perStepSeconds));
+  if (targetIndex <= currentStepIndex) return;
+
+  currentStepIndex = targetIndex;
+  _openStepIndices = new Set([targetIndex]);
+  renderCurrentStep(pattern);
+  focusCurrentStepToggle(targetIndex);
 }
 
 function normaliseGoalSeconds(rawValue) {
