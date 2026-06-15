@@ -13,9 +13,7 @@ var timerRunning = false;
 var timerGoalSeconds = null;
 var _timerGoalMode = 'normal';
 var _voiceModeEnabled = false;
-var _timerStepEnteredAtSeconds = 0;
 var _timerActiveStepKey = '';
-var _timerStepSecondsByPattern = {};
 var activeModality = 'All';
 var pendingRecordPatternName = '';
 var pendingRecordSeconds = 0;
@@ -158,55 +156,13 @@ function getGoalSecondsForMode(pattern, mode) {
   return normaliseGoalSeconds(safePattern.goalSeconds);
 }
 
-function getPatternStepSecondsOverride(patternId) {
-  var safePatternId = String(patternId || '').trim();
-  if (!safePatternId) return null;
-  var override = Number(_timerStepSecondsByPattern[safePatternId]);
-  if (!Number.isFinite(override) || override <= 0) return null;
-  return Math.round(override);
-}
-
-function setPatternStepSecondsOverride(patternId, seconds) {
-  var safePatternId = String(patternId || '').trim();
-  if (!safePatternId) return;
-
-  var nextValue = Number(seconds);
-  if (!Number.isFinite(nextValue) || nextValue <= 0) {
-    delete _timerStepSecondsByPattern[safePatternId];
-    return;
-  }
-
-  _timerStepSecondsByPattern[safePatternId] = Math.round(nextValue);
-}
-
-function getDefaultStepSeconds(pattern) {
-  var safePattern = pattern || getSelectedPattern();
-  if (!safePattern) return null;
-
-  var steps = Array.isArray(safePattern.steps) ? safePattern.steps : [];
-  if (!steps.length) return null;
-
-  var goal = getGoalSecondsForMode(safePattern, _timerGoalMode);
-  if (goal === null) return null;
-  return Math.max(1, Math.round(goal / steps.length));
-}
-
-function getEffectiveStepSeconds(pattern) {
-  var safePattern = pattern || getSelectedPattern();
-  if (!safePattern) return null;
-
-  var override = getPatternStepSecondsOverride(safePattern.id);
-  if (override !== null) return override;
-
-  return getDefaultStepSeconds(safePattern);
-}
-
 function syncTimerControlsFromState() {
   var pattern = getSelectedPattern();
   var normalInput = document.getElementById('timer-goal-minutes');
   var pathologyInput = document.getElementById('timer-pathology-goal-minutes');
   var modeSelect = document.getElementById('timer-goal-mode');
-  var stepInput = document.getElementById('timer-step-seconds');
+  var normalField = document.getElementById('timer-normal-goal-field');
+  var pathologyField = document.getElementById('timer-pathology-goal-field');
   var voiceToggle = document.getElementById('timer-voice-mode');
 
   var normalGoal = pattern ? normaliseGoalSeconds(pattern.goalSeconds) : null;
@@ -221,18 +177,11 @@ function syncTimerControlsFromState() {
   if (modeSelect) {
     modeSelect.value = _timerGoalMode;
   }
-  if (stepInput) {
-    var override = pattern ? getPatternStepSecondsOverride(pattern.id) : null;
-    stepInput.value = override === null ? '' : String(override);
-    stepInput.disabled = _timerGoalMode !== 'normal';
-    if (_timerGoalMode !== 'normal') {
-      stepInput.title = 'Step pacing is only used in Normal mode.';
-    } else {
-      var computed = getDefaultStepSeconds(pattern);
-      stepInput.title = computed === null
-        ? 'Set a Normal goal to get automatic per-step pacing.'
-        : 'Leave blank to use auto pacing (' + formatTimerClock(computed) + ' per step).';
-    }
+  if (normalField) {
+    normalField.style.display = _timerGoalMode === 'normal' ? '' : 'none';
+  }
+  if (pathologyField) {
+    pathologyField.style.display = _timerGoalMode === 'pathology' ? '' : 'none';
   }
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
@@ -270,38 +219,16 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
 
   if (!key) {
     _timerActiveStepKey = '';
-    _timerStepEnteredAtSeconds = timerSeconds;
     return;
   }
 
   if (!changed) return;
 
   _timerActiveStepKey = key;
-  _timerStepEnteredAtSeconds = timerSeconds;
 
   if (!(options && options.silentVoice)) {
     speakActiveStep(safeStep, safeIndex);
   }
-}
-
-function maybeAutoAdvanceStep() {
-  if (!timerRunning) return;
-  if (_timerGoalMode !== 'normal') return;
-
-  var pattern = getSelectedPattern();
-  if (!pattern) return;
-
-  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
-  if (steps.length < 2) return;
-  if (currentStepIndex >= steps.length - 1) return;
-
-  var perStepSeconds = getEffectiveStepSeconds(pattern);
-  if (perStepSeconds === null) return;
-
-  var elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
-  if (elapsedOnStep < perStepSeconds) return;
-
-  navigateStep(1);
 }
 
 // ── Init ─────────────────────────────────────────────────────
@@ -376,16 +303,9 @@ function initPatterns(userId) {
     localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerGoalMode);
     const pattern = getSelectedPattern();
     timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
-    _timerStepEnteredAtSeconds = timerSeconds;
     syncTimerControlsFromState();
     updateTimerDisplay();
   });
-  document.getElementById('timer-step-seconds').addEventListener('keydown', e => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    saveStepSecondsOverride();
-  });
-  document.getElementById('timer-step-seconds').addEventListener('blur', saveStepSecondsOverride);
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
     _voiceModeEnabled = Boolean(e.target && e.target.checked);
     localStorage.setItem(TIMER_VOICE_MODE_STATE_KEY, _voiceModeEnabled ? '1' : '0');
@@ -802,7 +722,6 @@ function loadPattern(id, preferredStepIndex) {
     stopTimer();
     timerSeconds = 0;
     _timerActiveStepKey = '';
-    _timerStepEnteredAtSeconds = 0;
     startTimer(pattern);
   } else {
     // Keep elapsed time when reloading the same pattern after background updates.
@@ -1129,10 +1048,6 @@ function renderCurrentStep(pattern) {
       const targetTop = viewer.scrollTop + (itemRect.top - viewerRect.top) - headerHeight - 8;
       viewer.scrollTo({ top: Math.max(0, targetTop) });
     });
-  }
-
-  if (_openStepIndices.has(steps.length - 1) && timerRunning) {
-    stopTimer();
   }
 
   syncInlineToolbarOffset();
@@ -2842,7 +2757,6 @@ function clearStepView() {
   stopTimer();
   timerGoalSeconds = null;
   _timerActiveStepKey = '';
-  _timerStepEnteredAtSeconds = 0;
   syncTimerControlsFromState();
   renderGoalStatus();
 }
@@ -3151,7 +3065,6 @@ function startTimer(pattern) {
   syncTimerControlsFromState();
   timerSeconds = 0;
   timerStartWallTime = Date.now();
-  _timerStepEnteredAtSeconds = 0;
   _timerActiveStepKey = '';
   timerRunning = true;
   updateTimerDisplay();
@@ -3159,7 +3072,6 @@ function startTimer(pattern) {
   timerInterval = setInterval(() => {
     timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
     updateTimerDisplay();
-    maybeAutoAdvanceStep();
   }, 1000);
 }
 
@@ -3228,49 +3140,22 @@ function renderGoalStatus() {
   if (!statusEl) return;
 
   const modeLabel = _timerGoalMode === 'pathology' ? 'Pathology mode' : 'Normal mode';
-  const pattern = getSelectedPattern();
-  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  const perStepSeconds = getEffectiveStepSeconds(pattern);
-  const isFinalStep = steps.length > 0 && currentStepIndex >= steps.length - 1;
-  const stepElapsed = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
 
   if (timerGoalSeconds === null) {
-    if (_timerGoalMode === 'normal' && perStepSeconds !== null && steps.length > 0) {
-      statusEl.textContent = modeLabel + ' • no goal set • auto step ' + formatTimerClock(perStepSeconds);
-    } else {
-      statusEl.textContent = modeLabel + ' • no goal set';
-    }
+    statusEl.textContent = modeLabel + ' • no goal set';
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   if (timerSeconds <= timerGoalSeconds) {
     const remaining = timerGoalSeconds - timerSeconds;
-    var message = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left';
-    if (_timerGoalMode === 'normal' && perStepSeconds !== null && steps.length > 0) {
-      if (isFinalStep) {
-        message += ' • final step';
-      } else {
-        var stepRemaining = Math.max(0, perStepSeconds - stepElapsed);
-        message += ' • next step in ' + formatTimerClock(stepRemaining);
-      }
-    }
-    statusEl.textContent = message;
+    statusEl.textContent = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left';
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   const overBy = timerSeconds - timerGoalSeconds;
-  var overMessage = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy);
-  if (_timerGoalMode === 'normal' && perStepSeconds !== null && steps.length > 0) {
-    if (isFinalStep) {
-      overMessage += ' • final step';
-    } else {
-      var stepRemainingOver = Math.max(0, perStepSeconds - stepElapsed);
-      overMessage += ' • next step in ' + formatTimerClock(stepRemainingOver);
-    }
-  }
-  statusEl.textContent = overMessage;
+  statusEl.textContent = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy);
   statusEl.classList.add('timer-goal-over');
 }
 
@@ -3335,33 +3220,6 @@ async function saveStudyGoal() {
   }
 }
 
-function saveStepSecondsOverride() {
-  const pattern = getSelectedPattern();
-  const input = document.getElementById('timer-step-seconds');
-  if (!pattern || !input) return;
-
-  const raw = String(input.value || '').trim();
-  if (raw === '') {
-    setPatternStepSecondsOverride(pattern.id, null);
-    syncTimerControlsFromState();
-    renderGoalStatus();
-    showToast('Using automatic per-step pacing for this pattern.');
-    return;
-  }
-
-  const seconds = Number(raw);
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    showToast('Step seconds must be a positive number.', true);
-    syncTimerControlsFromState();
-    return;
-  }
-
-  setPatternStepSecondsOverride(pattern.id, seconds);
-  _timerStepEnteredAtSeconds = timerSeconds;
-  syncTimerControlsFromState();
-  renderGoalStatus();
-  showToast('Step pacing set to ' + formatTimerClock(Math.round(seconds)) + ' per step.');
-}
 
 // ── Record modal ─────────────────────────────────────────────
 function openRecordModal() {

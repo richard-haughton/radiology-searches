@@ -526,6 +526,11 @@ body {
 .timer-display.timer-display-over-goal { color: var(--danger); }
 .timer-goal-control { display: inline-flex; align-items: center; gap: 8px; }
 .timer-goal-label { font-size: 0.78rem; color: var(--timer-soft); font-weight: 700; }
+.timer-goal-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .timer-goal-input {
   width: 80px;
   border: 1px solid var(--timer-input-border);

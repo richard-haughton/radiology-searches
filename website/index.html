@@ -111,17 +111,19 @@
               <span class="timer-label" id="timer-pattern-name"></span>
               <span class="timer-display" id="timer-display">0:00</span>
               <div class="timer-goal-control">
-                <label for="timer-goal-minutes" class="timer-goal-label">Normal Goal (min)</label>
-                <input id="timer-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 15">
-                <label for="timer-pathology-goal-minutes" class="timer-goal-label">Pathology Goal (min)</label>
-                <input id="timer-pathology-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 10">
                 <label for="timer-goal-mode" class="timer-goal-label">Mode</label>
                 <select id="timer-goal-mode" class="timer-goal-input timer-goal-mode-input">
                   <option value="normal">Normal</option>
                   <option value="pathology">Pathology</option>
                 </select>
-                <label for="timer-step-seconds" class="timer-goal-label">Step (sec)</label>
-                <input id="timer-step-seconds" type="number" min="1" step="1" class="timer-goal-input" placeholder="auto">
+                <div id="timer-normal-goal-field" class="timer-goal-field">
+                  <label for="timer-goal-minutes" class="timer-goal-label">Normal Goal (min)</label>
+                  <input id="timer-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 15">
+                </div>
+                <div id="timer-pathology-goal-field" class="timer-goal-field">
+                  <label for="timer-pathology-goal-minutes" class="timer-goal-label">Pathology Goal (min)</label>
+                  <input id="timer-pathology-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 10">
+                </div>
                 <label class="timer-voice-toggle" for="timer-voice-mode">
                   <input id="timer-voice-mode" type="checkbox">
                   <span>Voice</span>
