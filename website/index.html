@@ -111,26 +111,25 @@
               <span class="timer-label" id="timer-pattern-name"></span>
               <span class="timer-display" id="timer-display">0:00</span>
               <div class="timer-goal-control">
-                <label for="timer-goal-mode" class="timer-goal-label">Mode</label>
-                <select id="timer-goal-mode" class="timer-goal-input timer-goal-mode-input">
-                  <option value="normal">Normal</option>
-                  <option value="pathology">Pathology</option>
+                <label for="timer-mode-select" class="timer-goal-label">Mode</label>
+                <select id="timer-mode-select" class="timer-goal-input timer-goal-mode-input">
+                  <option value="walkthrough">Walkthrough</option>
+                  <option value="timed">Timed</option>
                 </select>
-                <div id="timer-normal-goal-field" class="timer-goal-field">
-                  <label for="timer-goal-minutes" class="timer-goal-label">Normal Goal (min)</label>
-                  <input id="timer-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 15">
-                </div>
-                <div id="timer-pathology-goal-field" class="timer-goal-field">
-                  <label for="timer-pathology-goal-minutes" class="timer-goal-label">Pathology Goal (min)</label>
-                  <input id="timer-pathology-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 10">
+                <div id="timer-timed-controls" class="timer-timed-controls">
+                  <div id="timer-goal-field" class="timer-goal-field">
+                    <label for="timer-goal-minutes" class="timer-goal-label">Goal (min)</label>
+                    <input id="timer-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 15">
+                  </div>
+                  <button id="btn-save-study-goal" class="btn btn-ghost btn-sm" type="button">Save Goal</button>
                 </div>
                 <label class="timer-voice-toggle" for="timer-voice-mode">
                   <input id="timer-voice-mode" type="checkbox">
                   <span>Voice</span>
                 </label>
-                <button id="btn-save-study-goal" class="btn btn-ghost btn-sm" type="button">Save Goals</button>
               </div>
               <span id="timer-goal-status" class="timer-goal-status">No goal set</span>
+
             </div>
             <div class="timer-actions">
               <button id="btn-start-timer" class="btn btn-ghost btn-sm" type="button">Start</button>

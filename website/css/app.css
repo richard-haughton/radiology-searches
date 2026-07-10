@@ -545,8 +545,14 @@ body {
   background: var(--timer-input-bg);
 }
 .timer-goal-mode-input {
-  width: 108px;
+  width: 118px;
 }
+.timer-timed-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .timer-voice-toggle {
   display: inline-flex;
   align-items: center;

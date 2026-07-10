@@ -11,7 +11,8 @@ var timerSeconds = 0;
 var timerStartWallTime = null;
 var timerRunning = false;
 var timerGoalSeconds = null;
-var _timerGoalMode = 'normal';
+var _timerMode = 'timed';
+
 var _voiceModeEnabled = false;
 var _timerActiveStepKey = '';
 var _timerStepEnteredAtSeconds = 0;
@@ -137,57 +138,47 @@ function bindInlineRichFontSizeControls(toolbar, editor) {
   });
 }
 
-function normaliseTimerGoalMode(value) {
+function normaliseTimerMode(value) {
   var mode = String(value || '').trim().toLowerCase();
-  return mode === 'pathology' ? 'pathology' : 'normal';
+  return mode === 'walkthrough' ? 'walkthrough' : 'timed';
 }
 
 function loadTimerPreferences() {
-  _timerGoalMode = normaliseTimerGoalMode(localStorage.getItem(TIMER_GOAL_MODE_STATE_KEY));
+  _timerMode = normaliseTimerMode(localStorage.getItem(TIMER_GOAL_MODE_STATE_KEY));
   _voiceModeEnabled = localStorage.getItem(TIMER_VOICE_MODE_STATE_KEY) === '1';
 }
 
 function getGoalSecondsForMode(pattern, mode) {
   var safePattern = pattern || null;
-  var safeMode = normaliseTimerGoalMode(mode);
+  var safeMode = normaliseTimerMode(mode);
   if (!safePattern) return null;
-  if (safeMode === 'pathology') {
-    return normaliseGoalSeconds(safePattern.pathologyGoalSeconds);
-  }
+  if (safeMode !== 'timed') return null;
   return normaliseGoalSeconds(safePattern.goalSeconds);
 }
 
 function syncTimerControlsFromState() {
   var pattern = getSelectedPattern();
-  var normalInput = document.getElementById('timer-goal-minutes');
-  var pathologyInput = document.getElementById('timer-pathology-goal-minutes');
-  var modeSelect = document.getElementById('timer-goal-mode');
-  var normalField = document.getElementById('timer-normal-goal-field');
-  var pathologyField = document.getElementById('timer-pathology-goal-field');
+  var goalInput = document.getElementById('timer-goal-minutes');
+  var modeSelect = document.getElementById('timer-mode-select');
+  var timedControls = document.getElementById('timer-timed-controls');
   var voiceToggle = document.getElementById('timer-voice-mode');
 
-  var normalGoal = pattern ? normaliseGoalSeconds(pattern.goalSeconds) : null;
-  var pathologyGoal = pattern ? normaliseGoalSeconds(pattern.pathologyGoalSeconds) : null;
+  var goal = pattern ? normaliseGoalSeconds(pattern.goalSeconds) : null;
 
-  if (normalInput) {
-    normalInput.value = normalGoal === null ? '' : String(Math.max(1, Math.round(normalGoal / 60)));
-  }
-  if (pathologyInput) {
-    pathologyInput.value = pathologyGoal === null ? '' : String(Math.max(1, Math.round(pathologyGoal / 60)));
+  if (goalInput) {
+    goalInput.value = goal === null ? '' : String(Math.max(1, Math.round(goal / 60)));
   }
   if (modeSelect) {
-    modeSelect.value = _timerGoalMode;
+    modeSelect.value = _timerMode;
   }
-  if (normalField) {
-    normalField.style.display = _timerGoalMode === 'normal' ? '' : 'none';
-  }
-  if (pathologyField) {
-    pathologyField.style.display = _timerGoalMode === 'pathology' ? '' : 'none';
+  if (timedControls) {
+    timedControls.style.display = _timerMode === 'timed' ? '' : 'none';
   }
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
   }
 }
+
 
 function getActiveStepAnnouncement(step, stepIndex) {
   var safeIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
@@ -295,20 +286,15 @@ function initPatterns(userId) {
       saveStudyGoal();
     }
   });
-  document.getElementById('timer-pathology-goal-minutes').addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveStudyGoal();
-    }
-  });
-  document.getElementById('timer-goal-mode').addEventListener('change', e => {
-    _timerGoalMode = normaliseTimerGoalMode(e.target && e.target.value);
-    localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerGoalMode);
+  document.getElementById('timer-mode-select').addEventListener('change', e => {
+    _timerMode = normaliseTimerMode(e.target && e.target.value);
+    localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerMode);
     const pattern = getSelectedPattern();
-    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
     syncTimerControlsFromState();
     updateTimerDisplay();
   });
+
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
     _voiceModeEnabled = Boolean(e.target && e.target.checked);
     localStorage.setItem(TIMER_VOICE_MODE_STATE_KEY, _voiceModeEnabled ? '1' : '0');
@@ -728,8 +714,9 @@ function loadPattern(id, preferredStepIndex) {
     startTimer(pattern);
   } else {
     // Keep elapsed time when reloading the same pattern after background updates.
-    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
     syncTimerControlsFromState();
+
     document.getElementById('timer-pattern-name').textContent = (pattern && pattern.name) ? pattern.name : '';
     if (timerRunning) {
       const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
@@ -3064,7 +3051,7 @@ function startTimer(pattern) {
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = '';
   document.getElementById('timer-pattern-name').textContent = patternName;
-  timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+  timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
   syncTimerControlsFromState();
   timerSeconds = 0;
   timerStartWallTime = Date.now();
@@ -3079,6 +3066,7 @@ function startTimer(pattern) {
     maybeAutoAdvanceStep();
   }, 1000);
 }
+
 
 function stopTimer() {
   clearInterval(timerInterval);
@@ -3112,7 +3100,9 @@ function applyTimerGoalTheme() {
   if (!timerBar) return;
 
   timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red', 'timer-goal-double');
+  if (_timerMode !== 'timed') return;
   if (timerGoalSeconds === null) return;
+
 
   const progress = timerSeconds / timerGoalSeconds;
   if (progress >= 2) {
@@ -3135,7 +3125,8 @@ function applyTimerGoalTheme() {
 
 function maybeAutoAdvanceStep() {
   if (!timerRunning) return;
-  if (_timerGoalMode !== 'normal') return;
+  if (_timerMode !== 'timed') return;
+
 
   var pattern = getSelectedPattern();
   if (!pattern) return;
@@ -3171,32 +3162,40 @@ function renderGoalStatus() {
   const statusEl = document.getElementById('timer-goal-status');
   if (!statusEl) return;
 
-  const modeLabel = _timerGoalMode === 'pathology' ? 'Pathology mode' : 'Normal mode';
+  if (_timerMode !== 'timed') {
+    statusEl.textContent = '';
+    statusEl.classList.remove('timer-goal-over');
+    statusEl.style.display = 'none';
+    return;
+  }
+  statusEl.style.display = '';
+
   const pattern = getSelectedPattern();
   const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  const perStepSeconds = _timerGoalMode === 'normal' && pattern && steps.length > 1 && normaliseGoalSeconds(pattern.goalSeconds) !== null
+  const perStepSeconds = pattern && steps.length > 1 && normaliseGoalSeconds(pattern.goalSeconds) !== null
     ? Math.max(1, Math.round(normaliseGoalSeconds(pattern.goalSeconds) / steps.length))
     : null;
   const stepRemaining = perStepSeconds !== null ? Math.max(0, perStepSeconds - Math.max(0, timerSeconds - _timerStepEnteredAtSeconds)) : null;
   const stepLabel = steps.length ? ('Step ' + String(currentStepIndex + 1) + ' of ' + String(steps.length)) : 'Step';
 
   if (timerGoalSeconds === null) {
-    statusEl.textContent = modeLabel + ' • no goal set' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
+    statusEl.textContent = 'No goal set' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   if (timerSeconds <= timerGoalSeconds) {
     const remaining = timerGoalSeconds - timerSeconds;
-    statusEl.textContent = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
+    statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   const overBy = timerSeconds - timerGoalSeconds;
-  statusEl.textContent = modeLabel + ' goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
+  statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
   statusEl.classList.add('timer-goal-over');
 }
+
 
 function syncGoalInputFromState() {
   syncTimerControlsFromState();
@@ -3206,10 +3205,8 @@ async function saveStudyGoal() {
   const pattern = getSelectedPattern();
   if (!pattern || !_pUid) return;
 
-  const normalInput = document.getElementById('timer-goal-minutes');
-  const pathologyInput = document.getElementById('timer-pathology-goal-minutes');
-  const rawNormal = (normalInput && normalInput.value || '').trim();
-  const rawPathology = (pathologyInput && pathologyInput.value || '').trim();
+  const goalInput = document.getElementById('timer-goal-minutes');
+  const rawGoal = (goalInput && goalInput.value || '').trim();
 
   function parseGoalMinutes(raw, label) {
     if (raw === '') return null;
@@ -3220,44 +3217,40 @@ async function saveStudyGoal() {
     return Math.round(minutes * 60);
   }
 
-  let nextNormalGoalSeconds = null;
-  let nextPathologyGoalSeconds = null;
+  let nextGoalSeconds = null;
   try {
-    nextNormalGoalSeconds = parseGoalMinutes(rawNormal, 'Normal goal minutes');
-    nextPathologyGoalSeconds = parseGoalMinutes(rawPathology, 'Pathology goal minutes');
+    nextGoalSeconds = parseGoalMinutes(rawGoal, 'Goal minutes');
   } catch (parseErr) {
     showToast(parseErr.message, true);
     return;
   }
 
   try {
-    if (typeof updatePatternGoalTimes === 'function') {
-      await updatePatternGoalTimes(_pUid, pattern.id, nextNormalGoalSeconds, nextPathologyGoalSeconds);
+    if (typeof updatePatternGoalSeconds === 'function') {
+      await updatePatternGoalSeconds(_pUid, pattern.id, nextGoalSeconds);
     } else {
       await updatePattern(_pUid, pattern.id, {
         name: pattern.name,
         modality: pattern.modality || 'Other',
         reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-        goalSeconds: nextNormalGoalSeconds,
-        pathologyGoalSeconds: nextPathologyGoalSeconds,
+        goalSeconds: nextGoalSeconds,
         steps: pattern.steps || []
       });
     }
 
-    pattern.goalSeconds = nextNormalGoalSeconds;
-    pattern.pathologyGoalSeconds = nextPathologyGoalSeconds;
-    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerGoalMode);
+    pattern.goalSeconds = nextGoalSeconds;
+    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
     syncTimerControlsFromState();
     updateTimerDisplay();
 
-    const normalSummary = nextNormalGoalSeconds === null ? 'Normal cleared' : ('Normal ' + formatTimerClock(nextNormalGoalSeconds));
-    const pathologySummary = nextPathologyGoalSeconds === null ? 'Pathology cleared' : ('Pathology ' + formatTimerClock(nextPathologyGoalSeconds));
-    showToast('Saved goals for "' + pattern.name + '": ' + normalSummary + ' • ' + pathologySummary + '.');
+    const summary = nextGoalSeconds === null ? 'Goal cleared' : ('Goal ' + formatTimerClock(nextGoalSeconds));
+    showToast('Saved goal for "' + pattern.name + '": ' + summary + '.');
   } catch (err) {
     console.error(err);
-    showToast('Failed to save goal times.', true);
+    showToast('Failed to save goal time.', true);
   }
 }
+
 
 
 // ── Record modal ─────────────────────────────────────────────
