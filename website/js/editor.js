@@ -1452,6 +1452,28 @@ function extractRichContent(editor) {
     });
   }
 
+  function isTrailingEmptyLineBlock(node) {
+    if (!editor || !editor.childNodes || !node) return false;
+    const siblings = Array.prototype.slice.call(editor.childNodes);
+    const nodeIndex = siblings.indexOf(node);
+    if (nodeIndex < 0) return false;
+    for (let i = siblings.length - 1; i > nodeIndex; i -= 1) {
+      const sibling = siblings[i];
+      if (!sibling) continue;
+      if (sibling.nodeType === Node.TEXT_NODE) {
+        if (String(sibling.textContent || '').trim()) return false;
+        continue;
+      }
+      if (sibling.nodeName === 'BR') continue;
+      if (['DIV', 'P', 'LI'].includes(sibling.nodeName)) {
+        if (!isEmptyLineBlock(sibling)) return false;
+        continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
   function trimTrailingNewlineChunks(output) {
     while (output.length) {
       var last = output[output.length - 1];
@@ -1507,6 +1529,10 @@ function extractRichContent(editor) {
       if (nodeHasVisibleContent(previousSibling)) {
         _appendNewlineChunk(output);
       }
+    }
+
+    if (['DIV', 'P', 'LI'].includes(node.nodeName) && parentNode === editor && isEmptyLineBlock(node) && isTrailingEmptyLineBlock(node)) {
+      return;
     }
 
     if (node.nodeType === Node.TEXT_NODE) {
