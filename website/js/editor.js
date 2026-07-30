@@ -3112,10 +3112,36 @@ function normaliseImageFormatValue(format, data) {
   return 'png';
 }
 
+function collapseRedundantRichContentNewlines(chunks) {
+  if (!Array.isArray(chunks)) return [];
+  const out = [];
+  chunks.forEach(function(chunk) {
+    if (!chunk || chunk.type !== 'text') {
+      out.push(chunk);
+      return;
+    }
+
+    const text = String(chunk.text || '');
+    const isNewlineOnly = /^[\n\r]+$/.test(text.replace(/\r/g, ''));
+    if (!isNewlineOnly) {
+      out.push(chunk);
+      return;
+    }
+
+    const prev = out[out.length - 1];
+    if (prev && prev.type === 'text' && /^[\n\r]+$/.test(String(prev.text || '').replace(/\r/g, ''))) {
+      return;
+    }
+
+    out.push({ type: 'text', text: '\n', bold: false, color: null });
+  });
+  return out;
+}
+
 function normaliseRichContent(richContent) {
   if (!Array.isArray(richContent)) return [];
 
-  return richContent.map(chunk => {
+  const normalized = richContent.map(chunk => {
     const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : ((chunk?.title || chunk?.name) && Array.isArray(chunk?.content) ? 'subsection' : 'text')));
 
     if (type === 'image') {
@@ -3165,6 +3191,8 @@ function normaliseRichContent(richContent) {
       color: chunk?.color || null
     };
   });
+
+  return collapseRedundantRichContentNewlines(normalized);
 }
 
 function richContentToPlainText(richContent) {
