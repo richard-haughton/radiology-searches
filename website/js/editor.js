@@ -1441,13 +1441,30 @@ function extractRichContent(editor) {
     return Boolean(String(node.textContent || '').trim());
   }
 
-  function previousSiblingNeedsNewlineBefore(previousSibling) {
-    // A top-level <img> is its own chunk boundary already (image vs text is
-    // encoded by chunk type), so it must not also trigger a synthesized
-    // newline chunk before the next line — that only inflates the stored
-    // richContent with an extra blank line on every edit round-trip.
-    if (!previousSibling || previousSibling.nodeName === 'IMG') return false;
-    return nodeHasVisibleContent(previousSibling);
+  // A line's leading <br> is redundant when that line's own top-level
+  // previous sibling is an <img>: the image already forces a line break
+  // (rule below, and visually via its block display), and populateRichEditor
+  // renders that same boundary's newline chunk as this line's leading <br>.
+  // Counting both would double the newline on every populate/extract cycle,
+  // growing without bound. Only the *first* child <br> of such a line is
+  // this redundant artifact — any additional <br>s are genuine user newlines
+  // and must still be preserved.
+  function isLeadingBrAfterTopLevelImage(node, parentNode) {
+    if (!parentNode || parentNode === editor) return false;
+    // populateRichEditor emits a leading empty text node ahead of the <br>
+    // it renders for a line-starting newline chunk, so "first child" has to
+    // skip past those empty text nodes rather than compare firstChild directly.
+    var siblings = parentNode.childNodes;
+    for (var i = 0; i < siblings.length; i++) {
+      var sibling = siblings[i];
+      if (sibling === node) break;
+      var isEmptyText = sibling.nodeType === Node.TEXT_NODE && !String(sibling.textContent || '');
+      if (!isEmptyText) return false;
+    }
+    var grandParent = parentNode.parentNode;
+    if (grandParent !== editor) return false;
+    var parentPreviousSibling = getPreviousSibling(parentNode, grandParent);
+    return Boolean(parentPreviousSibling && parentPreviousSibling.nodeName === 'IMG');
   }
 
   function isEmptyLineBlock(node) {
@@ -1511,7 +1528,7 @@ function extractRichContent(editor) {
     if (node && (node.nodeName === 'UL' || node.nodeName === 'OL')) {
       if (parentNode === editor && nodeHasVisibleContent(node)) {
         var previousSibling = getPreviousSibling(node, parentNode);
-        if (previousSiblingNeedsNewlineBefore(previousSibling)) {
+        if (nodeHasVisibleContent(previousSibling)) {
           _appendNewlineChunk(output);
         }
       }
@@ -1535,7 +1552,7 @@ function extractRichContent(editor) {
 
     if (['DIV', 'P', 'LI'].includes(node.nodeName) && parentNode === editor && !isEmptyLineBlock(node)) {
       var previousSibling = getPreviousSibling(node, parentNode);
-      if (previousSiblingNeedsNewlineBefore(previousSibling)) {
+      if (nodeHasVisibleContent(previousSibling)) {
         _appendNewlineChunk(output);
       }
     }
@@ -1568,7 +1585,7 @@ function extractRichContent(editor) {
         processNode(child, nextFormatting, node, output, context);
       });
     } else if (node.nodeName === 'BR') {
-      if (!isEmptyLineBlock(parentNode)) {
+      if (!isEmptyLineBlock(parentNode) && !isLeadingBrAfterTopLevelImage(node, parentNode)) {
         // Each explicit BR comes from a user Enter and should be preserved.
         _appendNewlineChunk(output, true);
       }
