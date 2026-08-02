@@ -66,6 +66,27 @@ function clone(v) {
   return JSON.parse(JSON.stringify(v));
 }
 
+function normaliseFindingName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function makeFindingId(name) {
+  const key = normaliseFindingName(name);
+  return key ? `finding_${key.replace(/\s+/g, '_').slice(0, 120)}` : '';
+}
+
+function makeSubsectionId() {
+  const ts = Date.now().toString(16);
+  const rand = Math.random().toString(16).slice(2, 10);
+  return `sub_${ts}${rand}`;
+}
+
 function decodeFirestoreValue(v) {
   if (!v || typeof v !== 'object') return null;
   if ('nullValue' in v) return null;
@@ -118,6 +139,16 @@ function encodeValue(v) {
   return { stringValue: String(v) };
 }
 
+function toFirestoreDoc(name, data) {
+  const payload = Object.assign({}, data);
+  delete payload.__name;
+  const fields = {};
+  Object.keys(payload).forEach(k => {
+    fields[k] = encodeValue(payload[k]);
+  });
+  return { name, fields };
+}
+
 function readBackupPatterns(backupPath) {
   const raw = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
   const users = raw && raw.users && typeof raw.users === 'object' ? raw.users : {};
@@ -136,6 +167,9 @@ function normaliseStepSections(step) {
   const sections = safe.sections && typeof safe.sections === 'object' ? clone(safe.sections) : {};
   if (!Array.isArray(sections.dontMissPathology)) sections.dontMissPathology = [];
   if (!Array.isArray(sections.searchPattern)) sections.searchPattern = [];
+  if (!Array.isArray(sections.measurements)) sections.measurements = [];
+  if (!Array.isArray(sections.hyperlinks)) sections.hyperlinks = [];
+  if (!Array.isArray(sections.images)) sections.images = [];
   return sections;
 }
 
@@ -147,7 +181,88 @@ function subsectionKey(item) {
   return [findingId, subsectionId, title].join('|');
 }
 
-function mergeMissingFindings(currentSteps, backupSteps) {
+function findMatchingStep(steps, backupStep) {
+  const backupStepId = String((backupStep && backupStep.stepId) || '').trim();
+  const backupTitleKey = stripStepPrefix(backupStep && backupStep.stepTitle);
+
+  if (backupStepId) {
+    const hit = (steps || []).find(step => String((step && step.stepId) || '').trim() === backupStepId);
+    if (hit) return hit;
+  }
+
+  if (backupTitleKey) {
+    const hit = (steps || []).find(step => stripStepPrefix(step && step.stepTitle) === backupTitleKey);
+    if (hit) return hit;
+    return (steps || []).find(step => {
+      const currentTitleKey = stripStepPrefix(step && step.stepTitle);
+      return currentTitleKey.includes(backupTitleKey) || backupTitleKey.includes(currentTitleKey);
+    }) || null;
+  }
+
+  return null;
+}
+
+function buildFindingPayload(existingDoc, backupItem, patternMeta, stepMeta) {
+  const existing = existingDoc || null;
+  const title = String((backupItem && backupItem.title) || '').trim() || 'Untitled Finding';
+  const findingId = String((backupItem && backupItem.findingId) || '').trim() || makeFindingId(title);
+  const content = Array.isArray(backupItem && backupItem.content) ? clone(backupItem.content) : [];
+  const existingLinks = Array.isArray(existing && existing.links) ? existing.links : [];
+  const seenLinks = {};
+  const mergedLinks = [];
+
+  function pushLink(link) {
+    if (!link || typeof link !== 'object') return;
+    const safe = {
+      patternId: String(link.patternId || '').trim(),
+      patternName: String(link.patternName || '').trim(),
+      modality: String(link.modality || '').trim() || 'Other',
+      stepId: String(link.stepId || '').trim(),
+      stepTitle: String(link.stepTitle || '').trim(),
+      subsectionId: String(link.subsectionId || '').trim()
+    };
+    if (!safe.patternId || !safe.stepId || !safe.subsectionId) return;
+    const key = [safe.patternId, safe.stepId, safe.subsectionId].join('::');
+    if (seenLinks[key]) return;
+    seenLinks[key] = 1;
+    mergedLinks.push(safe);
+  }
+
+  (existingLinks || []).forEach(pushLink);
+  pushLink({
+    patternId: String(patternMeta.patternId || '').trim(),
+    patternName: String(patternMeta.patternName || '').trim(),
+    modality: String(patternMeta.modality || '').trim() || 'Other',
+    stepId: String(stepMeta.stepId || '').trim(),
+    stepTitle: String(stepMeta.stepTitle || '').trim(),
+    subsectionId: String((backupItem && backupItem.subsectionId) || '').trim()
+  });
+
+  const modalities = [];
+  const modalitySeen = {};
+  mergedLinks.forEach(link => {
+    const modality = String(link.modality || '').trim() || 'Other';
+    if (!modalitySeen[modality]) {
+      modalitySeen[modality] = 1;
+      modalities.push(modality);
+    }
+  });
+  modalities.sort();
+
+  return {
+    id: findingId,
+    name: title,
+    nameKey: normaliseFindingName(title),
+    content: content,
+    isRedFinding: Boolean((backupItem && backupItem.isRedFinding) || (existing && existing.isRedFinding)),
+    modalities: modalities,
+    links: mergedLinks,
+    createdAt: existing && existing.createdAt ? existing.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function mergeMissingFindings(currentSteps, backupSteps, uid, livePattern, existingFindingsById, config) {
   const nextSteps = clone(currentSteps || []);
   const backupByStepId = {};
   const backupByTitle = {};
@@ -159,6 +274,7 @@ function mergeMissingFindings(currentSteps, backupSteps) {
     if (titleKey && !backupByTitle[titleKey]) backupByTitle[titleKey] = step;
   });
 
+  const findingWrites = [];
   let addedTotal = 0;
   const perStep = [];
 
@@ -187,22 +303,53 @@ function mergeMissingFindings(currentSteps, backupSteps) {
     let added = 0;
     backupFindings.forEach(item => {
       if (!item || item.type !== 'subsection') return;
-      const key = subsectionKey(item);
-      const fid = String(item.findingId || '').trim();
-      const title = String(item.title || '').trim().toLowerCase();
-      if ((key && seen[key]) || (fid && seen[`fid:${fid}`]) || (title && seen[`title:${title}`])) {
+      const title = String((item && item.title) || '').trim();
+      const findingId = String((item && item.findingId) || '').trim() || makeFindingId(title);
+      const subsectionId = String((item && item.subsectionId) || '').trim() || makeSubsectionId();
+      const key = [findingId, subsectionId, title.toLowerCase()].join('|');
+      const fidKey = `fid:${findingId}`;
+      const titleKey = `title:${title.toLowerCase()}`;
+      if ((key && seen[key]) || (findingId && seen[fidKey]) || (title && seen[titleKey])) {
         return;
       }
-      currentFindings.push(clone(item));
+
+      const nextItem = clone(item);
+      nextItem.findingId = findingId;
+      nextItem.subsectionId = subsectionId;
+      nextItem.title = title || 'Untitled Finding';
+      currentFindings.push(nextItem);
       if (key) seen[key] = 1;
-      if (fid) seen[`fid:${fid}`] = 1;
-      if (title) seen[`title:${title}`] = 1;
+      if (findingId) seen[fidKey] = 1;
+      if (title) seen[titleKey] = 1;
       added += 1;
+
+      const existingFindingDoc = existingFindingsById[findingId] || null;
+      const findingPayload = buildFindingPayload(existingFindingDoc, nextItem, {
+        patternId: String(livePattern && livePattern.id || '').trim(),
+        patternName: String(livePattern && livePattern.name || '').trim(),
+        modality: String(livePattern && livePattern.modality || '').trim() || 'Other'
+      }, {
+        stepId: String((step && step.stepId) || '').trim(),
+        stepTitle: String((step && step.stepTitle) || '').trim()
+      });
+      const findingDocName = `projects/${config.projectId}/databases/${config.databaseId}/documents/users/${uid}/findings/${findingPayload.id}`;
+      findingWrites.push({ update: toFirestoreDoc(findingDocName, {
+        name: findingPayload.name,
+        nameKey: findingPayload.nameKey,
+        content: findingPayload.content,
+        isRedFinding: findingPayload.isRedFinding,
+        modalities: findingPayload.modalities,
+        links: findingPayload.links,
+        createdAt: findingPayload.createdAt,
+        updatedAt: findingPayload.updatedAt
+      }) });
+      existingFindingsById[findingId] = Object.assign({}, existingFindingDoc || {}, findingPayload);
     });
 
     if (added > 0) {
       step.sections = currentSections;
       step.sections.dontMissPathology = currentFindings;
+      step.richContent = clone(step.sections.searchPattern || []);
       addedTotal += added;
       perStep.push({
         index,
@@ -212,7 +359,7 @@ function mergeMissingFindings(currentSteps, backupSteps) {
     }
   });
 
-  return { nextSteps, addedTotal, perStep };
+  return { nextSteps, addedTotal, perStep, findingWrites };
 }
 
 async function readAccessToken() {
@@ -269,26 +416,29 @@ async function runCollectionGroupQuery(config, collectionId) {
   return rows.filter(r => r && r.document).map(r => decodeDocument(r.document));
 }
 
+async function listCollection(config, collectionPath) {
+  let pageToken = '';
+  const docs = [];
+  do {
+    const url = new URL(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.databaseId}/documents/${collectionPath}`);
+    url.searchParams.set('pageSize', '200');
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+    const response = await fetchJson(url.toString(), config.accessToken);
+    (response.documents || []).forEach(doc => docs.push(decodeDocument(doc)));
+    pageToken = response.nextPageToken || '';
+  } while (pageToken);
+  return docs;
+}
+
+async function commitWrites(config, writes) {
+  if (!writes.length) return;
+  const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.databaseId}/documents:commit`;
+  await fetchJson(url, config.accessToken, { method: 'POST', body: { writes } });
+}
+
 function extractUidFromPatternName(docName) {
   const match = String(docName || '').match(/\/documents\/users\/([^/]+)\/patterns\/[^/]+$/);
   return match ? match[1] : '';
-}
-
-async function commitPatternSteps(config, patternDocName, steps) {
-  const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.databaseId}/documents:commit`;
-  const writes = [{
-    update: {
-      name: patternDocName,
-      fields: {
-        steps: encodeValue(steps),
-        updatedAt: encodeValue(new Date().toISOString())
-      }
-    },
-    updateMask: {
-      fieldPaths: ['steps', 'updatedAt']
-    }
-  }];
-  await fetchJson(url, config.accessToken, { method: 'POST', body: { writes } });
 }
 
 async function main() {
@@ -349,9 +499,16 @@ async function main() {
       continue;
     }
 
+    const existingFindingDocs = await listCollection(config, `users/${uid}/findings`);
+    const existingFindingsById = {};
+    existingFindingDocs.forEach(doc => {
+      const id = String(doc.__name || '').split('/').pop();
+      if (id) existingFindingsById[id] = doc;
+    });
+
     const currentSteps = Array.isArray(live.steps) ? live.steps : [];
     const backupSteps = Array.isArray(backup.pattern.steps) ? backup.pattern.steps : [];
-    const merged = mergeMissingFindings(currentSteps, backupSteps);
+    const merged = mergeMissingFindings(currentSteps, backupSteps, uid, live, existingFindingsById, config);
 
     if (!merged.addedTotal) {
       console.log(`No missing findings to restore for uid ${uid}, pattern ${live.id}.`);
@@ -364,7 +521,21 @@ async function main() {
     });
 
     if (args.apply) {
-      await commitPatternSteps(config, live.__name, merged.nextSteps);
+      const writes = [];
+      if (merged.findingWrites.length) writes.push(...merged.findingWrites);
+      writes.push({
+        update: {
+          name: live.__name,
+          fields: {
+            steps: encodeValue(merged.nextSteps),
+            updatedAt: encodeValue(new Date().toISOString())
+          }
+        },
+        updateMask: {
+          fieldPaths: ['steps', 'updatedAt']
+        }
+      });
+      await commitWrites(config, writes);
       console.log('  applied');
     } else {
       console.log('  dry-run only (use --apply to write)');

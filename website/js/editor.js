@@ -1441,6 +1441,15 @@ function extractRichContent(editor) {
     return Boolean(String(node.textContent || '').trim());
   }
 
+  function previousSiblingNeedsNewlineBefore(previousSibling) {
+    // A top-level <img> is its own chunk boundary already (image vs text is
+    // encoded by chunk type), so it must not also trigger a synthesized
+    // newline chunk before the next line — that only inflates the stored
+    // richContent with an extra blank line on every edit round-trip.
+    if (!previousSibling || previousSibling.nodeName === 'IMG') return false;
+    return nodeHasVisibleContent(previousSibling);
+  }
+
   function isEmptyLineBlock(node) {
     if (!node || !['DIV', 'P', 'LI'].includes(node.nodeName)) return false;
     if (!node.childNodes || !node.childNodes.length) return true;
@@ -1502,7 +1511,7 @@ function extractRichContent(editor) {
     if (node && (node.nodeName === 'UL' || node.nodeName === 'OL')) {
       if (parentNode === editor && nodeHasVisibleContent(node)) {
         var previousSibling = getPreviousSibling(node, parentNode);
-        if (nodeHasVisibleContent(previousSibling)) {
+        if (previousSiblingNeedsNewlineBefore(previousSibling)) {
           _appendNewlineChunk(output);
         }
       }
@@ -1526,7 +1535,7 @@ function extractRichContent(editor) {
 
     if (['DIV', 'P', 'LI'].includes(node.nodeName) && parentNode === editor && !isEmptyLineBlock(node)) {
       var previousSibling = getPreviousSibling(node, parentNode);
-      if (nodeHasVisibleContent(previousSibling)) {
+      if (previousSiblingNeedsNewlineBefore(previousSibling)) {
         _appendNewlineChunk(output);
       }
     }

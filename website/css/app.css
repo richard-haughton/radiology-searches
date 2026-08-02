@@ -545,14 +545,8 @@ body {
   background: var(--timer-input-bg);
 }
 .timer-goal-mode-input {
-  width: 118px;
+  width: 108px;
 }
-.timer-timed-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .timer-voice-toggle {
   display: inline-flex;
   align-items: center;
@@ -2124,18 +2118,16 @@ body {
   overflow-y: auto;
   background: var(--card);
 }
-.rich-editor:not(.rich-editor-readonly) > div,
-.rich-editor:not(.rich-editor-readonly) > p,
+.rich-editor > div,
+.rich-editor > p,
 .subsection-rich-editor > div,
 .subsection-rich-editor > p {
-  margin: 0;
-}
-.rich-editor.rich-editor-readonly > div,
-.rich-editor.rich-editor-readonly > p {
   margin: 0 0 10px;
 }
-.rich-editor.rich-editor-readonly > div:last-child,
-.rich-editor.rich-editor-readonly > p:last-child {
+.rich-editor > div:last-child,
+.rich-editor > p:last-child,
+.subsection-rich-editor > div:last-child,
+.subsection-rich-editor > p:last-child {
   margin-bottom: 0;
 }
 .rich-editor:focus { border-color: var(--accent); }
