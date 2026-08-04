@@ -54,6 +54,39 @@ function _runFirestoreWrite(workFn) {
   });
 }
 
+function _makeImageId() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+function _base64ToBlob(base64Data, contentType) {
+  var binary = atob(base64Data);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: contentType || 'image/jpeg' });
+}
+
+// Uploads a compressed base64 image to Cloud Storage and returns a {url, path}
+// reference in place of embedding the bytes in the Firestore document.
+function uploadImageToStorage(uid, base64Data, format) {
+  var safeUid = String(uid || '').trim();
+  var safeFormat = String(format || 'jpeg').trim().toLowerCase() || 'jpeg';
+  if (!safeUid) return Promise.reject(new Error('Missing user id.'));
+  if (!base64Data) return Promise.reject(new Error('Missing image data.'));
+
+  var ext = safeFormat === 'jpeg' ? 'jpg' : safeFormat;
+  var path = 'users/' + safeUid + '/images/' + _makeImageId() + '.' + ext;
+  var blob = _base64ToBlob(base64Data, 'image/' + safeFormat);
+  var ref = appStorage.ref(path);
+
+  return ref.put(blob).then(function() {
+    return ref.getDownloadURL();
+  }).then(function(url) {
+    return { url: url, path: path };
+  });
+}
+
 function _normaliseFindingName(name) {
   return String(name || '')
     .toLowerCase()
@@ -123,6 +156,27 @@ function _normaliseImageData(rawData) {
   return '';
 }
 
+// Storage-backed images carry a url/path reference instead of embedded base64
+// bytes. Legacy chunks (still embedded base64) fall back to the old handling.
+function _buildImageChunk(chunk) {
+  var url = String((chunk && chunk.url) || '').trim();
+  if (url) {
+    return {
+      type: 'image',
+      url: url,
+      path: String((chunk && chunk.path) || '').trim(),
+      format: String((chunk && chunk.format) || '').trim().toLowerCase() || null
+    };
+  }
+
+  var imageData = chunk && (chunk.data || chunk.image_data);
+  return {
+    type: 'image',
+    format: _normaliseImageFormat(chunk && (chunk.format || chunk.image_format), imageData),
+    data: _normaliseImageData(imageData)
+  };
+}
+
 function _isPlainObject(value) {
   return Boolean(value) && Object.prototype.toString.call(value) === '[object Object]';
 }
@@ -168,7 +222,7 @@ function _hasFindingStudyLinks(links) {
 function _normaliseContentSignature(chunk) {
   if (!chunk || typeof chunk !== 'object') return '';
   if (chunk.type === 'image') {
-    return JSON.stringify({ type: 'image', format: chunk.format || 'png', data: chunk.data || '' });
+    return JSON.stringify({ type: 'image', format: chunk.format || 'png', url: chunk.url || '', data: chunk.data || '' });
   }
   if (chunk.type === 'link') {
     return JSON.stringify({ type: 'link', text: chunk.text || '', url: chunk.url || '' });
@@ -238,7 +292,7 @@ function _richContentHasMaterial(content) {
   for (var i = 0; i < chunks.length; i++) {
     var chunk = chunks[i] || {};
     if (chunk.type === 'text' && String(chunk.text || '').trim()) return true;
-    if (chunk.type === 'image' && String(chunk.data || '').trim()) return true;
+    if (chunk.type === 'image' && (String(chunk.data || '').trim() || String(chunk.url || '').trim())) return true;
     if (chunk.type === 'link' && (String(chunk.text || '').trim() || String(chunk.url || '').trim())) return true;
     if (chunk.type === 'subsection' && (String(chunk.title || '').trim() || _richContentHasMaterial(chunk.content || []))) return true;
     if (chunk.type === 'list') {
@@ -742,12 +796,7 @@ function normaliseStepSections(sections, fallbackRichContent) {
         ? chunk.type
         : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
-        var imageData = chunk && (chunk.data || chunk.image_data);
-        return {
-          type: 'image',
-          format: _normaliseImageFormat(chunk && (chunk.format || chunk.image_format), imageData),
-          data: _normaliseImageData(imageData)
-        };
+        return _buildImageChunk(chunk);
       }
       if (type === 'link') {
         return {
@@ -831,12 +880,7 @@ function _normalisePatternDoc(doc) {
         ? chunk.type
         : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
-        var imageData = chunk && (chunk.data || chunk.image_data);
-        return {
-          type: 'image',
-          format: _normaliseImageFormat(chunk && (chunk.format || chunk.image_format), imageData),
-          data: _normaliseImageData(imageData)
-        };
+        return _buildImageChunk(chunk);
       }
       if (type === 'link') {
         return {
@@ -1068,12 +1112,7 @@ function updatePatternReportConfig(uid, patternId, reportConfig) {
 function cloneRichContentForStorage(richContent) {
   return (richContent || []).map(function(chunk) {
     if (chunk && chunk.type === 'image') {
-      var imageData = chunk.data || chunk.image_data;
-      return {
-        type: 'image',
-        format: _normaliseImageFormat(chunk.format || chunk.image_format, imageData),
-        data: _normaliseImageData(imageData)
-      };
+      return _buildImageChunk(chunk);
     }
     if (chunk && chunk.type === 'link') {
       return {

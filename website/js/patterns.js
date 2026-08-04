@@ -3684,9 +3684,10 @@ async function compressPatternImages(patterns) {
         if (chunk.type !== 'image' || !chunk.data) return chunk;
         try {
           const compressed = await compressBase64Image(chunk.data, chunk.format || 'png');
-          return Object.assign({}, chunk, { data: compressed, format: 'jpeg' });
+          const uploaded = await uploadImageToStorage(_pUid, compressed, 'jpeg');
+          return { type: 'image', url: uploaded.url, path: uploaded.path, format: 'jpeg' };
         } catch (e) {
-          console.warn('Image compression failed, keeping original:', e);
+          console.warn('Image upload failed, keeping embedded copy:', e);
           return chunk;
         }
       }));
@@ -3839,6 +3840,27 @@ function normaliseImageFormatValue(format, data) {
   return 'png';
 }
 
+// Storage-backed images carry a url/path reference instead of embedded base64
+// bytes. Legacy chunks (still embedded base64) fall back to the old handling.
+function buildImageChunk(chunk) {
+  var url = String((chunk && chunk.url) || '').trim();
+  if (url) {
+    return {
+      type: 'image',
+      url: url,
+      path: String((chunk && chunk.path) || '').trim(),
+      format: String((chunk && chunk.format) || '').trim().toLowerCase() || null
+    };
+  }
+
+  var imageData = chunk?.data ?? chunk?.image_data;
+  return {
+    type: 'image',
+    format: normaliseImageFormatValue(chunk?.format || chunk?.image_format, imageData),
+    data: normaliseImageDataPayload(imageData)
+  };
+}
+
 function collapseRedundantRichContentNewlines(chunks) {
   if (!Array.isArray(chunks)) return [];
   const out = [];
@@ -3872,12 +3894,7 @@ function normaliseRichContent(richContent) {
     const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : ((chunk?.title || chunk?.name) && Array.isArray(chunk?.content) ? 'subsection' : 'text')));
 
     if (type === 'image') {
-      const imageData = chunk?.data ?? chunk?.image_data;
-      return {
-        type: 'image',
-        format: normaliseImageFormatValue(chunk?.format || chunk?.image_format, imageData),
-        data: normaliseImageDataPayload(imageData)
-      };
+      return buildImageChunk(chunk);
     }
 
     if (type === 'link') {

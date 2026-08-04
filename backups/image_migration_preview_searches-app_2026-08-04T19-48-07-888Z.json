@@ -1,0 +1,1157 @@
+{
+  "generatedAt": "2026-08-04T19:48:07.881Z",
+  "projectId": "searches-app",
+  "databaseId": "(default)",
+  "scopedUid": null,
+  "summary": {
+    "scannedPatterns": 122,
+    "scannedFindings": 408,
+    "patternsWithLegacyImages": 43,
+    "findingsWithLegacyImages": 147,
+    "totalLegacyImages": 402
+  },
+  "patterns": [
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "0gV0zrZDfK15wmmlmqMR",
+      "name": "US Intracranial arterial evaluation for vasospasm",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "2XgITDY7uaxbWmN3pBsY",
+      "name": "CT Spine T/L",
+      "legacyImages": 13
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "4uptRC2gOdQ7XbLvHZOo",
+      "name": "Pediatric US Abdominal",
+      "legacyImages": 10
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "6rIDEQ0nX1y8fuikbscj",
+      "name": "CT Shoulder",
+      "legacyImages": 6
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "8MFOd1s1I2PUq3fL5wlm",
+      "name": "Wrist/Hand Radiograph",
+      "legacyImages": 10
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "95KWFRzh0ZV2nlhtECiB",
+      "name": "CT Extremity General Search Pattern",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "9Du3yQ6KRS34NNM6I0Ml",
+      "name": "CT Head",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "AHIUQ3CvDpceKcAj4WoP",
+      "name": "Chest Radiograph",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "AVY9HpdvNYRjPnL2amwm",
+      "name": "Fluoroscopic Swallow / Speech Study",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "Clp4kjGr65ScYbsJ5xau",
+      "name": "US Pelvis and Transvaginal",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "IaKkHRY2BYEt37Kzp5f4",
+      "name": "MRI Wrist",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "J8Ijvr9EpOPxRnEQgz1N",
+      "name": "Any Bone Radiographs",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "M8UFjYI0Fk2bvhCGNEZv",
+      "name": "Cervical Spine Radiograph",
+      "legacyImages": 6
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "PCFxs7HEKDapxhUZA3M4",
+      "name": "Fluoroscopic Upper GI for Midgut Volvulus",
+      "legacyImages": 8
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "QOhqcCjpomcmHjur8k0Z",
+      "name": "MRI Ankle",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "RXNuK8VQ6fklWFnVsA3o",
+      "name": "MRI Lumbar Spine",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "RuTjyRqvnCTBFfgt1cv1",
+      "name": "US Lower Extremity for DVT",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "RxTcVuiaQgM8YCx4IArM",
+      "name": "Foot Radiograph",
+      "legacyImages": 7
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "SGlKcNaBrEYpI73FBYFo",
+      "name": "Knee Radiograph",
+      "legacyImages": 8
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "UY05moXceC8T7wTJ9y6n",
+      "name": "US Scrotum",
+      "legacyImages": 5
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "YahuyNDs1txCu1GlwsfD",
+      "name": "Scoliosis Series (XR Scoliosis)",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "ZwgfqylNmcc3PNkSonoW",
+      "name": "CT Maxillofacial",
+      "legacyImages": 5
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "aMy3UpnqbemtQ5d8hHyG",
+      "name": "CT Chest Abdomen Pelvis",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "gEznWHkMYGLmXRKui331",
+      "name": "CT Pelvis",
+      "legacyImages": 12
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "hCemhsLY9SsDch6u3EPv",
+      "name": "MRI Cervical Spine",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "hD4hytnkgQVAdiZLIc2E",
+      "name": "CT Soft Tissue Head and  Neck",
+      "legacyImages": 8
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "j5jncCRoLuaviPZpC0nl",
+      "name": "CTA Aorta (Dissection Study)",
+      "legacyImages": 5
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "jE0IDEBEwDvUpgQutseI",
+      "name": "Shoulder Radiograph",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "jJ5HDz0q0ts5U9QuAJfL",
+      "name": "CT Ankle / Foot",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "k2kRvw31t8OJcbfHNomj",
+      "name": "MRI Shoulder",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "l2Nhr7mpGoxtimosCG6H",
+      "name": "CT IAC / Sella / Orbits Search Pattern",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "mOdu5KmtrzQh6GuNHOWm",
+      "name": "US Hands for Rheumatoid Arthritis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "qRxeocI8IJEEbOtOPsbf",
+      "name": "Ankle Radiograph",
+      "legacyImages": 5
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "rerLtPlihCRKN0zre2hv",
+      "name": "MRI Hip and Pelvis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "s3lQK6hachMb8gbJgwt8",
+      "name": "NM Myocardial Perfusion Scan",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "tWEDe5aHH95b66AHPvZY",
+      "name": "MRI Brain",
+      "legacyImages": 12
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "ufF9Hh6vM0H6bTSDldMp",
+      "name": "Elbow Radiograph",
+      "legacyImages": 6
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "vIfINjd9cuUz0Q9r0ERT",
+      "name": "US Abdomen",
+      "legacyImages": 5
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "wFrgipFVZHtB9UyN7NNS",
+      "name": "Fluoroscopic Esophagram",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "wO6IaBm7ddczvywu5F7z",
+      "name": "US for lntussusception",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "wso3DPgfWPVk0mt3p3jq",
+      "name": "NM F18 FDG PET /CT Whole Body",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "xvuVXl9kMX0MUrRUhXNJ",
+      "name": "CT Cervical Spine",
+      "legacyImages": 9
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "patternId": "y0umc5PBKVsfIgh7YLwg",
+      "name": "CTA Head and Neck",
+      "legacyImages": 3
+    }
+  ],
+  "findings": [
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_accessory_navicular_os_tibiale_externum",
+      "name": "Accessory Navicular / Os Tibiale Externum",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_acetabullar_fracture",
+      "name": "Acetabullar Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_acromioclavicular_dislocation",
+      "name": "Acromioclavicular Dislocation",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_acute_pancreatitis",
+      "name": "Pancreatitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_adrenal_adenoma",
+      "name": "Adrenal Adenoma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_ankle_joint_effusion",
+      "name": "Ankle Joint Effusion",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_aortic_dissection_stanford_classification",
+      "name": "Aortic Dissection (Stanford Classification)",
+      "legacyImages": 5
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_aortic_injury_traumatic_aortic_injury",
+      "name": "Aortic Injury / Traumatic Aortic Injury",
+      "legacyImages": 9
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_appendicitis",
+      "name": "Appendicitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_arcuate_foramen",
+      "name": "Arcuate foramen",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_ascending_cholangitis",
+      "name": "Ascending Cholangitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_avascular_necrosis",
+      "name": "Avascular Necrosis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_basilar_invagination",
+      "name": "Basilar Invagination",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_benign_mediastinal_cysts_foregut_duplication_pericardial",
+      "name": "Benign Mediastinal Cysts (Foregut Duplication / Pericardial)",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_bigliani_acromion_morphology",
+      "name": "Bigliani Acromion Morphology",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_biliary_harmatoma",
+      "name": "Biliary harmatoma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_bountenniere_fracture",
+      "name": "Bountenniere Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_bowel_injury",
+      "name": "Bowel Injury",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_bowel_ischemia",
+      "name": "Bowel Ischemia",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_bowel_wall_thickening_enhancement_pattern",
+      "name": "Bowel Wall Thickening / Enhancement Pattern",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_brain_cytotoxic_injury",
+      "name": "Brain Cytotoxic Injury",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_brain_parachymal_laceration",
+      "name": "Brain Parachymal Laceration",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_bridging_vein_thrombosis",
+      "name": "Bridging Vein Thrombosis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_caffey_disease",
+      "name": "Caffey Disease",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_calcaneal_fracture",
+      "name": "Calcaneal Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_candidiasis",
+      "name": "Candidiasis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_cardiac_ischemia",
+      "name": "Cardiac Ischemia",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_cesarean_ectopic_pregnancy",
+      "name": "Cesarean Ectopic Pregnancy",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_chance_fracture",
+      "name": "Chance Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_charcot_neuropathy",
+      "name": "Charcot Neuropathy",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_claw_toe_deformity",
+      "name": "Lesser Toe Deformities",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_cns_disease_in_aids",
+      "name": "CNS disease in AIDS",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_coles_fracture",
+      "name": "Coles Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_dilation_of_the_cbd",
+      "name": "Dilation of the CBD",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_duodenal_hematoma",
+      "name": "Duodenal Hematoma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_early_pregnancy_loss",
+      "name": "Early Pregnancy Loss",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_ectopic_pregnancy",
+      "name": "Ectopic Pregnancy",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_emphysematous_pyelonephritis_emphysematous_pyelitis",
+      "name": "Emphysematous Pyelonephritis / Emphysematous Pyelitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_empyema_necessitatis",
+      "name": "Empyema Necessitatis",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_endometrial_carcinoma_cervical_carcinoma_ovarian_carcinoma",
+      "name": "Endometrial Carcinoma / Cervical Carcinoma / Ovarian Carcinoma",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_endometrial_hyperplasia",
+      "name": "Endometrial Hyperplasia",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_esophageal_adenocarcinoma",
+      "name": "Esophageal Adenocarcinoma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_esophageal_tear_boerhaave_syndrome",
+      "name": "Esophageal Tear / Boerhaave Syndrome",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_esophagectomy_and_gastric_pull_through",
+      "name": "Esophagectomy and Gastric Pull-Through",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_external_hernias_inguinal_femoral_obturator",
+      "name": "External Hernias (Inguinal / Femoral / Obturator)",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_extrapleural_hematoma",
+      "name": "Extrapleural hematoma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_facet_injury_unilateral_bilateral_locked_facets",
+      "name": "Facet Injury (Unilateral/Bilateral Locked Facets)",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_facial_trauma",
+      "name": "Facial Trauma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_female_pelvis_scapces",
+      "name": "Female Pelvis Scapces",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_femoral_fracture",
+      "name": "Femoral Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_femoral_neck_fracture",
+      "name": "Femoral Neck Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_flail_chest",
+      "name": "Flail Chest",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_foreign_body_inhalation",
+      "name": "Foreign Body Inhalation",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_gallbladder_polyp",
+      "name": "Gallbladder Polyp",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_gastric_volvulus",
+      "name": "Gastric Volvulus",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hand_compartments",
+      "name": "Hand compartments",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hangmans_fracture",
+      "name": "Hangmans Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hematometrocolpos",
+      "name": "Hematometrocolpos",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hiatal_hernia",
+      "name": "Hiatal Hernia",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hillsacks_deformity",
+      "name": "Hillsacks Deformity",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hindgut_herniation",
+      "name": "Hindgut  herniation",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hyatid_cyst",
+      "name": "Hyatid Cyst",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hyperammonemia_hepatic_encephalopathy",
+      "name": "Hyperammonemia (hepatic encephalopathy)",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_hyperammonia",
+      "name": "Hyperammonemia (hepatic encephalopathy)",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_intussusception",
+      "name": "Intussusception",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_ischemia",
+      "name": "Cardiac Ischemia",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_laryngeal_trauma",
+      "name": "Laryngeal Trauma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_le_fort_fractures",
+      "name": "Le Fort Fractures",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_lesser_toe_deformities",
+      "name": "Lesser Toe Deformities",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_lunate_dislocation_perilunate_midcarpal",
+      "name": "Lunate Dislocation / Perilunate / Midcarpal",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_masticator_space_infection",
+      "name": "Masticator Space Infection",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_metaphyseal_corrner_fracture",
+      "name": "Metaphyseal Corrner Fracture",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_mri_blood_product_aging_i_bleed_die",
+      "name": "MRI Blood Product Aging (I Bleed Die)",
+      "legacyImages": 4
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_mucosal_retention_cyst",
+      "name": "Mucosal retention cyst.",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_multiple_sclerosis",
+      "name": "Multiple Sclerosis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_necrotizing_pneumonia_and_lung_abscess",
+      "name": "Necrotizing Pneumonia and Lung Abscess",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_neurogenic_tumors_schwannoma_neurofibroma",
+      "name": "Neurogenic Tumors (Schwannoma / Neurofibroma)",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_neuronal_foraminal_stenosis",
+      "name": "Neuronal Foraminal Stenosis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_occipital_condyle_fracture",
+      "name": "Occipital Condyle Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_odontogenic_subperiosteal_abscess",
+      "name": "Odontogenic Subperiosteal Abscess",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_osteochondral_lesion",
+      "name": "Osteochondral Lesion",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pancreatic_laceration",
+      "name": "Pancreatic Laceration",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pancreatitis",
+      "name": "Pancreatitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_patella_alta_baja",
+      "name": "Patella Alta / Baja",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pediatric_costochondral_fractures",
+      "name": "Pediatric Costochondral Fractures",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pediatric_wrist_fractures",
+      "name": "Pediatric Wrist Fractures",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_perigestational_subchorionic_hematoma",
+      "name": "Perigestational / Subchorionic Hematoma",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_periosteal_reaction",
+      "name": "Periosteal Reaction",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pes_planus",
+      "name": "Pes Planus",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_physiologic_pediatric_periostitis",
+      "name": "Physiologic Pediatric Periostitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pid_and_tubo_ovarian_abscess",
+      "name": "PID and Tubo-Ovarian Abscess",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pitt_s_pitt",
+      "name": "Pitt's Pitt",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pleural_metastases",
+      "name": "Pleural Metastases",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pleural_plaques_asbestos_related_pleural_disease",
+      "name": "Pleural Plaques (Asbestos-Related Pleural Disease)",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_posterior_dislocation",
+      "name": "Posterior Dislocation of the humeral head",
+      "legacyImages": 3
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_posterior_dislocation_of_the_humeral_head",
+      "name": "Posterior Dislocation of the humeral head",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_posterior_fat_pad_sign",
+      "name": "Posterior Fat Pad sign",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_postoperativ_fluid_collections",
+      "name": "Postoperativ Fluid Collections",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pre_arthoplasty_scan",
+      "name": "Pre Arthoplasty Scan",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_prepatellar_knee_bursitis",
+      "name": "Prepatellar Knee Bursitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_prosthetic_valves",
+      "name": "Prosthetic Valves",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_proximal_fifth_metatarsal_fractures",
+      "name": "Proximal Fifth metatarsal fractures",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pulmonary_contusion_and_laceration",
+      "name": "Pulmonary Contusion and Laceration",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pulmonary_interstitial_emphysema_pie_and_macklin_effect",
+      "name": "Pulmonary Interstitial Emphysema (PIE) and Macklin Effect",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pyelonephritis",
+      "name": "Pyelonephritis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_pyosalpinx",
+      "name": "Pyosalpinx",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_recist_criteria",
+      "name": "RECIST Criteria",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_red_marrow_changes",
+      "name": "Red Marrow Changes",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_renal_cyst",
+      "name": "Simple Renal Cyst",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_renal_sinus_cysts",
+      "name": "Renal Sinus Cysts",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_renal_variants",
+      "name": "Renal Variants",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_retinal_hemorrhage",
+      "name": "Retinal Hemorrhage",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_retinoschisis",
+      "name": "Retinoschisis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_retromandibular_vein",
+      "name": "Retromandibular vein",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_retropharyngeal_infection",
+      "name": "Retropharyngeal Infection",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_romanus_lesion",
+      "name": "Romanus Lesion",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_sacral_fractures",
+      "name": "Sacral Fractures",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_salter_harris_fractures",
+      "name": "Salter Harris Fractures.",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_sarcoid_perfusion_findings_with_fdg_uptake",
+      "name": "Sarcoid Perfusion Findings with FDG uptake",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_septic_pulmonary_emboli",
+      "name": "Septic Pulmonary Emboli",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_simple_renal_cyst",
+      "name": "Simple Renal Cyst",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_skull_fracture_mimics_vascular_groove",
+      "name": "Skull Fracture Mimics - Vascular Groove",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_slic_injury_score",
+      "name": "SLIC Injury score",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_spinal_epidural_hematoma",
+      "name": "Spinal Epidural Hematoma",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_spinal_meningioma",
+      "name": "Spinal Meningioma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_spinal_trauma",
+      "name": "Spinal Trauma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_spine_infection_osteomyelitis_discitis_epidural_abscess",
+      "name": "Spine Infection (Osteomyelitis / Discitis / Epidural Abscess)",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_spine_trauma_occipito_atlantal_and_c1_c2_instability",
+      "name": "Spine Trauma – Occipito-Atlantal and C1-C2 Instability",
+      "legacyImages": 6
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_suspect_nonaccidental_trauma",
+      "name": "Suspect Nonaccidental Trauma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_synrinx",
+      "name": "Synrinx",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_talocalcaneal_coalition",
+      "name": "Talocalcaneal Coalition",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_tendinosis",
+      "name": "Tendinosis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_testicular_torsion",
+      "name": "Testicular Torsion",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_tibial_plateau_fracture",
+      "name": "Tibial Plateau Fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_tillaux_chaput_tubercle_fracture",
+      "name": "Tillaux-Chaput tubercle fracture",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_tonsillitis_and_peritonsillar_abscess",
+      "name": "Tonsillitis and Peritonsillar Abscess",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_tracheal_diverticulum",
+      "name": "Tracheal Diverticulum",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_traumatic_pneumothorax",
+      "name": "Traumatic Pneumothorax",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_tubular_ectasia_of_the_rete_testis",
+      "name": "Tubular Ectasia of the Rete Testis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_typhlitis_neutropenic_colitis",
+      "name": "Typhlitis / Neutropenic Colitis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_ulcerative_colitis_toxic_megacolon",
+      "name": "Ulcerative Colitis / Toxic Megacolon",
+      "legacyImages": 2
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_uretheral_injury",
+      "name": "Uretheral Injury",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_us_elastography",
+      "name": "US Elastography",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_vasospasm",
+      "name": "Vasospasm",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_venous_thrombosis",
+      "name": "Venous Thrombosis",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_vertebral_hemangioma",
+      "name": "Vertebral Hemangioma",
+      "legacyImages": 1
+    },
+    {
+      "uid": "ZxtdD0jaGfUv5ni5k1B5XNMGlvG2",
+      "findingId": "finding_walch_glenoid_classification",
+      "name": "Walch Glenoid Classification",
+      "legacyImages": 1
+    }
+  ]
+}

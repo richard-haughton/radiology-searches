@@ -1274,9 +1274,16 @@ function populateRichEditor(editor, richContent) {
   const appendInlineChunk = function(parent, chunk) {
     if (!chunk) return;
     if (chunk.type === 'image') {
-      if (!chunk.data) return;
+      if (!chunk.url && !chunk.data) return;
       const img = document.createElement('img');
-      img.src = `data:image/${chunk.format || 'png'};base64,${chunk.data}`;
+      if (chunk.url) {
+        img.src = chunk.url;
+        img.dataset.imageUrl = chunk.url;
+        img.dataset.imagePath = chunk.path || '';
+        if (chunk.format) img.dataset.imageFormat = chunk.format;
+      } else {
+        img.src = `data:image/${chunk.format || 'png'};base64,${chunk.data}`;
+      }
       img.alt = 'Embedded image';
       img.style.cursor = 'pointer';
       parent.appendChild(img);
@@ -1565,10 +1572,15 @@ function extractRichContent(editor) {
       const text = node.textContent;
       if (text) _appendTextChunk(output, text, formatting.bold, formatting.color);
     } else if (node.nodeName === 'IMG') {
-      const src = node.src || '';
-      const match = src.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (match) {
-        output.push({ type: 'image', format: match[1], data: match[2] });
+      const storageUrl = node.dataset && node.dataset.imageUrl;
+      if (storageUrl) {
+        output.push({ type: 'image', url: storageUrl, path: (node.dataset.imagePath || ''), format: (node.dataset.imageFormat || null) });
+      } else {
+        const src = node.src || '';
+        const match = src.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (match) {
+          output.push({ type: 'image', format: match[1], data: match[2] });
+        }
       }
     } else if (node.nodeName === 'A') {
       const url = node.getAttribute('href') || '';
@@ -1752,7 +1764,7 @@ function addLinkRow() {
 function hasAnyRichContent(content) {
   const chunks = normaliseRichContent(content || []);
   return chunks.some(chunk => {
-    if (chunk.type === 'image') return Boolean(chunk.data);
+    if (chunk.type === 'image') return Boolean(chunk.url || chunk.data);
     if (chunk.type === 'link') return Boolean((chunk.url || '').trim() || (chunk.text || '').trim());
     if (chunk.type === 'subsection') return Boolean((chunk.title || '').trim()) || hasAnyRichContent(chunk.content || []);
     return Boolean((chunk.text || '').trim());
@@ -2706,6 +2718,11 @@ async function compressRichContentForStorage(richContent) {
     if (!chunk) continue;
 
     if (chunk.type === 'image') {
+      if (chunk.url) {
+        // Already Storage-backed and unchanged — nothing to (re-)upload.
+        out.push({ type: 'image', url: chunk.url, path: chunk.path || '', format: chunk.format || null });
+        continue;
+      }
       if (!chunk.data) continue;
       let data = chunk.data;
       let format = chunk.format || 'png';
@@ -2715,7 +2732,13 @@ async function compressRichContentForStorage(richContent) {
       } catch (e) {
         // Keep original chunk if compression fails.
       }
-      out.push({ type: 'image', format: format, data: data });
+      try {
+        const uploaded = await uploadImageToStorage(editorUid, data, format);
+        out.push({ type: 'image', url: uploaded.url, path: uploaded.path, format: format });
+      } catch (e) {
+        console.warn('Image upload failed, keeping embedded copy:', e);
+        out.push({ type: 'image', format: format, data: data });
+      }
       continue;
     }
 
@@ -3138,6 +3161,27 @@ function normaliseImageFormatValue(format, data) {
   return 'png';
 }
 
+// Storage-backed images carry a url/path reference instead of embedded base64
+// bytes. Legacy chunks (still embedded base64) fall back to the old handling.
+function buildImageChunk(chunk) {
+  var url = String((chunk && chunk.url) || '').trim();
+  if (url) {
+    return {
+      type: 'image',
+      url: url,
+      path: String((chunk && chunk.path) || '').trim(),
+      format: String((chunk && chunk.format) || '').trim().toLowerCase() || null
+    };
+  }
+
+  var imageData = chunk?.data ?? chunk?.image_data;
+  return {
+    type: 'image',
+    format: normaliseImageFormatValue(chunk?.format || chunk?.image_format, imageData),
+    data: normaliseImageDataPayload(imageData)
+  };
+}
+
 function collapseRedundantRichContentNewlines(chunks) {
   if (!Array.isArray(chunks)) return [];
   const out = [];
@@ -3171,12 +3215,7 @@ function normaliseRichContent(richContent) {
     const type = chunk?.type || (chunk?.image_data || chunk?.data ? 'image' : (chunk?.url ? 'link' : ((chunk?.title || chunk?.name) && Array.isArray(chunk?.content) ? 'subsection' : 'text')));
 
     if (type === 'image') {
-      const imageData = chunk?.data ?? chunk?.image_data;
-      return {
-        type: 'image',
-        format: normaliseImageFormatValue(chunk?.format || chunk?.image_format, imageData),
-        data: normaliseImageDataPayload(imageData)
-      };
+      return buildImageChunk(chunk);
     }
 
     if (type === 'link') {
