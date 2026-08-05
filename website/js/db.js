@@ -424,6 +424,26 @@ function _extractFindingsFromSteps(patternId, patternName, modality, steps) {
   return findingsById;
 }
 
+// Reads finding docs through an in-flight transaction (rather than a plain
+// .get()/getAll()) so the transaction can detect concurrent modifications to
+// any of them and retry with fresh data instead of overwriting blind.
+function _transactionGetFindingsByIds(transaction, uid, ids) {
+  var uniqueIds = (ids || []).filter(function(id, index, list) {
+    return id && list.indexOf(id) === index;
+  });
+  if (!uniqueIds.length) return Promise.resolve({});
+
+  return Promise.all(uniqueIds.map(function(id) {
+    return transaction.get(_findingsRef(uid).doc(id));
+  })).then(function(snapshots) {
+    var out = {};
+    snapshots.forEach(function(doc, index) {
+      if (doc.exists) out[uniqueIds[index]] = _normaliseFindingDoc(doc.data() || {});
+    });
+    return out;
+  });
+}
+
 function _loadFindingsByIds(uid, ids) {
   var uniqueIds = (ids || []).filter(function(id, index, list) {
     return id && list.indexOf(id) === index;
@@ -572,6 +592,21 @@ function _commitPatternAndFindingMutations(uid, patternRef, patternPayload, find
   ops.push({ type: isCreate ? 'createPattern' : 'updatePattern', ref: patternRef, data: patternPayload });
 
   return _commitFindingOps(uid, ops);
+}
+
+// Applies finding set/delete mutations onto an in-flight transaction. Must
+// only be called after every transaction.get() for this transaction has
+// already resolved (Firestore requires all reads before any writes).
+function _applyFindingMutationsToTransaction(transaction, uid, findingMutations) {
+  (findingMutations || []).forEach(function(op) {
+    if (op.type === 'delete') {
+      transaction.delete(_findingsRef(uid).doc(op.id));
+      return;
+    }
+    if (op.type === 'set') {
+      transaction.set(_findingsRef(uid).doc(op.id), _sanitizeFirestoreValue(op.data, false), { merge: op.merge !== false });
+    }
+  });
 }
 
 function _commitFindingOps(uid, ops) {
@@ -1000,24 +1035,30 @@ function createPattern(uid, data) {
   var firestoreSteps = _prepareStepsForFirestore(workingSteps);
   var findingIds = Object.keys(extractedFindings);
 
-  return _loadFindingsByIds(uid, findingIds).then(function(existingFindings) {
-    var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, []);
-    var payload = {
-      name: data.name,
-      modality: data.modality || 'Other',
-      steps: firestoreSteps,
-      reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
-      goalSeconds: goalSeconds,
-      pathologyGoalSeconds: pathologyGoalSeconds,
-      updatedAt: _now()
-    };
+  return _runFirestoreWrite(function() {
+    return appDb.runTransaction(function(transaction) {
+      return _transactionGetFindingsByIds(transaction, uid, findingIds).then(function(existingFindings) {
+        var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, []);
+        var payload = {
+          name: data.name,
+          modality: data.modality || 'Other',
+          steps: firestoreSteps,
+          reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
+          goalSeconds: goalSeconds,
+          pathologyGoalSeconds: pathologyGoalSeconds,
+          updatedAt: _now()
+        };
+        payload = _sanitizeFirestoreValue(payload, false);
 
-    payload = _sanitizeFirestoreValue(payload, false);
-
-    _replaceArrayContents(rawSteps, firestoreSteps);
-    return _commitPatternAndFindingMutations(uid, ref, payload, findingMutations, true).then(function() {
-      return patternId;
+        // Reads are done; safe to write now (Firestore transactions require
+        // every transaction.get() before any set/update/delete).
+        _applyFindingMutationsToTransaction(transaction, uid, findingMutations);
+        transaction.set(ref, payload);
+      });
     });
+  }).then(function() {
+    _replaceArrayContents(rawSteps, firestoreSteps);
+    return patternId;
   });
 }
 
@@ -1026,55 +1067,64 @@ function updatePattern(uid, patternId, data) {
   var workingSteps = _stripLinkedStepDataList(JSON.parse(JSON.stringify(rawSteps)));
   _sanitizeStepTitles(workingSteps);
   var patternRef = _patternsRef(uid).doc(patternId);
+  var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
+  var firestoreSteps = _prepareStepsForFirestore(workingSteps);
 
-  return patternRef.get().then(function(existingDoc) {
-    var existingPattern = existingDoc.exists ? _normalisePatternDoc(existingDoc.data() || {}) : { steps: [] };
-    var extractedFindings = _extractFindingsFromSteps(patternId, data.name, data.modality || 'Other', workingSteps);
-    var previousFindingIds = _collectFindingIdsFromSteps(existingPattern.steps || []);
-    var nextFindingIds = Object.keys(extractedFindings || {});
-    var allFindingIds = previousFindingIds.concat(nextFindingIds).filter(function(id, index, list) {
-      return id && list.indexOf(id) === index;
-    });
+  function buildPayload(stepsForWrite) {
+    var payload = {
+      name: data.name,
+      modality: data.modality || 'Other',
+      steps: stepsForWrite,
+      reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
+      updatedAt: _now()
+    };
+    if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
+      payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'pathologyGoalSeconds') || Object.prototype.hasOwnProperty.call(data, 'pathologyGoalMinutes')) {
+      payload.pathologyGoalSeconds = _normaliseGoalSeconds(data.pathologyGoalSeconds, data.pathologyGoalMinutes);
+    }
+    return _sanitizeFirestoreValue(payload, false);
+  }
 
-    return _loadFindingsByIds(uid, allFindingIds).then(function(existingFindings) {
-      var firestoreSteps = _prepareStepsForFirestore(workingSteps);
-      var payload = {
-        name: data.name,
-        modality: data.modality || 'Other',
-        steps: firestoreSteps,
-        reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
-        updatedAt: _now()
-      };
-      if (Object.prototype.hasOwnProperty.call(data, 'goalSeconds') || Object.prototype.hasOwnProperty.call(data, 'goalMinutes')) {
-        payload.goalSeconds = _normaliseGoalSeconds(data.goalSeconds, data.goalMinutes);
-      }
-      if (Object.prototype.hasOwnProperty.call(data, 'pathologyGoalSeconds') || Object.prototype.hasOwnProperty.call(data, 'pathologyGoalMinutes')) {
-        payload.pathologyGoalSeconds = _normaliseGoalSeconds(data.pathologyGoalSeconds, data.pathologyGoalMinutes);
-      }
-
-      payload = _sanitizeFirestoreValue(payload, false);
-
-      var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds);
-      _replaceArrayContents(rawSteps, firestoreSteps);
-
-      function commitWithFallback(currentPayload, hasRetriedSlim) {
-        return _commitPatternAndFindingMutations(uid, patternRef, currentPayload, findingMutations, false).catch(function(err) {
-          if (hasRetriedSlim || !_isFirestoreDocumentSizeError(err)) {
-            throw err;
-          }
-
-          var leanSteps = _buildLeanPatternStepsForStorage(workingSteps);
-          var leanPayload = Object.assign({}, currentPayload, {
-            steps: leanSteps
+  // Reading the pattern + its shared findings and writing them back happens
+  // inside one transaction: if any of those documents change concurrently
+  // (another tab, propagateLinkedSteps, a second save) between the read and
+  // the commit, Firestore discards this attempt and retries the whole
+  // function against a fresh read instead of silently overwriting.
+  function runUpdate(stepsForWrite) {
+    return _runFirestoreWrite(function() {
+      return appDb.runTransaction(function(transaction) {
+        return transaction.get(patternRef).then(function(existingDoc) {
+          var existingPattern = existingDoc.exists ? _normalisePatternDoc(existingDoc.data() || {}) : { steps: [] };
+          var previousFindingIds = _collectFindingIdsFromSteps(existingPattern.steps || []);
+          var nextFindingIds = Object.keys(extractedFindings || {});
+          var allFindingIds = previousFindingIds.concat(nextFindingIds).filter(function(id, index, list) {
+            return id && list.indexOf(id) === index;
           });
 
-          console.warn('Pattern document exceeded size limit; retrying save with lean embedded findings payload for pattern', patternId);
-          return _commitPatternAndFindingMutations(uid, patternRef, leanPayload, findingMutations, false);
-        });
-      }
+          return _transactionGetFindingsByIds(transaction, uid, allFindingIds).then(function(existingFindings) {
+            var findingMutations = _buildFindingMutations(patternId, extractedFindings, existingFindings, previousFindingIds);
+            var payload = buildPayload(stepsForWrite);
 
-      return commitWithFallback(payload, false);
+            _applyFindingMutationsToTransaction(transaction, uid, findingMutations);
+            transaction.update(patternRef, payload);
+          });
+        });
+      });
     });
+  }
+
+  return runUpdate(firestoreSteps).catch(function(err) {
+    if (!_isFirestoreDocumentSizeError(err)) throw err;
+
+    console.warn('Pattern document exceeded size limit; retrying save with lean embedded findings payload for pattern', patternId);
+    var leanSteps = _buildLeanPatternStepsForStorage(workingSteps);
+    return runUpdate(leanSteps).then(function() {
+      firestoreSteps = leanSteps;
+    });
+  }).then(function() {
+    _replaceArrayContents(rawSteps, firestoreSteps);
   });
 }
 
@@ -1294,14 +1344,19 @@ function propagateLinkedSteps(uid, sourcePatternId, sourceSteps, allPatterns) {
 
 function deletePattern(uid, patternId) {
   var patternRef = _patternsRef(uid).doc(patternId);
-  return patternRef.get().then(function(existingDoc) {
-    if (!existingDoc.exists) return;
-    var existingPattern = _normalisePatternDoc(existingDoc.data() || {});
-    var previousFindingIds = _collectFindingIdsFromSteps(existingPattern.steps || []);
-    return _loadFindingsByIds(uid, previousFindingIds).then(function(existingFindings) {
-      var findingMutations = _buildFindingMutations(patternId, {}, existingFindings, previousFindingIds);
-      findingMutations.push({ type: 'deletePattern', ref: patternRef });
-      return _commitFindingOps(uid, findingMutations);
+  return _runFirestoreWrite(function() {
+    return appDb.runTransaction(function(transaction) {
+      return transaction.get(patternRef).then(function(existingDoc) {
+        if (!existingDoc.exists) return;
+        var existingPattern = _normalisePatternDoc(existingDoc.data() || {});
+        var previousFindingIds = _collectFindingIdsFromSteps(existingPattern.steps || []);
+
+        return _transactionGetFindingsByIds(transaction, uid, previousFindingIds).then(function(existingFindings) {
+          var findingMutations = _buildFindingMutations(patternId, {}, existingFindings, previousFindingIds);
+          _applyFindingMutationsToTransaction(transaction, uid, findingMutations);
+          transaction.delete(patternRef);
+        });
+      });
     });
   });
 }
