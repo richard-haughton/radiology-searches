@@ -31,6 +31,10 @@ function renderCalc(key) {
     case 'quick-links':
       main.innerHTML = quickLinksHtml();
       break;
+    case 'ratio':
+      main.innerHTML = ratioHtml();
+      bindRatio();
+      break;
   }
 }
 
@@ -849,6 +853,79 @@ function quickLinksHtml() {
       <li class="quick-links-item">
         <a class="quick-link" href="https://gravitas.acr.org/acportal?_gl=1*1h69pe5*_gcl_au*MTE4NzYxMzAwLjE3Nzg0NDc1NTY.*_ga*MjE0MzgxMjI2NS4xNzUzNTQ1MDIx*_ga_K9XZBF7MXP*czE3Nzg2ODM2NDMkbzI4JGcwJHQxNzc4NjgzNjQzJGo2MCRsMCRoMA.." target="_blank" rel="noopener noreferrer">ACR Appropriateness Criteria</a>
       </li>
+      <li class="quick-links-item">
+        <a class="quick-link" href="https://casestacks.com/peds-normals" target="_blank" rel="noopener noreferrer">Normal Peds General</a>
+      </li>
+      <li class="quick-links-item">
+        <a class="quick-link" href="https://radres.ucsd.edu/msk" target="_blank" rel="noopener noreferrer">all things MSK (UCSD)</a>
+      </li>
     </ul>
   </div>`;
+}
+
+// ── Ratio Calculator ─────────────────────────────────────────
+function ratioHtml() {
+  return `
+  <div class="calc-card">
+    <h2>Ratio Calculator</h2>
+    <p class="calc-description">Enter two values to get their simplified ratio and decimal quotient.</p>
+    <div class="calc-form">
+      <div class="calc-row">
+        <label class="form-label">Value A
+          <input id="r-a" type="number" class="form-input" min="0" step="any" placeholder="e.g. 4">
+        </label>
+        <label class="form-label">Value B
+          <input id="r-b" type="number" class="form-input" min="0" step="any" placeholder="e.g. 6">
+        </label>
+      </div>
+    </div>
+    <div class="calc-actions">
+      <button id="r-calc" type="button" class="btn btn-accent">Calculate</button>
+    </div>
+    <div id="r-result" class="calc-result" hidden>
+      <div class="calc-result-value" id="r-value"></div>
+      <div class="calc-result-label">simplified ratio</div>
+      <div class="calc-result-detail" id="r-detail"></div>
+    </div>
+    <div class="calc-formula">A : B</div>
+  </div>`;
+}
+
+function bindRatio() {
+  ['r-a', 'r-b'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calcRatio);
+  });
+  document.getElementById('r-calc').addEventListener('click', calcRatio);
+  bindEnterToCalculate(['r-a', 'r-b'], calcRatio);
+}
+
+function gcd(x, y) {
+  x = Math.abs(x);
+  y = Math.abs(y);
+  while (y) { [x, y] = [y, x % y]; }
+  return x;
+}
+
+function calcRatio() {
+  const a = parseFloat(document.getElementById('r-a').value);
+  const b = parseFloat(document.getElementById('r-b').value);
+  const result = document.getElementById('r-result');
+
+  if (isNaN(a) || isNaN(b) || a < 0 || b <= 0) { result.hidden = true; return; }
+
+  // Scale up any decimal inputs so the ratio can be reduced with integer GCD.
+  const decimalsA = (String(a).split('.')[1] || '').length;
+  const decimalsB = (String(b).split('.')[1] || '').length;
+  const scale = Math.pow(10, Math.max(decimalsA, decimalsB));
+  let intA = Math.round(a * scale);
+  let intB = Math.round(b * scale);
+
+  const divisor = gcd(intA, intB) || 1;
+  intA /= divisor;
+  intB /= divisor;
+
+  document.getElementById('r-value').textContent = `${intA} : ${intB}`;
+  document.getElementById('r-detail').textContent = `A ÷ B = ${(a / b).toFixed(3)}`;
+  result.className = 'calc-result';
+  result.hidden = false;
 }
