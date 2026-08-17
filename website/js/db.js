@@ -5,7 +5,26 @@ function _patternsRef(uid)   { return _userRef(uid).collection('patterns'); }
 function _findingsRef(uid)   { return _userRef(uid).collection('findings'); }
 function _studyLogRef(uid)   { return _userRef(uid).collection('studyLog'); }
 function _reportTemplatesRef(uid) { return _userRef(uid).collection('reportTemplates'); }
+function _aiSettingsRef(uid) { return _userRef(uid).collection('settings').doc('ai'); }
 function _now()              { return firebase.firestore.FieldValue.serverTimestamp(); }
+
+async function loadAiSettings(uid) {
+  var snap = await _aiSettingsRef(uid).get();
+  return snap.exists ? (snap.data() || {}) : {};
+}
+
+async function saveAiSettings(uid, data) {
+  var update = Object.assign({}, data, { updatedAt: _now() });
+  await _aiSettingsRef(uid).set(update, { merge: true });
+}
+
+async function clearAiApiKey(uid, provider) {
+  var field = provider === 'anthropic' ? 'anthropicApiKey' : 'openaiApiKey';
+  var update = {};
+  update[field] = firebase.firestore.FieldValue.delete();
+  update.updatedAt = _now();
+  await _aiSettingsRef(uid).set(update, { merge: true });
+}
 
 function stripStepTitleNumbering(title) {
   var raw = String(title || '').trim();

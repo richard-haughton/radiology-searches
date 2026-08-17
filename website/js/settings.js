@@ -4,6 +4,7 @@ var _settingsUid = null;
 var _settingsInitialised = false;
 var _aiProviderStatus = {};
 var _aiModelAccess = {};
+var _userAiSettings = {};
 
 var PROVIDER_MODELS = {
   openai: [
@@ -16,8 +17,17 @@ var PROVIDER_MODELS = {
     { value: 'gpt-4-turbo',   label: 'GPT-4 Turbo' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
   ],
-  anthropic: [],
+  anthropic: [
+    { value: 'claude-sonnet-5',        label: 'Claude Sonnet 5 (default)' },
+    { value: 'claude-opus-5',          label: 'Claude Opus 5' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
+  ],
   githubModels: []
+};
+
+var API_KEY_FIELDS = {
+  openai: 'openaiApiKey',
+  anthropic: 'anthropicApiKey'
 };
 
 function initSettings(uid) {
@@ -27,6 +37,7 @@ function initSettings(uid) {
   if (_settingsInitialised) {
     updateModelDropdown(document.getElementById('ai-provider-select').value);
     refreshAiProviderStatus();
+    loadUserAiSettings();
     return;
   }
 
@@ -65,9 +76,21 @@ function initSettings(uid) {
     }
   });
 
+  ['openai', 'anthropic'].forEach(function(provider) {
+    var saveBtn = document.getElementById('btn-ai-key-save-' + provider);
+    var clearBtn = document.getElementById('btn-ai-key-clear-' + provider);
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function() { handleSaveApiKey(provider); });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() { handleClearApiKey(provider); });
+    }
+  });
+
   updateModelDropdown(providerSelect.value);
   hydrateProviderInputs();
   refreshAiProviderStatus();
+  loadUserAiSettings();
 
   // Also refresh when Settings tab is opened to pick up any recent status changes.
   var settingsTabBtn = document.querySelector('.tab-btn[data-tab="settings"]');
@@ -75,6 +98,101 @@ function initSettings(uid) {
     settingsTabBtn.addEventListener('click', function() {
       refreshAiProviderStatus();
     });
+  }
+}
+
+async function loadUserAiSettings() {
+  if (!_settingsUid) return;
+  try {
+    _userAiSettings = await loadAiSettings(_settingsUid);
+  } catch (err) {
+    console.error('loadUserAiSettings failed:', err);
+    _userAiSettings = {};
+  }
+  hydrateApiKeyStatus();
+  renderAiProviderStatus();
+}
+
+function userHasApiKey(provider) {
+  var field = API_KEY_FIELDS[provider];
+  return !!(field && _userAiSettings && String(_userAiSettings[field] || '').trim());
+}
+
+function maskKeyForDisplay(rawKey) {
+  var key = String(rawKey || '').trim();
+  if (!key) return '';
+  var tail = key.slice(-4);
+  return '••••••••' + tail;
+}
+
+function hydrateApiKeyStatus() {
+  ['openai', 'anthropic'].forEach(function(provider) {
+    var statusEl = document.getElementById('ai-key-status-' + provider);
+    var input = document.getElementById('ai-key-input-' + provider);
+    var clearBtn = document.getElementById('btn-ai-key-clear-' + provider);
+    var field = API_KEY_FIELDS[provider];
+    var hasKey = userHasApiKey(provider);
+
+    if (input) {
+      input.value = '';
+      input.placeholder = hasKey
+        ? maskKeyForDisplay(_userAiSettings[field]) + ' (saved — enter a new key to replace)'
+        : 'Enter your ' + (provider === 'anthropic' ? 'Anthropic' : 'OpenAI') + ' API key';
+    }
+    if (statusEl) {
+      statusEl.textContent = hasKey ? 'Key saved.' : 'No key saved.';
+    }
+    if (clearBtn) {
+      clearBtn.disabled = !hasKey;
+    }
+  });
+}
+
+async function handleSaveApiKey(provider) {
+  var input = document.getElementById('ai-key-input-' + provider);
+  var field = API_KEY_FIELDS[provider];
+  if (!input || !field) return;
+
+  var value = String(input.value || '').trim();
+  if (!value) {
+    showToast('Enter an API key before saving.', true);
+    return;
+  }
+
+  var saveBtn = document.getElementById('btn-ai-key-save-' + provider);
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    var update = {};
+    update[field] = value;
+    await saveAiSettings(_settingsUid, update);
+    _userAiSettings[field] = value;
+    hydrateApiKeyStatus();
+    renderAiProviderStatus();
+    showToast((provider === 'anthropic' ? 'Anthropic' : 'OpenAI') + ' API key saved.');
+  } catch (err) {
+    showToast(err.message || 'Failed to save API key.', true);
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+async function handleClearApiKey(provider) {
+  var field = API_KEY_FIELDS[provider];
+  if (!field) return;
+
+  var clearBtn = document.getElementById('btn-ai-key-clear-' + provider);
+  if (clearBtn) clearBtn.disabled = true;
+
+  try {
+    await clearAiApiKey(_settingsUid, provider);
+    delete _userAiSettings[field];
+    hydrateApiKeyStatus();
+    renderAiProviderStatus();
+    showToast((provider === 'anthropic' ? 'Anthropic' : 'OpenAI') + ' API key removed.');
+  } catch (err) {
+    showToast(err.message || 'Failed to remove API key.', true);
+    if (clearBtn) clearBtn.disabled = !userHasApiKey(provider);
   }
 }
 
@@ -175,13 +293,19 @@ function renderAiProviderStatus() {
 
   var provider = providerSelect.value;
   var status = _aiProviderStatus[provider] || {};
-  if (!status.configured) {
-    statusEl.textContent = 'Status: AI proxy not ready for ' + provider + '. Contact admin to configure backend key.';
+  var hasPersonalKey = userHasApiKey(provider);
+
+  if (!hasPersonalKey && !status.configured) {
+    statusEl.textContent = provider === 'anthropic'
+      ? 'Status: no Anthropic key configured. Add your own API key above to use Claude.'
+      : 'Status: AI proxy not ready for ' + provider + '. Add your own API key above, or contact an admin.';
     return;
   }
 
   var selectedModel = modelSelect ? String(modelSelect.value || '').trim() : '';
-  var text = 'Status: managed backend access is active for ' + provider + '.';
+  var text = hasPersonalKey
+    ? 'Status: using your personal ' + provider + ' API key.'
+    : 'Status: managed backend access is active for ' + provider + '.';
   if (selectedModel) {
     text += ' Using: ' + selectedModel;
   }
@@ -209,6 +333,8 @@ function getSelectedAiModel() {
 }
 
 function isAiProviderConfigured(provider) {
-  var status = _aiProviderStatus[provider || getSelectedAiProvider()] || {};
+  var key = provider || getSelectedAiProvider();
+  if (userHasApiKey(key)) return true;
+  var status = _aiProviderStatus[key] || {};
   return !!status.configured;
 }

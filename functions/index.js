@@ -8,6 +8,9 @@ admin.initializeApp();
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY');
 
 const DEFAULT_MODEL = 'gpt-5.5';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-5';
+const ANTHROPIC_API_VERSION = '2023-06-01';
+const ANTHROPIC_DEFAULT_MAX_TOKENS = 4096;
 const MAX_PROMPT_LENGTH = 24000;
 const MAX_REQUEST_BYTES = 80 * 1024;
 const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -77,6 +80,16 @@ function checkIpRateLimit(req) {
 
 function checkUserRateLimit(uid) {
   return checkRateLimit(userBuckets, uid, USER_RATE_LIMIT_WINDOW_MS, USER_RATE_LIMIT_MAX);
+}
+
+async function getUserAiSettings(uid) {
+  try {
+    const snap = await admin.firestore().collection('users').doc(uid).collection('settings').doc('ai').get();
+    return snap.exists ? (snap.data() || {}) : {};
+  } catch (err) {
+    logger.error('getUserAiSettings failed', { uid, message: err && err.message });
+    return {};
+  }
 }
 
 async function verifyAuth(req) {
@@ -295,6 +308,76 @@ async function completeWithOpenAi(apiKey, model, prompt, opts) {
   return text;
 }
 
+async function anthropicJsonRequest(apiKey, path, body, timeoutMs) {
+  const url = 'https://api.anthropic.com' + path;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': ANTHROPIC_API_VERSION,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw Object.assign(new Error('Anthropic request timed out.'), {
+        code: 'upstream-timeout',
+        status: 504
+      });
+    }
+    throw Object.assign(new Error('Failed to connect to Anthropic.'), {
+      code: 'upstream-network',
+      status: 502
+    });
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const baseMsg = 'Anthropic request failed (' + response.status + ').';
+    const message = (payload && payload.error && payload.error.message) || baseMsg;
+    let code = 'provider-error';
+    if (response.status === 429) code = 'rate-limited';
+    if (response.status === 401 || response.status === 403) code = 'provider-auth';
+    if (response.status === 404) code = 'model-not-visible';
+    if (response.status >= 500) code = 'upstream-error';
+
+    throw Object.assign(new Error(message), {
+      code,
+      status: response.status
+    });
+  }
+
+  return payload;
+}
+
+async function completeWithAnthropic(apiKey, model, prompt, opts) {
+  const selectedModel = model || DEFAULT_ANTHROPIC_MODEL;
+  const requestBody = {
+    model: selectedModel,
+    max_tokens: (opts && opts.maxOutputTokens) ? Number(opts.maxOutputTokens) : ANTHROPIC_DEFAULT_MAX_TOKENS,
+    system: 'Return strict JSON only. Do not include markdown fences.',
+    messages: [{ role: 'user', content: prompt }]
+  };
+
+  const payload = await anthropicJsonRequest(apiKey, '/v1/messages', requestBody, RESPONSES_CREATE_TIMEOUT_MS);
+  const parts = Array.isArray(payload.content) ? payload.content : [];
+  const text = parts
+    .map((part) => (part && typeof part.text === 'string') ? part.text : '')
+    .join('')
+    .trim();
+
+  if (!text) {
+    throw new Error('Anthropic response did not contain text output.');
+  }
+
+  return text;
+}
+
 exports.aiProxy = onRequest(
   {
     region: 'us-central1',
@@ -341,6 +424,8 @@ exports.aiProxy = onRequest(
     const payload = getPayload(req);
 
     // Status is intentionally public so the frontend can show availability without auth.
+    // This only reflects the shared backend key; per-user keys are checked client-side
+    // (the user already has their own settings doc) and applied server-side per-request.
     if (action === 'status') {
       const apiKey = String(OPENAI_API_KEY.value() || '').trim();
       json(res, 200, {
@@ -350,6 +435,10 @@ exports.aiProxy = onRequest(
             openai: {
               configured: !!apiKey,
               defaultModel: DEFAULT_MODEL
+            },
+            anthropic: {
+              configured: false,
+              defaultModel: DEFAULT_ANTHROPIC_MODEL
             }
           }
         }
@@ -379,28 +468,60 @@ exports.aiProxy = onRequest(
     }
 
     try {
-      const apiKey = String(OPENAI_API_KEY.value() || '').trim();
-      const model = String(payload.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
       const provider = String(payload.provider || 'openai').trim() || 'openai';
 
-      if (provider !== 'openai') {
+      if (provider !== 'openai' && provider !== 'anthropic') {
         json(res, 400, {
           ok: false,
-          error: { code: 'unsupported-provider', message: 'Only OpenAI is supported right now.' }
+          error: { code: 'unsupported-provider', message: 'Provider must be "openai" or "anthropic".' }
         });
         return;
       }
+
+      const defaultModel = provider === 'anthropic' ? DEFAULT_ANTHROPIC_MODEL : DEFAULT_MODEL;
+      const model = String(payload.model || defaultModel).trim() || defaultModel;
+
+      const userAiSettings = await getUserAiSettings(uid);
+      const personalOpenAiKey = String((userAiSettings && userAiSettings.openaiApiKey) || '').trim();
+      const personalAnthropicKey = String((userAiSettings && userAiSettings.anthropicApiKey) || '').trim();
+      const globalOpenAiKey = String(OPENAI_API_KEY.value() || '').trim();
+
+      const apiKey = provider === 'anthropic'
+        ? personalAnthropicKey
+        : (personalOpenAiKey || globalOpenAiKey);
 
       if (!apiKey) {
         json(res, 503, {
           ok: false,
-          error: { code: 'missing-backend-key', message: 'AI backend key is not configured.' }
+          error: {
+            code: 'missing-api-key',
+            message: provider === 'anthropic'
+              ? 'Add your Anthropic API key in Settings to use Claude.'
+              : 'AI backend key is not configured. Add your own OpenAI API key in Settings, or contact an admin.'
+          }
         });
         return;
       }
 
+      const completeFn = provider === 'anthropic' ? completeWithAnthropic : completeWithOpenAi;
+
       if (action === 'modelAccess') {
-        const requestedModel = String(payload.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+        if (provider !== 'openai') {
+          json(res, 200, {
+            ok: true,
+            data: {
+              provider,
+              requestedModel: model,
+              requestedModelVisible: null,
+              defaultModel,
+              modelIds: [],
+              note: 'Model access verification is not available for this provider.'
+            }
+          });
+          return;
+        }
+
+        const requestedModel = model;
         const modelIds = await listOpenAiModels(apiKey, Boolean(payload.forceRefresh));
         const visible = modelIds.includes(requestedModel);
         const gpt55Visible = modelIds.includes('gpt-5.5');
@@ -420,7 +541,7 @@ exports.aiProxy = onRequest(
       }
 
       if (action === 'test') {
-        await completeWithOpenAi(
+        await completeFn(
           apiKey,
           model,
           'Respond with only this JSON: {"ok":true,"message":"connection-ok"}'
@@ -428,7 +549,7 @@ exports.aiProxy = onRequest(
 
         json(res, 200, {
           ok: true,
-          data: { ok: true, provider: 'openai', model: model }
+          data: { ok: true, provider, model: model }
         });
         return;
       }
@@ -443,12 +564,12 @@ exports.aiProxy = onRequest(
           return;
         }
 
-        const text = await completeWithOpenAi(apiKey, model, prompt);
+        const text = await completeFn(apiKey, model, prompt);
         logger.info('aiProxy completeText', { uid, model, provider });
         json(res, 200, {
           ok: true,
           data: {
-            provider: 'openai',
+            provider,
             model: model,
             text: text
           }
@@ -467,12 +588,12 @@ exports.aiProxy = onRequest(
           return;
         }
 
-        const text = await completeWithOpenAi(apiKey, model, rawPrompt, { maxOutputTokens: 16000 });
+        const text = await completeFn(apiKey, model, rawPrompt, { maxOutputTokens: 16000 });
         logger.info('aiProxy reportAction', { uid, model, provider, action });
         json(res, 200, {
           ok: true,
           data: {
-            provider: 'openai',
+            provider,
             model: model,
             text: text
           }

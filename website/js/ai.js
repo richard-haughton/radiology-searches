@@ -2,10 +2,12 @@
 
 var _aiClientUid = null;
 var ALLOWED_AI_PROVIDERS = {
-  openai: true
+  openai: true,
+  anthropic: true
 };
 var DEFAULT_AI_MODELS = {
-  openai: 'gpt-5.5'
+  openai: 'gpt-5.5',
+  anthropic: 'claude-sonnet-5'
 };
 var AI_PROXY_FUNCTION_URL = null;
 
@@ -276,6 +278,10 @@ function getAiProviderStatus() {
           openai: {
             configured: false,
             defaultModel: DEFAULT_AI_MODELS.openai || 'gpt-4o-mini'
+          },
+          anthropic: {
+            configured: false,
+            defaultModel: DEFAULT_AI_MODELS.anthropic || 'claude-sonnet-5'
           }
         }
       };

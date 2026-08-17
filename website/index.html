@@ -15,9 +15,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <!-- App scripts (plain, no modules) -->
   <script src="js/firebase-config.js?v=20260804a"></script>
-  <script src="js/db.js?v=20260804a"></script>
-  <script src="js/ai.js?v=20260605b"></script>
-  <script src="js/settings.js?v=20260605b"></script>
+  <script src="js/db.js?v=20260816a"></script>
+  <script src="js/ai.js?v=20260816a"></script>
+  <script src="js/settings.js?v=20260816a"></script>
   <script src="js/editor.js?v=20260804a"></script>
   <script src="js/calculations.js?v=20260605b"></script>
   <script src="js/study-log.js?v=20260605b"></script>
@@ -270,11 +270,12 @@
       <div class="settings-layout">
         <div class="settings-card">
           <h2>AI Settings</h2>
-          <p class="settings-subtitle">AI is managed server-side through Firebase Functions. API keys are never entered or stored in your browser.</p>
+          <p class="settings-subtitle">All AI requests route through the backend proxy. Use the shared server key (OpenAI, when configured by an admin) or add your own OpenAI or Anthropic (Claude) API key below.</p>
 
           <label class="form-label">Provider
             <select id="ai-provider-select" class="form-input">
               <option value="openai">OpenAI</option>
+              <option value="anthropic">Claude (Anthropic)</option>
             </select>
           </label>
 
@@ -290,7 +291,30 @@
 
           <div id="ai-provider-status" class="settings-status"></div>
 
-          <p class="settings-note">Security note: all AI requests route through the backend proxy and use a managed server secret.</p>
+          <hr class="settings-divider">
+
+          <h2>Your API Keys</h2>
+          <p class="settings-subtitle">Optional: use your own OpenAI or Anthropic API key instead of the shared server key. Keys are stored in your private Firebase profile, restricted to your account only, and are used only for your own AI requests.</p>
+
+          <label class="form-label">OpenAI API Key
+            <div class="settings-inline-input">
+              <input id="ai-key-input-openai" class="form-input" type="password" autocomplete="off" placeholder="Enter your OpenAI API key">
+              <button id="btn-ai-key-save-openai" class="btn btn-ghost" type="button">Save</button>
+              <button id="btn-ai-key-clear-openai" class="btn btn-ghost" type="button" disabled>Remove</button>
+            </div>
+          </label>
+          <div id="ai-key-status-openai" class="settings-status">No key saved.</div>
+
+          <label class="form-label">Anthropic (Claude) API Key
+            <div class="settings-inline-input">
+              <input id="ai-key-input-anthropic" class="form-input" type="password" autocomplete="off" placeholder="Enter your Anthropic API key">
+              <button id="btn-ai-key-save-anthropic" class="btn btn-ghost" type="button">Save</button>
+              <button id="btn-ai-key-clear-anthropic" class="btn btn-ghost" type="button" disabled>Remove</button>
+            </div>
+          </label>
+          <div id="ai-key-status-anthropic" class="settings-status">No key saved.</div>
+
+          <p class="settings-note">Security note: personal keys are read by the backend proxy at request time and are never sent back to any browser. They are only as secure as your Firebase account.</p>
         </div>
         <div class="settings-card">
           <h2>Data Import</h2>
