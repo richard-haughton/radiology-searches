@@ -140,7 +140,8 @@ function bindInlineRichFontSizeControls(toolbar, editor) {
 
 function normaliseTimerMode(value) {
   var mode = String(value || '').trim().toLowerCase();
-  return mode === 'walkthrough' ? 'walkthrough' : 'timed';
+  if (mode === 'walkthrough' || mode === 'voice') return mode;
+  return 'timed';
 }
 
 function loadTimerPreferences() {
@@ -162,6 +163,7 @@ function syncTimerControlsFromState() {
   var modeSelect = document.getElementById('timer-mode-select');
   var timedControls = document.getElementById('timer-timed-controls');
   var voiceToggle = document.getElementById('timer-voice-mode');
+  var voiceToggleLabel = voiceToggle ? voiceToggle.closest('.timer-voice-toggle') : null;
 
   var goal = pattern ? normaliseGoalSeconds(pattern.goalSeconds) : null;
 
@@ -177,6 +179,9 @@ function syncTimerControlsFromState() {
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
   }
+  if (voiceToggleLabel) {
+    voiceToggleLabel.style.display = _timerMode === 'voice' ? 'none' : '';
+  }
 }
 
 
@@ -188,6 +193,7 @@ function getActiveStepAnnouncement(step, stepIndex) {
 
 function speakActiveStep(step, stepIndex) {
   if (!_voiceModeEnabled) return;
+  if (_timerMode === 'voice') return;
   if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
 
   var text = getActiveStepAnnouncement(step, stepIndex);
@@ -222,6 +228,328 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
 
   if (!(options && options.silentVoice)) {
     speakActiveStep(safeStep, safeIndex);
+  }
+}
+
+// ── AI Voice Navigator ──────────────────────────────────────
+var VOICE_NAV_HISTORY_LIMIT = 16;
+var _voiceNav = {
+  history: [],
+  recognition: null,
+  recognitionSupported: null,
+  listening: false,
+  busy: false,
+  patternId: null,
+  bound: false
+};
+
+function isVoiceNavSpeechRecognitionSupported() {
+  if (_voiceNav.recognitionSupported !== null) return _voiceNav.recognitionSupported;
+  var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  _voiceNav.recognitionSupported = typeof Ctor === 'function';
+  return _voiceNav.recognitionSupported;
+}
+
+function getVoiceNavStepData(step) {
+  var sections = normaliseStepSectionsSafe(step && step.sections, (step && step.richContent) || []);
+  var searchPatternChunks = normaliseRichContent(sections.searchPattern || []);
+  var findingsChunks = normaliseRichContent(sections.dontMissPathology || []);
+  var toText = function(chunks) {
+    return typeof richContentToPlainText === 'function'
+      ? richContentToPlainText(chunks)
+      : chunks.map(function(chunk) { return chunk && chunk.type === 'text' ? String(chunk.text || '') : ''; }).join(' ');
+  };
+  return {
+    title: getCleanStepTitle(step && step.stepTitle) || '',
+    searchPatternText: toText(searchPatternChunks),
+    findingsText: toText(findingsChunks)
+  };
+}
+
+function buildVoiceNavSteps(pattern) {
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  return steps.map(getVoiceNavStepData);
+}
+
+function setVoiceNavStatus(state, text) {
+  var dot = document.getElementById('voice-navigator-status-dot');
+  var label = document.getElementById('voice-navigator-status-text');
+  if (dot) {
+    dot.classList.remove('is-listening', 'is-thinking', 'is-speaking');
+    if (state === 'listening' || state === 'thinking' || state === 'speaking') {
+      dot.classList.add('is-' + state);
+    }
+  }
+  if (label) label.textContent = text;
+}
+
+function scrollVoiceNavTranscriptToBottom() {
+  var transcript = document.getElementById('voice-navigator-transcript');
+  if (transcript) transcript.scrollTop = transcript.scrollHeight;
+}
+
+function appendVoiceNavTurn(role, text) {
+  var safeText = String(text || '').trim();
+  if (!safeText) return;
+
+  _voiceNav.history.push({ role: role, text: safeText });
+  if (_voiceNav.history.length > VOICE_NAV_HISTORY_LIMIT) {
+    _voiceNav.history = _voiceNav.history.slice(-VOICE_NAV_HISTORY_LIMIT);
+  }
+
+  var transcript = document.getElementById('voice-navigator-transcript');
+  if (!transcript) return;
+  var bubble = document.createElement('div');
+  bubble.className = 'voice-navigator-turn role-' + (role === 'user' ? 'user' : 'assistant');
+  bubble.textContent = safeText;
+  transcript.appendChild(bubble);
+  scrollVoiceNavTranscriptToBottom();
+}
+
+function stopVoiceNavListening() {
+  if (_voiceNav.recognition && _voiceNav.listening) {
+    try { _voiceNav.recognition.stop(); } catch (err) { /* already stopped */ }
+  }
+  _voiceNav.listening = false;
+  var micBtn = document.getElementById('btn-voice-nav-mic');
+  if (micBtn) {
+    micBtn.classList.remove('is-listening');
+    micBtn.setAttribute('aria-pressed', 'false');
+  }
+}
+
+function resetVoiceNavConversation() {
+  _voiceNav.history = [];
+  var transcript = document.getElementById('voice-navigator-transcript');
+  if (transcript) transcript.innerHTML = '';
+  stopVoiceNavListening();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  setVoiceNavStatus('idle', 'Tap the mic to start');
+}
+
+function speakVoiceNavReply(text) {
+  var safeText = String(text || '').trim();
+  if (!safeText) return;
+  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
+
+  window.speechSynthesis.cancel();
+  var utterance = new SpeechSynthesisUtterance(safeText);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+  utterance.onstart = function() {
+    setVoiceNavStatus('speaking', 'Speaking…');
+  };
+  utterance.onend = function() {
+    setVoiceNavStatus('idle', 'Tap the mic to talk');
+  };
+  utterance.onerror = function() {
+    setVoiceNavStatus('idle', 'Tap the mic to talk');
+  };
+  window.speechSynthesis.speak(utterance);
+}
+
+function applyVoiceNavAction(result) {
+  if (!result) return;
+  var pattern = getSelectedPattern();
+  if (!pattern) return;
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!steps.length) return;
+
+  if (result.action === 'next') {
+    navigateStep(1);
+  } else if (result.action === 'previous') {
+    navigateStep(-1);
+  } else if (result.action === 'goto' && Number.isInteger(result.targetStepIndex)) {
+    navigateStep(result.targetStepIndex - currentStepIndex);
+  }
+
+  if (result.showFindings) {
+    applyPatternFindingsPanelState(false, true);
+    var findingsIndex = Number.isInteger(result.findingsStepIndex) ? result.findingsStepIndex : currentStepIndex;
+    if (findingsIndex !== currentStepIndex && typeof renderCurrentStepFindings === 'function') {
+      var targetStep = steps[findingsIndex];
+      if (targetStep) renderCurrentStepFindings(pattern, targetStep, findingsIndex, steps.length);
+    }
+  }
+}
+
+async function handleVoiceNavUserMessage(text) {
+  var safeText = String(text || '').trim();
+  var pattern = getSelectedPattern();
+  if (!pattern) {
+    showToast('Select a pattern first.', true);
+    return;
+  }
+  if (_voiceNav.busy) return;
+
+  var provider = typeof getSelectedAiProvider === 'function' ? getSelectedAiProvider() : 'openai';
+  var model = typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '';
+  if (typeof isAiProviderConfigured === 'function' && !isAiProviderConfigured(provider)) {
+    showToast('Add an AI provider key in Settings to use AI Voice navigation.', true);
+    return;
+  }
+
+  var historyBeforeThisTurn = _voiceNav.history.slice();
+  if (safeText) appendVoiceNavTurn('user', safeText);
+
+  _voiceNav.busy = true;
+  setVoiceNavStatus('thinking', 'Thinking…');
+
+  try {
+    var result = await sendVoiceNavigatorTurn({
+      provider: provider,
+      model: model,
+      patternName: pattern.name || 'this pattern',
+      steps: buildVoiceNavSteps(pattern),
+      currentStepIndex: currentStepIndex,
+      history: historyBeforeThisTurn,
+      userMessage: safeText
+    });
+
+    appendVoiceNavTurn('assistant', result.reply);
+    applyVoiceNavAction(result);
+    speakVoiceNavReply(result.reply);
+  } catch (err) {
+    console.error(err);
+    var errorMessage = 'Sorry, I ran into a problem: ' + ((err && err.message) || 'please try again.');
+    appendVoiceNavTurn('assistant', errorMessage);
+    setVoiceNavStatus('idle', 'Tap the mic to talk');
+    showToast((err && err.message) || 'Voice navigator request failed.', true);
+  } finally {
+    _voiceNav.busy = false;
+  }
+}
+
+function ensureVoiceNavRecognition() {
+  if (_voiceNav.recognition) return _voiceNav.recognition;
+  var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (typeof Ctor !== 'function') return null;
+
+  var recognition = new Ctor();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = function(event) {
+    var transcript = '';
+    for (var i = 0; i < event.results.length; i += 1) {
+      transcript += event.results[i][0].transcript;
+    }
+    stopVoiceNavListening();
+    handleVoiceNavUserMessage(transcript.trim());
+  };
+  recognition.onerror = function(event) {
+    stopVoiceNavListening();
+    if (event && event.error && event.error !== 'no-speech' && event.error !== 'aborted') {
+      showToast('Voice input error: ' + event.error, true);
+    }
+    setVoiceNavStatus('idle', 'Tap the mic to talk');
+  };
+  recognition.onend = function() {
+    stopVoiceNavListening();
+  };
+
+  _voiceNav.recognition = recognition;
+  return recognition;
+}
+
+function toggleVoiceNavListening() {
+  if (_voiceNav.busy) return;
+
+  if (_voiceNav.listening) {
+    stopVoiceNavListening();
+    return;
+  }
+
+  var recognition = ensureVoiceNavRecognition();
+  if (!recognition) {
+    showToast('Speech recognition is not supported in this browser. Type your message instead.', true);
+    return;
+  }
+
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+  try {
+    recognition.start();
+    _voiceNav.listening = true;
+    var micBtn = document.getElementById('btn-voice-nav-mic');
+    if (micBtn) {
+      micBtn.classList.add('is-listening');
+      micBtn.setAttribute('aria-pressed', 'true');
+    }
+    setVoiceNavStatus('listening', 'Listening…');
+  } catch (err) {
+    _voiceNav.listening = false;
+  }
+}
+
+function greetVoiceNavPattern(pattern) {
+  if (!pattern || _timerMode !== 'voice') return;
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  var firstStep = steps[currentStepIndex] || steps[0] || null;
+  var title = firstStep ? getCleanStepTitle(firstStep.stepTitle) : '';
+  var greeting = 'Let\'s walk through ' + (pattern.name || 'this pattern') + '.' +
+    (title
+      ? (' Step ' + (currentStepIndex + 1) + ': ' + title + '. Say "next" whenever you\'re ready to move on, or ask me anything about this step.')
+      : '');
+  appendVoiceNavTurn('assistant', greeting);
+  speakVoiceNavReply(greeting);
+  _voiceNav.patternId = pattern.id;
+}
+
+function leaveVoiceNavigatorMode() {
+  stopVoiceNavListening();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  setVoiceNavStatus('idle', 'Tap the mic to start');
+}
+
+function syncVoiceNavigatorPanelVisibility() {
+  var panel = document.getElementById('voice-navigator-panel');
+  var isVoiceMode = _timerMode === 'voice';
+  if (panel) panel.style.display = isVoiceMode ? '' : 'none';
+  if (!isVoiceMode) return;
+
+  var pattern = getSelectedPattern();
+  if (pattern && (_voiceNav.patternId !== pattern.id || !_voiceNav.history.length)) {
+    resetVoiceNavConversation();
+    greetVoiceNavPattern(pattern);
+  }
+}
+
+function initVoiceNavigator() {
+  if (_voiceNav.bound) return;
+  _voiceNav.bound = true;
+
+  var micBtn = document.getElementById('btn-voice-nav-mic');
+  var restartBtn = document.getElementById('btn-voice-nav-restart');
+  var form = document.getElementById('voice-navigator-text-form');
+  var input = document.getElementById('voice-navigator-text-input');
+  var unsupportedNote = document.getElementById('voice-navigator-unsupported');
+
+  var speechSupported = isVoiceNavSpeechRecognitionSupported();
+  if (unsupportedNote) unsupportedNote.style.display = speechSupported ? 'none' : '';
+  if (micBtn && !speechSupported) {
+    micBtn.disabled = true;
+    micBtn.title = 'Speech recognition is not supported in this browser';
+  }
+
+  if (micBtn) micBtn.addEventListener('click', toggleVoiceNavListening);
+  if (restartBtn) {
+    restartBtn.addEventListener('click', function() {
+      resetVoiceNavConversation();
+      greetVoiceNavPattern(getSelectedPattern());
+    });
+  }
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var text = input ? input.value.trim() : '';
+      if (!text) return;
+      if (input) input.value = '';
+      handleVoiceNavUserMessage(text);
+    });
   }
 }
 
@@ -287,11 +615,16 @@ function initPatterns(userId) {
     }
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
+    const previousMode = _timerMode;
     _timerMode = normaliseTimerMode(e.target && e.target.value);
     localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerMode);
+    if (previousMode === 'voice' && _timerMode !== 'voice') {
+      leaveVoiceNavigatorMode();
+    }
     const pattern = getSelectedPattern();
     timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
     syncTimerControlsFromState();
+    syncVoiceNavigatorPanelVisibility();
     updateTimerDisplay();
   });
 
@@ -309,6 +642,8 @@ function initPatterns(userId) {
   });
   syncTimerControlsFromState();
   updateTimerActionButtons();
+  initVoiceNavigator();
+  syncVoiceNavigatorPanelVisibility();
 
   // Record modal
   document.getElementById('btn-record-confirm').addEventListener('click', confirmRecord);
@@ -727,6 +1062,7 @@ function loadPattern(id, preferredStepIndex) {
   }
 
   renderCurrentStep(pattern);
+  syncVoiceNavigatorPanelVisibility();
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(new CustomEvent('pattern-selection-changed', {
       detail: { patternId: id }

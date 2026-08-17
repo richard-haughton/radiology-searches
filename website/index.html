@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20260605b" />
+  <link rel="stylesheet" href="css/app.css?v=20260816a" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -16,13 +16,13 @@
   <!-- App scripts (plain, no modules) -->
   <script src="js/firebase-config.js?v=20260804a"></script>
   <script src="js/db.js?v=20260816a"></script>
-  <script src="js/ai.js?v=20260816a"></script>
+  <script src="js/ai.js?v=20260816b"></script>
   <script src="js/settings.js?v=20260816a"></script>
   <script src="js/editor.js?v=20260804a"></script>
   <script src="js/calculations.js?v=20260605b"></script>
   <script src="js/study-log.js?v=20260605b"></script>
   <script src="js/rvus.js?v=20260605b"></script>
-  <script src="js/patterns.js?v=20260804a"></script>
+  <script src="js/patterns.js?v=20260816a"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20260605b"></script>
   <script src="js/app.js?v=20260605b"></script>
@@ -116,6 +116,7 @@
                 <select id="timer-mode-select" class="timer-goal-input timer-goal-mode-input">
                   <option value="walkthrough">Walkthrough</option>
                   <option value="timed">Timed</option>
+                  <option value="voice">AI Voice</option>
                 </select>
                 <div id="timer-timed-controls" class="timer-timed-controls">
                   <div id="timer-goal-field" class="timer-goal-field">
@@ -137,6 +138,27 @@
               <button id="btn-record-study" class="btn btn-accent btn-sm">Record Study</button>
               <button id="btn-stop-timer" class="btn btn-ghost btn-sm" type="button">Stop</button>
             </div>
+          </div>
+
+          <div id="voice-navigator-panel" class="voice-navigator-panel" style="display:none">
+            <div class="voice-navigator-header">
+              <div class="voice-navigator-status">
+                <span id="voice-navigator-status-dot" class="voice-navigator-status-dot"></span>
+                <span id="voice-navigator-status-text">Tap the mic to start</span>
+              </div>
+              <div class="voice-navigator-controls">
+                <button id="btn-voice-nav-mic" class="voice-navigator-mic-btn" type="button" aria-pressed="false" title="Start talking">
+                  <span aria-hidden="true">&#127908;</span>
+                </button>
+                <button id="btn-voice-nav-restart" class="btn btn-ghost btn-sm" type="button">Restart Conversation</button>
+              </div>
+            </div>
+            <div id="voice-navigator-transcript" class="voice-navigator-transcript" aria-live="polite"></div>
+            <p id="voice-navigator-unsupported" class="voice-navigator-unsupported" style="display:none">Your browser doesn't support speech recognition — you can still type below. (Try Chrome or Edge for voice input.)</p>
+            <form id="voice-navigator-text-form" class="voice-navigator-text-form">
+              <input id="voice-navigator-text-input" type="text" class="form-input" placeholder="Or type to the navigator…" autocomplete="off">
+              <button type="submit" class="btn btn-accent btn-sm">Send</button>
+            </form>
           </div>
 
           <div class="patterns-workspace">
