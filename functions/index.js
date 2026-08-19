@@ -13,6 +13,11 @@ const ANTHROPIC_API_VERSION = '2023-06-01';
 const ANTHROPIC_DEFAULT_MAX_TOKENS = 4096;
 const MAX_PROMPT_LENGTH = 24000;
 const MAX_REQUEST_BYTES = 80 * 1024;
+const DEFAULT_TTS_MODEL = 'gpt-4o-mini-tts';
+const DEFAULT_TTS_VOICE = 'shimmer';
+const ALLOWED_TTS_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer', 'verse'];
+const MAX_TTS_TEXT_LENGTH = 2000;
+const TTS_TIMEOUT_MS = 30000;
 const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
 const MODEL_LIST_TIMEOUT_MS = 12000;
 const RESPONSES_CREATE_TIMEOUT_MS = 45000;
@@ -308,6 +313,62 @@ async function completeWithOpenAi(apiKey, model, prompt, opts) {
   return text;
 }
 
+async function textToSpeechWithOpenAi(apiKey, model, voice, text, instructions) {
+  const selectedModel = model || DEFAULT_TTS_MODEL;
+  const selectedVoice = ALLOWED_TTS_VOICES.includes(voice) ? voice : DEFAULT_TTS_VOICE;
+
+  const requestBody = {
+    model: selectedModel,
+    voice: selectedVoice,
+    input: text,
+    response_format: 'mp3'
+  };
+  if (instructions) requestBody.instructions = instructions;
+
+  let response;
+  try {
+    response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(TTS_TIMEOUT_MS)
+    });
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw Object.assign(new Error('OpenAI speech request timed out.'), {
+        code: 'upstream-timeout',
+        status: 504
+      });
+    }
+    throw Object.assign(new Error('Failed to connect to OpenAI for speech synthesis.'), {
+      code: 'upstream-network',
+      status: 502
+    });
+  }
+
+  if (!response.ok) {
+    let message = 'OpenAI speech request failed (' + response.status + ').';
+    try {
+      const errPayload = await response.json();
+      message = getOpenAiErrorMessage(errPayload, message);
+    } catch (err) {
+      // Non-JSON error body; keep the default message.
+    }
+    let code = 'provider-error';
+    if (response.status === 429) code = 'rate-limited';
+    if (response.status === 401 || response.status === 403) code = 'provider-auth';
+    if (response.status >= 500) code = 'upstream-error';
+
+    throw Object.assign(new Error(message), { code, status: response.status });
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 async function anthropicJsonRequest(apiKey, path, body, timeoutMs) {
   const url = 'https://api.anthropic.com' + path;
 
@@ -468,6 +529,54 @@ exports.aiProxy = onRequest(
     }
 
     try {
+      if (action === 'textToSpeech') {
+        const rawText = String((payload && payload.text) || '').trim();
+        if (!rawText) {
+          json(res, 400, {
+            ok: false,
+            error: { code: 'invalid-text', message: 'Text is required.' }
+          });
+          return;
+        }
+        if (rawText.length > MAX_TTS_TEXT_LENGTH) {
+          json(res, 400, {
+            ok: false,
+            error: { code: 'text-too-long', message: 'Text is too long for speech synthesis.' }
+          });
+          return;
+        }
+
+        const userAiSettings = await getUserAiSettings(uid);
+        const personalOpenAiKey = String((userAiSettings && userAiSettings.openaiApiKey) || '').trim();
+        const globalOpenAiKey = String(OPENAI_API_KEY.value() || '').trim();
+        const apiKey = personalOpenAiKey || globalOpenAiKey;
+
+        if (!apiKey) {
+          json(res, 503, {
+            ok: false,
+            error: { code: 'missing-api-key', message: 'Add your OpenAI API key in Settings to use AI voice playback.' }
+          });
+          return;
+        }
+
+        const model = String(payload.model || DEFAULT_TTS_MODEL).trim() || DEFAULT_TTS_MODEL;
+        const voice = String(payload.voice || DEFAULT_TTS_VOICE).trim() || DEFAULT_TTS_VOICE;
+        const instructions = String(payload.instructions || '').trim().slice(0, 500);
+
+        const audioBuffer = await textToSpeechWithOpenAi(apiKey, model, voice, rawText, instructions);
+        logger.info('aiProxy textToSpeech', { uid, model, voice, textLength: rawText.length });
+        json(res, 200, {
+          ok: true,
+          data: {
+            audioBase64: audioBuffer.toString('base64'),
+            mimeType: 'audio/mpeg',
+            model,
+            voice
+          }
+        });
+        return;
+      }
+
       const provider = String(payload.provider || 'openai').trim() || 'openai';
 
       if (provider !== 'openai' && provider !== 'anthropic') {

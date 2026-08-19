@@ -240,7 +240,8 @@ var _voiceNav = {
   listening: false,
   busy: false,
   patternId: null,
-  bound: false
+  bound: false,
+  audio: null
 };
 
 function isVoiceNavSpeechRecognitionSupported() {
@@ -318,19 +319,34 @@ function stopVoiceNavListening() {
   }
 }
 
+function stopVoiceNavAudio() {
+  if (_voiceNav.audio) {
+    try { _voiceNav.audio.pause(); } catch (err) { /* already stopped */ }
+    _voiceNav.audio.onplay = null;
+    _voiceNav.audio.onended = null;
+    _voiceNav.audio.onerror = null;
+    _voiceNav.audio.src = '';
+    _voiceNav.audio = null;
+  }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
 function resetVoiceNavConversation() {
   _voiceNav.history = [];
   var transcript = document.getElementById('voice-navigator-transcript');
   if (transcript) transcript.innerHTML = '';
   stopVoiceNavListening();
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoiceNavAudio();
   setVoiceNavStatus('idle', 'Tap the mic to start');
 }
 
-function speakVoiceNavReply(text) {
+function speakVoiceNavReplyWithBrowserTts(text) {
   var safeText = String(text || '').trim();
   if (!safeText) return;
-  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
+  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') {
+    setVoiceNavStatus('idle', 'Tap the mic to talk');
+    return;
+  }
 
   window.speechSynthesis.cancel();
   var utterance = new SpeechSynthesisUtterance(safeText);
@@ -347,6 +363,41 @@ function speakVoiceNavReply(text) {
     setVoiceNavStatus('idle', 'Tap the mic to talk');
   };
   window.speechSynthesis.speak(utterance);
+}
+
+var VOICE_NAV_TTS_INSTRUCTIONS = 'Speak warmly and conversationally, like a calm, focused colleague talking a radiologist through a checklist during a live read. Natural pacing and inflection, not robotic or overly formal.';
+
+async function speakVoiceNavReply(text) {
+  var safeText = String(text || '').trim();
+  if (!safeText) return;
+
+  stopVoiceNavAudio();
+
+  if (typeof synthesizeVoiceNavigatorSpeech !== 'function') {
+    speakVoiceNavReplyWithBrowserTts(safeText);
+    return;
+  }
+
+  try {
+    var dataUrl = await synthesizeVoiceNavigatorSpeech(safeText, { instructions: VOICE_NAV_TTS_INSTRUCTIONS });
+    var audio = new Audio(dataUrl);
+    _voiceNav.audio = audio;
+    audio.onplay = function() {
+      setVoiceNavStatus('speaking', 'Speaking…');
+    };
+    audio.onended = function() {
+      setVoiceNavStatus('idle', 'Tap the mic to talk');
+      if (_voiceNav.audio === audio) _voiceNav.audio = null;
+    };
+    audio.onerror = function() {
+      if (_voiceNav.audio === audio) _voiceNav.audio = null;
+      speakVoiceNavReplyWithBrowserTts(safeText);
+    };
+    await audio.play();
+  } catch (err) {
+    console.error('AI voice playback failed, falling back to browser voice:', err);
+    speakVoiceNavReplyWithBrowserTts(safeText);
+  }
 }
 
 function applyVoiceNavAction(result) {
@@ -469,7 +520,7 @@ function toggleVoiceNavListening() {
     return;
   }
 
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoiceNavAudio();
 
   try {
     recognition.start();
@@ -501,7 +552,7 @@ function greetVoiceNavPattern(pattern) {
 
 function leaveVoiceNavigatorMode() {
   stopVoiceNavListening();
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoiceNavAudio();
   setVoiceNavStatus('idle', 'Tap the mic to start');
 }
 

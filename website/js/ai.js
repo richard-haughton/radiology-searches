@@ -618,6 +618,29 @@ async function sendVoiceNavigatorTurn(options) {
   return coerceVoiceNavigatorResponse(parsed, stepCount);
 }
 
+async function synthesizeVoiceNavigatorSpeech(text, options) {
+  var opts = options || {};
+  var safeText = String(text || '').trim();
+  if (!safeText) {
+    throw new Error('No text to speak.');
+  }
+
+  var payload = await callAiProxy('textToSpeech', {
+    text: safeText,
+    voice: opts.voice,
+    model: opts.model,
+    instructions: opts.instructions
+  });
+
+  var audioBase64 = String((payload && payload.data && payload.data.audioBase64) || '').trim();
+  var mimeType = String((payload && payload.data && payload.data.mimeType) || 'audio/mpeg').trim();
+  if (!audioBase64) {
+    throw new Error('AI proxy did not return audio.');
+  }
+
+  return 'data:' + mimeType + ';base64,' + audioBase64;
+}
+
 async function generateRadiologyReportWithAi(options) {
   var input = options || {};
   var safeProvider = assertProvider(input.provider || 'openai');
