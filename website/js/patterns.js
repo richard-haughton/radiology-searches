@@ -238,6 +238,8 @@ var _voiceNav = {
   recognition: null,
   recognitionSupported: null,
   listening: false,
+  alwaysOn: false,
+  restartTimer: null,
   busy: false,
   patternId: null,
   bound: false,
@@ -307,16 +309,77 @@ function appendVoiceNavTurn(role, text) {
   scrollVoiceNavTranscriptToBottom();
 }
 
+function updateMicButtonUi() {
+  var micBtn = document.getElementById('btn-voice-nav-mic');
+  if (!micBtn) return;
+  micBtn.classList.toggle('is-listening', !!_voiceNav.alwaysOn);
+  micBtn.setAttribute('aria-pressed', _voiceNav.alwaysOn ? 'true' : 'false');
+  if (!micBtn.disabled) {
+    micBtn.title = _voiceNav.alwaysOn ? 'Mute microphone' : 'Enable hands-free listening';
+  }
+}
+
+function isVoiceNavSpeaking() {
+  if (_voiceNav.audio && !_voiceNav.audio.paused) return true;
+  if (window.speechSynthesis && window.speechSynthesis.speaking) return true;
+  return false;
+}
+
+function setVoiceNavIdleOrListeningStatus() {
+  if (_voiceNav.alwaysOn) {
+    setVoiceNavStatus('listening', 'Listening… just start talking');
+  } else {
+    setVoiceNavStatus('idle', 'Tap the mic to start');
+  }
+}
+
 function stopVoiceNavListening() {
   if (_voiceNav.recognition && _voiceNav.listening) {
     try { _voiceNav.recognition.stop(); } catch (err) { /* already stopped */ }
   }
   _voiceNav.listening = false;
-  var micBtn = document.getElementById('btn-voice-nav-mic');
-  if (micBtn) {
-    micBtn.classList.remove('is-listening');
-    micBtn.setAttribute('aria-pressed', 'false');
+}
+
+function scheduleVoiceNavRecognitionRestart() {
+  if (_voiceNav.restartTimer) return;
+  _voiceNav.restartTimer = setTimeout(function() {
+    _voiceNav.restartTimer = null;
+    startVoiceNavRecognitionLoop();
+  }, 300);
+}
+
+function startVoiceNavRecognitionLoop() {
+  if (!_voiceNav.alwaysOn) return;
+  if (_voiceNav.listening) return;
+
+  var recognition = ensureVoiceNavRecognition();
+  if (!recognition) return;
+
+  try {
+    recognition.start();
+    _voiceNav.listening = true;
+    updateMicButtonUi();
+    setVoiceNavIdleOrListeningStatus();
+  } catch (err) {
+    _voiceNav.listening = false;
+    if (err && err.name === 'NotAllowedError') {
+      _voiceNav.alwaysOn = false;
+      updateMicButtonUi();
+      setVoiceNavStatus('idle', 'Microphone access denied — tap the mic to try again');
+    }
+    // Otherwise (e.g. InvalidStateError from an overlapping start) the onend/onerror
+    // handlers on the existing instance will trigger the next scheduled restart.
   }
+}
+
+function stopVoiceNavRecognitionLoop() {
+  _voiceNav.alwaysOn = false;
+  if (_voiceNav.restartTimer) {
+    clearTimeout(_voiceNav.restartTimer);
+    _voiceNav.restartTimer = null;
+  }
+  stopVoiceNavListening();
+  updateMicButtonUi();
 }
 
 function stopVoiceNavAudio() {
@@ -335,7 +398,7 @@ function resetVoiceNavConversation() {
   _voiceNav.history = [];
   var transcript = document.getElementById('voice-navigator-transcript');
   if (transcript) transcript.innerHTML = '';
-  stopVoiceNavListening();
+  stopVoiceNavRecognitionLoop();
   stopVoiceNavAudio();
   setVoiceNavStatus('idle', 'Tap the mic to start');
 }
@@ -344,7 +407,7 @@ function speakVoiceNavReplyWithBrowserTts(text) {
   var safeText = String(text || '').trim();
   if (!safeText) return;
   if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') {
-    setVoiceNavStatus('idle', 'Tap the mic to talk');
+    setVoiceNavIdleOrListeningStatus();
     return;
   }
 
@@ -357,10 +420,10 @@ function speakVoiceNavReplyWithBrowserTts(text) {
     setVoiceNavStatus('speaking', 'Speaking…');
   };
   utterance.onend = function() {
-    setVoiceNavStatus('idle', 'Tap the mic to talk');
+    setVoiceNavIdleOrListeningStatus();
   };
   utterance.onerror = function() {
-    setVoiceNavStatus('idle', 'Tap the mic to talk');
+    setVoiceNavIdleOrListeningStatus();
   };
   window.speechSynthesis.speak(utterance);
 }
@@ -386,7 +449,7 @@ async function speakVoiceNavReply(text) {
       setVoiceNavStatus('speaking', 'Speaking…');
     };
     audio.onended = function() {
-      setVoiceNavStatus('idle', 'Tap the mic to talk');
+      setVoiceNavIdleOrListeningStatus();
       if (_voiceNav.audio === audio) _voiceNav.audio = null;
     };
     audio.onerror = function() {
@@ -465,7 +528,7 @@ async function handleVoiceNavUserMessage(text) {
     console.error(err);
     var errorMessage = 'Sorry, I ran into a problem: ' + ((err && err.message) || 'please try again.');
     appendVoiceNavTurn('assistant', errorMessage);
-    setVoiceNavStatus('idle', 'Tap the mic to talk');
+    setVoiceNavIdleOrListeningStatus();
     showToast((err && err.message) || 'Voice navigator request failed.', true);
   } finally {
     _voiceNav.busy = false;
@@ -488,18 +551,28 @@ function ensureVoiceNavRecognition() {
     for (var i = 0; i < event.results.length; i += 1) {
       transcript += event.results[i][0].transcript;
     }
-    stopVoiceNavListening();
-    handleVoiceNavUserMessage(transcript.trim());
+    transcript = transcript.trim();
+    if (!transcript) return;
+
+    if (isVoiceNavSpeaking()) {
+      // The radiologist started talking over the navigator — treat it as an interruption.
+      stopVoiceNavAudio();
+    }
+    handleVoiceNavUserMessage(transcript);
   };
   recognition.onerror = function(event) {
-    stopVoiceNavListening();
     if (event && event.error && event.error !== 'no-speech' && event.error !== 'aborted') {
       showToast('Voice input error: ' + event.error, true);
     }
-    setVoiceNavStatus('idle', 'Tap the mic to talk');
   };
   recognition.onend = function() {
-    stopVoiceNavListening();
+    _voiceNav.listening = false;
+    if (_voiceNav.alwaysOn) {
+      scheduleVoiceNavRecognitionRestart();
+    } else {
+      updateMicButtonUi();
+      setVoiceNavStatus('idle', 'Tap the mic to start');
+    }
   };
 
   _voiceNav.recognition = recognition;
@@ -507,33 +580,20 @@ function ensureVoiceNavRecognition() {
 }
 
 function toggleVoiceNavListening() {
-  if (_voiceNav.busy) return;
-
-  if (_voiceNav.listening) {
-    stopVoiceNavListening();
+  if (_voiceNav.alwaysOn) {
+    stopVoiceNavRecognitionLoop();
+    setVoiceNavStatus('idle', 'Muted — tap the mic to resume listening');
     return;
   }
 
-  var recognition = ensureVoiceNavRecognition();
-  if (!recognition) {
+  if (!isVoiceNavSpeechRecognitionSupported()) {
     showToast('Speech recognition is not supported in this browser. Type your message instead.', true);
     return;
   }
 
   stopVoiceNavAudio();
-
-  try {
-    recognition.start();
-    _voiceNav.listening = true;
-    var micBtn = document.getElementById('btn-voice-nav-mic');
-    if (micBtn) {
-      micBtn.classList.add('is-listening');
-      micBtn.setAttribute('aria-pressed', 'true');
-    }
-    setVoiceNavStatus('listening', 'Listening…');
-  } catch (err) {
-    _voiceNav.listening = false;
-  }
+  _voiceNav.alwaysOn = true;
+  startVoiceNavRecognitionLoop();
 }
 
 function greetVoiceNavPattern(pattern) {
@@ -541,17 +601,19 @@ function greetVoiceNavPattern(pattern) {
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   var firstStep = steps[currentStepIndex] || steps[0] || null;
   var title = firstStep ? getCleanStepTitle(firstStep.stepTitle) : '';
-  var greeting = 'Let\'s walk through ' + (pattern.name || 'this pattern') + '.' +
-    (title
-      ? (' Step ' + (currentStepIndex + 1) + ': ' + title + '. Say "next" whenever you\'re ready to move on, or ask me anything about this step.')
-      : '');
+  var greeting = title
+    ? ('Step ' + (currentStepIndex + 1) + ': ' + title + '.')
+    : ('Step ' + (currentStepIndex + 1) + '.');
   appendVoiceNavTurn('assistant', greeting);
   speakVoiceNavReply(greeting);
   _voiceNav.patternId = pattern.id;
+
+  _voiceNav.alwaysOn = true;
+  startVoiceNavRecognitionLoop();
 }
 
 function leaveVoiceNavigatorMode() {
-  stopVoiceNavListening();
+  stopVoiceNavRecognitionLoop();
   stopVoiceNavAudio();
   setVoiceNavStatus('idle', 'Tap the mic to start');
 }
@@ -566,6 +628,9 @@ function syncVoiceNavigatorPanelVisibility() {
   if (pattern && (_voiceNav.patternId !== pattern.id || !_voiceNav.history.length)) {
     resetVoiceNavConversation();
     greetVoiceNavPattern(pattern);
+  } else {
+    _voiceNav.alwaysOn = true;
+    startVoiceNavRecognitionLoop();
   }
 }
 
