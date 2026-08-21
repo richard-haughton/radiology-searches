@@ -233,6 +233,21 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
   if (!(options && options.silentVoice)) {
     speakActiveStep(safeStep, safeIndex);
   }
+
+  // If the radiologist manually scrolled/clicked/keyboarded to a different step while the AI
+  // Voice navigator is active, have it catch up and announce the new step. Skip when the step
+  // change was actually driven by the navigator's own action (applyVoiceNavAction already
+  // speaks a reply for that) or when a pattern switch is still mid-flight (the fresh greeting
+  // triggered from syncVoiceNavigatorPanelVisibility handles that case instead).
+  if (
+    _timerMode === 'voice' &&
+    !(options && options.silentVoice) &&
+    !_voiceNav.suppressStepFollow &&
+    safePattern &&
+    _voiceNav.patternId === safePattern.id
+  ) {
+    announceVoiceNavStepFollow(safeIndex, safeStep);
+  }
 }
 
 // ── AI Voice Navigator ──────────────────────────────────────
@@ -249,8 +264,22 @@ var _voiceNav = {
   bound: false,
   audio: null,
   speed: VOICE_NAV_SPEED_DEFAULT,
-  keepAliveAudio: null
+  keepAliveAudio: null,
+  suppressStepFollow: false
 };
+
+function buildVoiceNavStepAnnouncement(stepIndex, step) {
+  var title = step ? getCleanStepTitle(step.stepTitle) : '';
+  return title
+    ? ('Step ' + (stepIndex + 1) + ': ' + title + '.')
+    : ('Step ' + (stepIndex + 1) + '.');
+}
+
+function announceVoiceNavStepFollow(stepIndex, step) {
+  var announcement = buildVoiceNavStepAnnouncement(stepIndex, step);
+  appendVoiceNavTurn('assistant', announcement);
+  speakVoiceNavReply(announcement);
+}
 
 function normaliseVoiceNavSpeed(value) {
   if (value === null || value === undefined || value === '') return VOICE_NAV_SPEED_DEFAULT;
@@ -582,12 +611,18 @@ function applyVoiceNavAction(result) {
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   if (!steps.length) return;
 
-  if (result.action === 'next') {
-    navigateStep(1);
-  } else if (result.action === 'previous') {
-    navigateStep(-1);
-  } else if (result.action === 'goto' && Number.isInteger(result.targetStepIndex)) {
-    navigateStep(result.targetStepIndex - currentStepIndex);
+  if (result.action === 'next' || result.action === 'previous' || result.action === 'goto') {
+    // The LLM's reply already narrates the destination step — suppress the manual-follow
+    // announcement so this navigation doesn't get spoken twice.
+    _voiceNav.suppressStepFollow = true;
+    if (result.action === 'next') {
+      navigateStep(1);
+    } else if (result.action === 'previous') {
+      navigateStep(-1);
+    } else if (Number.isInteger(result.targetStepIndex)) {
+      navigateStep(result.targetStepIndex - currentStepIndex);
+    }
+    _voiceNav.suppressStepFollow = false;
   }
 
   if (result.showFindings) {
@@ -713,10 +748,7 @@ function greetVoiceNavPattern(pattern) {
   if (!pattern || _timerMode !== 'voice') return;
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   var firstStep = steps[currentStepIndex] || steps[0] || null;
-  var title = firstStep ? getCleanStepTitle(firstStep.stepTitle) : '';
-  var greeting = title
-    ? ('Step ' + (currentStepIndex + 1) + ': ' + title + '.')
-    : ('Step ' + (currentStepIndex + 1) + '.');
+  var greeting = buildVoiceNavStepAnnouncement(currentStepIndex, firstStep);
   appendVoiceNavTurn('assistant', greeting);
   speakVoiceNavReply(greeting);
   _voiceNav.patternId = pattern.id;

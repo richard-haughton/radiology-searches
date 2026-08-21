@@ -238,12 +238,13 @@ function buildStepPrompt(input) {
   ].join('\n');
 }
 
-async function requestProviderText(provider, model, prompt) {
+async function requestProviderText(provider, model, prompt, opts) {
   var safeProvider = assertProvider(provider);
   var payload = await callAiProxy('completeText', {
     provider: safeProvider,
     model: String(model || '').trim(),
-    prompt: String(prompt || '')
+    prompt: String(prompt || ''),
+    fast: !!(opts && opts.fast)
   });
   var text = String((payload && payload.data && payload.data.text) || '').trim();
   if (!text) {
@@ -616,7 +617,7 @@ async function sendVoiceNavigatorTurn(options) {
   var model = getModelForProvider(safeProvider, input.model);
   var prompt = buildVoiceNavigatorPrompt(input);
 
-  var raw = await requestProviderText(safeProvider, model, prompt);
+  var raw = await requestProviderText(safeProvider, model, prompt, { fast: true });
   var parsed = safeJsonParse(raw);
   if (!parsed) {
     throw new Error('AI did not return valid JSON for voice navigation.');
