@@ -51,6 +51,10 @@ var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
 var TIMER_GOAL_MODE_STATE_KEY = 'patternTimerGoalMode';
 var TIMER_VOICE_MODE_STATE_KEY = 'patternTimerVoiceMode';
+var VOICE_NAV_SPEED_STATE_KEY = 'patternVoiceNavSpeed';
+var VOICE_NAV_SPEED_MIN = 0.5;
+var VOICE_NAV_SPEED_MAX = 2;
+var VOICE_NAV_SPEED_DEFAULT = 1;
 var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
   searchPattern: true,
@@ -243,8 +247,21 @@ var _voiceNav = {
   busy: false,
   patternId: null,
   bound: false,
-  audio: null
+  audio: null,
+  speed: VOICE_NAV_SPEED_DEFAULT,
+  keepAliveAudio: null
 };
+
+function normaliseVoiceNavSpeed(value) {
+  if (value === null || value === undefined || value === '') return VOICE_NAV_SPEED_DEFAULT;
+  var n = Number(value);
+  if (!Number.isFinite(n)) return VOICE_NAV_SPEED_DEFAULT;
+  return Math.max(VOICE_NAV_SPEED_MIN, Math.min(VOICE_NAV_SPEED_MAX, n));
+}
+
+function loadVoiceNavSpeedPreference() {
+  _voiceNav.speed = normaliseVoiceNavSpeed(localStorage.getItem(VOICE_NAV_SPEED_STATE_KEY));
+}
 
 function isVoiceNavSpeechRecognitionSupported() {
   if (_voiceNav.recognitionSupported !== null) return _voiceNav.recognitionSupported;
@@ -309,13 +326,92 @@ function appendVoiceNavTurn(role, text) {
   scrollVoiceNavTranscriptToBottom();
 }
 
+function createSilentWavDataUrl(durationSeconds) {
+  var sampleRate = 8000;
+  var numSamples = Math.max(1, Math.floor(sampleRate * durationSeconds));
+  var blockAlign = 2; // 16-bit mono
+  var dataSize = numSamples * blockAlign;
+  var buffer = new ArrayBuffer(44 + dataSize);
+  var view = new DataView(buffer);
+
+  function writeString(offset, str) {
+    for (var i = 0; i < str.length; i += 1) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+  // Sample bytes are already zero-initialized (silence).
+
+  var bytes = new Uint8Array(buffer);
+  var binary = '';
+  for (var j = 0; j < bytes.length; j += 1) binary += String.fromCharCode(bytes[j]);
+  return 'data:audio/wav;base64,' + btoa(binary);
+}
+
+function setupVoiceNavMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  try {
+    // A single tap of an AirPods stem (or any Bluetooth headset's play/pause button) sends
+    // a play or pause media-key command to the OS, which routes here as one of these two
+    // handlers depending on the playbackState we last reported — so both just toggle the mic.
+    navigator.mediaSession.setActionHandler('play', function() { toggleVoiceNavListening(); });
+    navigator.mediaSession.setActionHandler('pause', function() { toggleVoiceNavListening(); });
+  } catch (err) {
+    // Some browsers throw for action types they don't support; hardware toggle just won't work there.
+  }
+}
+
+function startVoiceNavMediaSessionKeepAlive() {
+  if (!('mediaSession' in navigator)) return;
+
+  if (!_voiceNav.keepAliveAudio) {
+    _voiceNav.keepAliveAudio = new Audio(createSilentWavDataUrl(1));
+    _voiceNav.keepAliveAudio.loop = true;
+  }
+  var playPromise = _voiceNav.keepAliveAudio.play();
+  if (playPromise && typeof playPromise.catch === 'function') {
+    playPromise.catch(function() {
+      // Needs a direct user gesture first (e.g. the mic button click that got us here);
+      // it'll succeed on the next call once that gesture has happened.
+    });
+  }
+
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: 'AI Voice Navigator — listening',
+      artist: 'Searches'
+    });
+  } catch (err) { /* MediaMetadata unavailable in this browser */ }
+  navigator.mediaSession.playbackState = 'playing';
+}
+
+function stopVoiceNavMediaSessionKeepAlive() {
+  if (_voiceNav.keepAliveAudio) {
+    try { _voiceNav.keepAliveAudio.pause(); } catch (err) { /* already stopped */ }
+  }
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = 'paused';
+  }
+}
+
 function updateMicButtonUi() {
   var micBtn = document.getElementById('btn-voice-nav-mic');
   if (!micBtn) return;
   micBtn.classList.toggle('is-listening', !!_voiceNav.alwaysOn);
   micBtn.setAttribute('aria-pressed', _voiceNav.alwaysOn ? 'true' : 'false');
   if (!micBtn.disabled) {
-    micBtn.title = _voiceNav.alwaysOn ? 'Mute microphone' : 'Enable hands-free listening';
+    micBtn.title = (_voiceNav.alwaysOn ? 'Mute microphone' : 'Enable hands-free listening') + ' (Space)';
   }
 }
 
@@ -360,6 +456,7 @@ function startVoiceNavRecognitionLoop() {
     _voiceNav.listening = true;
     updateMicButtonUi();
     setVoiceNavIdleOrListeningStatus();
+    startVoiceNavMediaSessionKeepAlive();
   } catch (err) {
     _voiceNav.listening = false;
     if (err && err.name === 'NotAllowedError') {
@@ -380,6 +477,7 @@ function stopVoiceNavRecognitionLoop() {
   }
   stopVoiceNavListening();
   updateMicButtonUi();
+  stopVoiceNavMediaSessionKeepAlive();
 }
 
 function stopVoiceNavAudio() {
@@ -413,7 +511,7 @@ function speakVoiceNavReplyWithBrowserTts(text) {
 
   window.speechSynthesis.cancel();
   var utterance = new SpeechSynthesisUtterance(safeText);
-  utterance.rate = 1;
+  utterance.rate = _voiceNav.speed;
   utterance.pitch = 1;
   utterance.volume = 1;
   utterance.onstart = function() {
@@ -444,6 +542,7 @@ async function speakVoiceNavReply(text) {
   try {
     var dataUrl = await synthesizeVoiceNavigatorSpeech(safeText, { instructions: VOICE_NAV_TTS_INSTRUCTIONS });
     var audio = new Audio(dataUrl);
+    audio.playbackRate = _voiceNav.speed;
     _voiceNav.audio = audio;
     audio.onplay = function() {
       setVoiceNavStatus('speaking', 'Speaking…');
@@ -467,6 +566,16 @@ function applyVoiceNavAction(result) {
   if (!result) return;
   var pattern = getSelectedPattern();
   if (!pattern) return;
+
+  if (result.action === 'startTimer') {
+    if (!timerRunning) handleStartTimer();
+    return;
+  }
+  if (result.action === 'stopTimer') {
+    if (timerRunning) stopTimer();
+    return;
+  }
+
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   if (!steps.length) return;
 
@@ -518,7 +627,8 @@ async function handleVoiceNavUserMessage(text) {
       steps: buildVoiceNavSteps(pattern),
       currentStepIndex: currentStepIndex,
       history: historyBeforeThisTurn,
-      userMessage: safeText
+      userMessage: safeText,
+      timerRunning: timerRunning
     });
 
     appendVoiceNavTurn('assistant', result.reply);
@@ -638,17 +748,32 @@ function initVoiceNavigator() {
   if (_voiceNav.bound) return;
   _voiceNav.bound = true;
 
+  setupVoiceNavMediaSession();
+
   var micBtn = document.getElementById('btn-voice-nav-mic');
   var restartBtn = document.getElementById('btn-voice-nav-restart');
   var form = document.getElementById('voice-navigator-text-form');
   var input = document.getElementById('voice-navigator-text-input');
   var unsupportedNote = document.getElementById('voice-navigator-unsupported');
+  var speedInput = document.getElementById('voice-navigator-speed');
+  var speedValueLabel = document.getElementById('voice-navigator-speed-value');
 
   var speechSupported = isVoiceNavSpeechRecognitionSupported();
   if (unsupportedNote) unsupportedNote.style.display = speechSupported ? 'none' : '';
   if (micBtn && !speechSupported) {
     micBtn.disabled = true;
     micBtn.title = 'Speech recognition is not supported in this browser';
+  }
+
+  if (speedInput) {
+    speedInput.value = String(_voiceNav.speed);
+    if (speedValueLabel) speedValueLabel.textContent = _voiceNav.speed.toFixed(1) + 'x';
+    speedInput.addEventListener('input', function() {
+      _voiceNav.speed = normaliseVoiceNavSpeed(speedInput.value);
+      localStorage.setItem(VOICE_NAV_SPEED_STATE_KEY, String(_voiceNav.speed));
+      if (speedValueLabel) speedValueLabel.textContent = _voiceNav.speed.toFixed(1) + 'x';
+      if (_voiceNav.audio) _voiceNav.audio.playbackRate = _voiceNav.speed;
+    });
   }
 
   if (micBtn) micBtn.addEventListener('click', toggleVoiceNavListening);
@@ -679,6 +804,7 @@ function initPatterns(userId) {
   loadAccordionModeState();
   loadInlineEditorFontSizePreference();
   loadTimerPreferences();
+  loadVoiceNavSpeedPreference();
   initPatternViewControls();
   bindInlineToolbarOffsetSync();
 
@@ -4069,7 +4195,11 @@ function handleKeydown(e) {
     navigateStep(e.shiftKey ? -1 : 1);
   } else if (e.key === ' ') {
     e.preventDefault();
-    openRecordModal();
+    if (_timerMode === 'voice') {
+      toggleVoiceNavListening();
+    } else {
+      openRecordModal();
+    }
   }
 }
 

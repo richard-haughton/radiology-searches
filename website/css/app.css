@@ -632,7 +632,25 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
-.voice-navigator-controls { display: flex; align-items: center; gap: 10px; }
+.voice-navigator-controls { display: flex; align-items: center; gap: 14px; }
+.voice-navigator-speed-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.voice-navigator-speed-label {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  gap: 4px;
+}
+.voice-navigator-speed-label span { color: var(--accent); font-variant-numeric: tabular-nums; }
+.voice-navigator-speed-control input[type="range"] {
+  width: 100px;
+  accent-color: var(--accent);
+}
 .voice-navigator-mic-btn {
   display: inline-flex;
   align-items: center;

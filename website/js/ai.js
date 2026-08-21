@@ -526,9 +526,11 @@ function coerceVoiceNavigatorResponse(parsed, stepCount) {
   var reply = String(parsed.reply || '').trim() || 'Okay.';
 
   var action = String(parsed.action || 'stay').trim().toLowerCase();
-  if (['stay', 'next', 'previous', 'goto', 'repeat'].indexOf(action) === -1) {
+  if (['stay', 'next', 'previous', 'goto', 'repeat', 'starttimer', 'stoptimer'].indexOf(action) === -1) {
     action = 'stay';
   }
+  if (action === 'starttimer') action = 'startTimer';
+  if (action === 'stoptimer') action = 'stopTimer';
 
   var targetStepIndex = null;
   if (action === 'goto') {
@@ -563,6 +565,7 @@ function buildVoiceNavigatorPrompt(input) {
   var currentStepIndex = Number.isInteger(input.currentStepIndex) ? input.currentStepIndex : 0;
   var history = Array.isArray(input.history) ? input.history : [];
   var userMessage = String(input.userMessage || '').trim();
+  var timerRunning = input.timerRunning === true;
 
   var stepsBlock = steps.map(function(step, idx) {
     var lines = ['Step ' + (idx + 1) + (idx === currentStepIndex ? ' (CURRENT STEP)' : '') + ': ' + (step.title || '(untitled)')];
@@ -591,10 +594,13 @@ function buildVoiceNavigatorPrompt(input) {
     '- Do not read step content verbatim even when answering questions; paraphrase concisely.',
     '- If the radiologist asks to see, pull up, or review findings (for the current step or another step), set showFindings=true and findingsStepIndex to the relevant zero-based step index (default to the current step if unspecified), and mention them briefly in your reply.',
     '- If the radiologist asks a clinical question about a finding, answer using only the information in the pattern below; do not invent findings not present in the data.',
+    '- If the radiologist asks you to start the timer, start recording, or begin the clock, use action="startTimer" and reply with a brief acknowledgement (e.g. "Timer started."). If they ask to stop the timer, stop recording, or pause the clock, use action="stopTimer" and reply briefly (e.g. "Timer stopped."). These do not change the current step or step reply format.',
+    '- Do not emit action="startTimer" if the timer is already running, or action="stopTimer" if it is already stopped — use action="stay" and briefly say so instead (e.g. "Already recording.").',
     '',
     'Return ONLY valid JSON with this exact schema, no markdown fences:',
-    '{"reply":"string","action":"stay|next|previous|goto|repeat","targetStepIndex":number|null,"showFindings":boolean,"findingsStepIndex":number|null}',
+    '{"reply":"string","action":"stay|next|previous|goto|repeat|startTimer|stopTimer","targetStepIndex":number|null,"showFindings":boolean,"findingsStepIndex":number|null}',
     '',
+    'TIMER STATUS: ' + (timerRunning ? 'currently running' : 'currently stopped'),
     'SEARCH PATTERN: ' + patternName,
     stepsBlock,
     '',
