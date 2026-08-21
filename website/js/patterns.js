@@ -463,9 +463,12 @@ function startVoiceNavRecognitionLoop() {
       _voiceNav.alwaysOn = false;
       updateMicButtonUi();
       setVoiceNavStatus('idle', 'Microphone access denied — tap the mic to try again');
+      return;
     }
-    // Otherwise (e.g. InvalidStateError from an overlapping start) the onend/onerror
-    // handlers on the existing instance will trigger the next scheduled restart.
+    // A thrown start() (e.g. InvalidStateError from restarting too soon after the previous
+    // session ended) never fires onend/onerror, so nothing else will retry this — without an
+    // explicit reschedule here the hands-free loop dies silently and stops responding to speech.
+    scheduleVoiceNavRecognitionRestart();
   }
 }
 
