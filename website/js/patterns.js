@@ -157,7 +157,7 @@ function getGoalSecondsForMode(pattern, mode) {
   var safePattern = pattern || null;
   var safeMode = normaliseTimerMode(mode);
   if (!safePattern) return null;
-  if (safeMode !== 'timed') return null;
+  if (safeMode !== 'timed' && safeMode !== 'voice') return null;
   return normaliseGoalSeconds(safePattern.goalSeconds);
 }
 
@@ -178,7 +178,7 @@ function syncTimerControlsFromState() {
     modeSelect.value = _timerMode;
   }
   if (timedControls) {
-    timedControls.style.display = _timerMode === 'timed' ? '' : 'none';
+    timedControls.style.display = (_timerMode === 'timed' || _timerMode === 'voice') ? '' : 'none';
   }
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
@@ -273,8 +273,53 @@ var _voiceNav = {
   audio: null,
   speed: VOICE_NAV_SPEED_DEFAULT,
   keepAliveAudio: null,
-  suppressStepFollow: false
+  suppressStepFollow: false,
+  autoAdvancePaused: false
 };
+
+// Fast, local (no LLM round trip) commands for pausing/resuming the timed auto-advance pace,
+// since these are safety-relevant ("let me look at this longer") and should respond instantly
+// rather than waiting on a network turn. Deliberately excludes a bare "stop", which is ambiguous
+// with the separate stopTimer/startTimer (whole-study recording) voice actions.
+var VOICE_NAV_PAUSE_PATTERNS = [
+  /\bpause\b/i,
+  /\bhold on\b/i,
+  /\bhang on\b/i,
+  /\bslow down\b/i,
+  /\bstay (on|here)\b/i,
+  /\bgive me a (second|minute|moment)\b/i
+];
+var VOICE_NAV_RESUME_PATTERNS = [
+  /\bresume\b/i,
+  /\bcontinue\b/i,
+  /\bkeep going\b/i,
+  /\bun-?pause\b/i,
+  /\bi'?m ready\b/i,
+  /\bready to (continue|move on|keep going)\b/i
+];
+
+function matchesAnyVoiceNavPattern(patterns, text) {
+  return patterns.some(function(re) { return re.test(text); });
+}
+
+function pauseVoiceNavAutoAdvance(userText) {
+  if (userText) appendVoiceNavTurn('user', userText);
+  _voiceNav.autoAdvancePaused = true;
+  renderGoalStatus();
+  var msg = 'Paused — take your time.';
+  appendVoiceNavTurn('assistant', msg);
+  speakVoiceNavReply(msg);
+}
+
+function resumeVoiceNavAutoAdvance(userText) {
+  if (userText) appendVoiceNavTurn('user', userText);
+  _voiceNav.autoAdvancePaused = false;
+  _timerStepEnteredAtSeconds = timerSeconds; // fresh full per-step allocation from right now
+  renderGoalStatus();
+  var msg = 'Resuming.';
+  appendVoiceNavTurn('assistant', msg);
+  speakVoiceNavReply(msg);
+}
 
 function buildVoiceNavStepAnnouncement(stepIndex, step) {
   var title = step ? getCleanStepTitle(step.stepTitle) : '';
@@ -535,6 +580,7 @@ function stopVoiceNavAudio() {
 
 function resetVoiceNavConversation() {
   _voiceNav.history = [];
+  _voiceNav.autoAdvancePaused = false;
   var transcript = document.getElementById('voice-navigator-transcript');
   if (transcript) transcript.innerHTML = '';
   stopVoiceNavRecognitionLoop();
@@ -659,6 +705,18 @@ async function handleVoiceNavUserMessage(text) {
     showToast('Select a pattern first.', true);
     return;
   }
+
+  // Fast local path — no LLM round trip, so pause/resume respond instantly regardless of
+  // whether a previous request is still in flight.
+  if (safeText && !_voiceNav.autoAdvancePaused && matchesAnyVoiceNavPattern(VOICE_NAV_PAUSE_PATTERNS, safeText)) {
+    pauseVoiceNavAutoAdvance(safeText);
+    return;
+  }
+  if (safeText && _voiceNav.autoAdvancePaused && matchesAnyVoiceNavPattern(VOICE_NAV_RESUME_PATTERNS, safeText)) {
+    resumeVoiceNavAutoAdvance(safeText);
+    return;
+  }
+
   if (_voiceNav.busy) return;
 
   var provider = typeof getSelectedAiProvider === 'function' ? getSelectedAiProvider() : 'openai';
@@ -3730,7 +3788,7 @@ function applyTimerGoalTheme() {
   if (!timerBar) return;
 
   timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red', 'timer-goal-double');
-  if (_timerMode !== 'timed') return;
+  if (_timerMode !== 'timed' && _timerMode !== 'voice') return;
   if (timerGoalSeconds === null) return;
 
 
@@ -3755,8 +3813,8 @@ function applyTimerGoalTheme() {
 
 function maybeAutoAdvanceStep() {
   if (!timerRunning) return;
-  if (_timerMode !== 'timed') return;
-
+  if (_timerMode !== 'timed' && _timerMode !== 'voice') return;
+  if (_timerMode === 'voice' && _voiceNav.autoAdvancePaused) return;
 
   var pattern = getSelectedPattern();
   if (!pattern) return;
@@ -3792,7 +3850,7 @@ function renderGoalStatus() {
   const statusEl = document.getElementById('timer-goal-status');
   if (!statusEl) return;
 
-  if (_timerMode !== 'timed') {
+  if (_timerMode !== 'timed' && _timerMode !== 'voice') {
     statusEl.textContent = '';
     statusEl.classList.remove('timer-goal-over');
     statusEl.style.display = 'none';
@@ -3807,22 +3865,23 @@ function renderGoalStatus() {
     : null;
   const stepRemaining = perStepSeconds !== null ? Math.max(0, perStepSeconds - Math.max(0, timerSeconds - _timerStepEnteredAtSeconds)) : null;
   const stepLabel = steps.length ? ('Step ' + String(currentStepIndex + 1) + ' of ' + String(steps.length)) : 'Step';
+  const pausedSuffix = (_timerMode === 'voice' && _voiceNav.autoAdvancePaused) ? ' • paused' : '';
 
   if (timerGoalSeconds === null) {
-    statusEl.textContent = 'No goal set' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
+    statusEl.textContent = 'No goal set' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '') + pausedSuffix;
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   if (timerSeconds <= timerGoalSeconds) {
     const remaining = timerGoalSeconds - timerSeconds;
-    statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
+    statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '') + pausedSuffix;
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
   const overBy = timerSeconds - timerGoalSeconds;
-  statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '');
+  statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '') + pausedSuffix;
   statusEl.classList.add('timer-goal-over');
 }
 
