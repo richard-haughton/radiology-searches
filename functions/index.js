@@ -260,13 +260,18 @@ async function completeWithOpenAi(apiKey, model, prompt, opts) {
   }
 
   const modelName = String(selectedModel).toLowerCase();
+  const wantFast = !!(opts && opts.fast);
   if (!modelName.startsWith('gpt-5')) {
     requestBody.temperature = 0.2;
-  } else if (!(opts && opts.background === false)) {
+  } else if (!wantFast) {
     // Background mode is meant for long-running generation (report/pattern drafting) and always
     // costs at least one extra network round trip + poll delay. Latency-sensitive callers (the
-    // voice navigator) opt out via { background: false } to get a normal synchronous response.
+    // voice navigator) request { fast: true } to skip it and get a normal synchronous response.
     requestBody.background = true;
+  } else {
+    // Also trim the model's internal reasoning effort for short, low-stakes conversational
+    // turns — reasoning tokens are typically the bigger hidden latency cost on this model family.
+    requestBody.reasoning = { effort: 'minimal' };
   }
 
   const initial = await openAiJsonRequest(
@@ -677,7 +682,7 @@ exports.aiProxy = onRequest(
         }
 
         const fast = payload.fast === true;
-        const text = await completeFn(apiKey, model, prompt, fast ? { background: false } : undefined);
+        const text = await completeFn(apiKey, model, prompt, fast ? { fast: true } : undefined);
         logger.info('aiProxy completeText', { uid, model, provider, fast });
         json(res, 200, {
           ok: true,

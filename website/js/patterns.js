@@ -251,7 +251,15 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
 }
 
 // ── AI Voice Navigator ──────────────────────────────────────
-var VOICE_NAV_HISTORY_LIMIT = 16;
+var VOICE_NAV_HISTORY_LIMIT = 8;
+// Bumped by stopVoiceNavAudio() and every speakVoiceNavReply() call, and captured as that call's
+// "token". Both the AI-audio and browser-TTS paths involve an async gap (network fetch, or just
+// event dispatch) before playback actually starts, so two calls fired close together (rapid
+// "next"s, or a manual step click landing while a voice reply is still being synthesized) could
+// otherwise resolve out of order and both end up producing sound. Checking "is my token still
+// current" right before each actual playback start guarantees only the most recently requested
+// utterance ever plays.
+var _voiceNavSpeechToken = 0;
 var _voiceNav = {
   history: [],
   recognition: null,
@@ -513,6 +521,7 @@ function stopVoiceNavRecognitionLoop() {
 }
 
 function stopVoiceNavAudio() {
+  _voiceNavSpeechToken += 1; // invalidate any speech request currently in flight
   if (_voiceNav.audio) {
     try { _voiceNav.audio.pause(); } catch (err) { /* already stopped */ }
     _voiceNav.audio.onplay = null;
@@ -533,11 +542,12 @@ function resetVoiceNavConversation() {
   setVoiceNavStatus('idle', 'Tap the mic to start');
 }
 
-function speakVoiceNavReplyWithBrowserTts(text) {
+function speakVoiceNavReplyWithBrowserTts(text, token) {
   var safeText = String(text || '').trim();
+  var myToken = token === undefined ? (_voiceNavSpeechToken += 1) : token;
   if (!safeText) return;
   if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') {
-    setVoiceNavIdleOrListeningStatus();
+    if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
     return;
   }
 
@@ -547,13 +557,13 @@ function speakVoiceNavReplyWithBrowserTts(text) {
   utterance.pitch = 1;
   utterance.volume = 1;
   utterance.onstart = function() {
-    setVoiceNavStatus('speaking', 'Speaking…');
+    if (myToken === _voiceNavSpeechToken) setVoiceNavStatus('speaking', 'Speaking…');
   };
   utterance.onend = function() {
-    setVoiceNavIdleOrListeningStatus();
+    if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
   };
   utterance.onerror = function() {
-    setVoiceNavIdleOrListeningStatus();
+    if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
   };
   window.speechSynthesis.speak(utterance);
 }
@@ -564,33 +574,40 @@ async function speakVoiceNavReply(text) {
   var safeText = String(text || '').trim();
   if (!safeText) return;
 
-  stopVoiceNavAudio();
+  stopVoiceNavAudio(); // bumps the token, invalidating anything previously in flight
+  var myToken = _voiceNavSpeechToken; // this call now owns the current (latest) token
 
   if (typeof synthesizeVoiceNavigatorSpeech !== 'function') {
-    speakVoiceNavReplyWithBrowserTts(safeText);
+    speakVoiceNavReplyWithBrowserTts(safeText, myToken);
     return;
   }
 
   try {
     var dataUrl = await synthesizeVoiceNavigatorSpeech(safeText, { instructions: VOICE_NAV_TTS_INSTRUCTIONS });
+    if (myToken !== _voiceNavSpeechToken) return; // superseded by a newer request while we waited on the network
+
     var audio = new Audio(dataUrl);
     audio.playbackRate = _voiceNav.speed;
     _voiceNav.audio = audio;
     audio.onplay = function() {
-      setVoiceNavStatus('speaking', 'Speaking…');
+      if (myToken === _voiceNavSpeechToken) setVoiceNavStatus('speaking', 'Speaking…');
     };
     audio.onended = function() {
-      setVoiceNavIdleOrListeningStatus();
       if (_voiceNav.audio === audio) _voiceNav.audio = null;
+      if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
     };
     audio.onerror = function() {
       if (_voiceNav.audio === audio) _voiceNav.audio = null;
-      speakVoiceNavReplyWithBrowserTts(safeText);
+      if (myToken === _voiceNavSpeechToken) speakVoiceNavReplyWithBrowserTts(safeText, myToken);
     };
     await audio.play();
+    if (myToken !== _voiceNavSpeechToken) {
+      // Got superseded the instant playback began (e.g. a very rapid double "next") — stop now.
+      try { audio.pause(); } catch (err) { /* already stopped */ }
+    }
   } catch (err) {
     console.error('AI voice playback failed, falling back to browser voice:', err);
-    speakVoiceNavReplyWithBrowserTts(safeText);
+    if (myToken === _voiceNavSpeechToken) speakVoiceNavReplyWithBrowserTts(safeText, myToken);
   }
 }
 
