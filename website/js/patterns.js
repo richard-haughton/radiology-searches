@@ -529,6 +529,9 @@ function scheduleVoiceNavRecognitionRestart() {
 function startVoiceNavRecognitionLoop() {
   if (!_voiceNav.alwaysOn) return;
   if (_voiceNav.listening) return;
+  // Never open the mic while the navigator itself is talking — otherwise it hears its own
+  // TTS output through speaker bleed and misreads it as the radiologist speaking.
+  if (isVoiceNavSpeaking()) return;
 
   var recognition = ensureVoiceNavRecognition();
   if (!recognition) return;
@@ -598,18 +601,28 @@ function speakVoiceNavReplyWithBrowserTts(text, token) {
   }
 
   window.speechSynthesis.cancel();
+  stopVoiceNavListening();
   var utterance = new SpeechSynthesisUtterance(safeText);
   utterance.rate = _voiceNav.speed;
   utterance.pitch = 1;
   utterance.volume = 1;
   utterance.onstart = function() {
-    if (myToken === _voiceNavSpeechToken) setVoiceNavStatus('speaking', 'Speaking…');
+    if (myToken === _voiceNavSpeechToken) {
+      stopVoiceNavListening(); // guards races where listening started after speak() was requested but before it actually began
+      setVoiceNavStatus('speaking', 'Speaking…');
+    }
   };
   utterance.onend = function() {
-    if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
+    if (myToken === _voiceNavSpeechToken) {
+      setVoiceNavIdleOrListeningStatus();
+      if (_voiceNav.alwaysOn) startVoiceNavRecognitionLoop();
+    }
   };
   utterance.onerror = function() {
-    if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
+    if (myToken === _voiceNavSpeechToken) {
+      setVoiceNavIdleOrListeningStatus();
+      if (_voiceNav.alwaysOn) startVoiceNavRecognitionLoop();
+    }
   };
   window.speechSynthesis.speak(utterance);
 }
@@ -635,12 +648,19 @@ async function speakVoiceNavReply(text) {
     var audio = new Audio(dataUrl);
     audio.playbackRate = _voiceNav.speed;
     _voiceNav.audio = audio;
+    stopVoiceNavListening();
     audio.onplay = function() {
-      if (myToken === _voiceNavSpeechToken) setVoiceNavStatus('speaking', 'Speaking…');
+      if (myToken === _voiceNavSpeechToken) {
+        stopVoiceNavListening(); // guards races where listening started after speak() was requested but before playback actually began
+        setVoiceNavStatus('speaking', 'Speaking…');
+      }
     };
     audio.onended = function() {
       if (_voiceNav.audio === audio) _voiceNav.audio = null;
-      if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
+      if (myToken === _voiceNavSpeechToken) {
+        setVoiceNavIdleOrListeningStatus();
+        if (_voiceNav.alwaysOn) startVoiceNavRecognitionLoop();
+      }
     };
     audio.onerror = function() {
       if (_voiceNav.audio === audio) _voiceNav.audio = null;
@@ -791,7 +811,9 @@ function ensureVoiceNavRecognition() {
   recognition.onend = function() {
     _voiceNav.listening = false;
     if (_voiceNav.alwaysOn) {
-      scheduleVoiceNavRecognitionRestart();
+      // If we're stopped because the navigator started speaking, don't auto-restart here —
+      // the speech-playback code explicitly re-opens the mic once it's done talking.
+      if (!isVoiceNavSpeaking()) scheduleVoiceNavRecognitionRestart();
     } else {
       updateMicButtonUi();
       setVoiceNavStatus('idle', 'Tap the mic to start');
@@ -974,6 +996,17 @@ function initPatterns(userId) {
       leaveVoiceNavigatorMode();
     }
     const pattern = getSelectedPattern();
+    if (previousMode !== 'voice' && _timerMode === 'voice') {
+      // Returning to AI Voice mode should always restart the walkthrough from step one rather
+      // than resume mid-pattern — clearing patternId forces syncVoiceNavigatorPanelVisibility's
+      // "new pattern" branch below to reset the conversation and re-greet from the top.
+      currentStepIndex = 0;
+      _voiceNav.patternId = null;
+      if (pattern && Array.isArray(pattern.steps) && pattern.steps.length) {
+        _openStepIndices = new Set([0]);
+        renderCurrentStep(pattern);
+      }
+    }
     timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
     syncTimerControlsFromState();
     syncVoiceNavigatorPanelVisibility();

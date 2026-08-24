@@ -271,7 +271,9 @@ async function completeWithOpenAi(apiKey, model, prompt, opts) {
   } else {
     // Also trim the model's internal reasoning effort for short, low-stakes conversational
     // turns — reasoning tokens are typically the bigger hidden latency cost on this model family.
-    requestBody.reasoning = { effort: 'minimal' };
+    // Valid values for this model are none|low|medium|high|xhigh; 'low' balances speed against
+    // keeping enough reasoning for reliable JSON/action output ('none' risks malformed replies).
+    requestBody.reasoning = { effort: 'low' };
   }
 
   const initial = await openAiJsonRequest(
