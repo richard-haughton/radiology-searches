@@ -3576,6 +3576,17 @@ function initPatternListContextMenu() {
     await handleRenamePattern(targetId);
   });
 
+  const duplicateBtn = document.createElement('button');
+  duplicateBtn.type = 'button';
+  duplicateBtn.className = 'pattern-list-context-menu-item';
+  duplicateBtn.textContent = 'Duplicate Pattern';
+  duplicateBtn.addEventListener('click', async function() {
+    const targetId = _patternListContextPatternId;
+    hidePatternListContextMenu();
+    if (!targetId) return;
+    await handleDuplicatePattern(targetId);
+  });
+
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'pattern-list-context-menu-item is-danger';
@@ -3588,6 +3599,7 @@ function initPatternListContextMenu() {
   });
 
   menu.appendChild(renameBtn);
+  menu.appendChild(duplicateBtn);
   menu.appendChild(deleteBtn);
   document.body.appendChild(menu);
   _patternListContextMenu = menu;
@@ -3674,6 +3686,31 @@ async function handleRenamePattern(patternId) {
   } catch (err) {
     console.error(err);
     showToast('Failed to rename pattern.', true);
+  }
+}
+
+async function handleDuplicatePattern(patternId) {
+  const targetId = patternId || selectedPatternId;
+  if (!targetId) return;
+
+  const pattern = allPatterns.find(function(item) { return item.id === targetId; });
+  if (!pattern) return;
+
+  try {
+    const clonedSteps = JSON.parse(JSON.stringify(Array.isArray(pattern.steps) ? pattern.steps : []));
+    const newPatternId = await createPattern(_pUid, {
+      name: (pattern.name || 'Untitled Pattern') + ' (Copy)',
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      pathologyGoalSeconds: pattern.pathologyGoalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: clonedSteps
+    });
+    selectedPatternId = newPatternId;
+    showToast('Pattern duplicated.');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to duplicate pattern.', true);
   }
 }
 
