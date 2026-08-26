@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20260816c" />
+  <link rel="stylesheet" href="css/app.css?v=20260816d" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -22,7 +22,7 @@
   <script src="js/calculations.js?v=20260605b"></script>
   <script src="js/study-log.js?v=20260605b"></script>
   <script src="js/rvus.js?v=20260605b"></script>
-  <script src="js/patterns.js?v=20260816l"></script>
+  <script src="js/patterns.js?v=20260816m"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20260605b"></script>
   <script src="js/app.js?v=20260605b"></script>
@@ -117,20 +117,11 @@
                   <option value="walkthrough">Walkthrough</option>
                   <option value="timed">Timed</option>
                 </select>
-                <div id="timer-timed-controls" class="timer-timed-controls">
-                  <div id="timer-goal-field" class="timer-goal-field">
-                    <label for="timer-goal-minutes" class="timer-goal-label">Step Goal (sec)</label>
-                    <input id="timer-goal-minutes" type="number" min="1" step="1" class="timer-goal-input" placeholder="e.g. 45">
-                  </div>
-                  <button id="btn-save-study-goal" class="btn btn-ghost btn-sm" type="button">Save Goal</button>
-                </div>
                 <label class="timer-voice-toggle" for="timer-voice-mode">
                   <input id="timer-voice-mode" type="checkbox">
                   <span>Voice</span>
                 </label>
               </div>
-              <span id="timer-goal-status" class="timer-goal-status">No goal set</span>
-
             </div>
             <div class="timer-actions">
               <button id="btn-start-timer" class="btn btn-ghost btn-sm" type="button">Start</button>
@@ -149,6 +140,11 @@
               <div class="step-nav-bar">
                 <div class="step-nav-info">
                   <span class="step-counter" id="step-counter"></span>
+                  <div id="step-goal-control" class="step-goal-control" style="display:none">
+                    <label for="step-goal-input" class="step-goal-label">Goal</label>
+                    <input id="step-goal-input" type="number" min="1" step="1" class="step-goal-input" placeholder="sec">
+                    <span class="step-goal-unit">sec</span>
+                  </div>
                   <span id="step-time-stats" class="step-time-stats"></span>
                 </div>
                 <div class="step-nav-actions">

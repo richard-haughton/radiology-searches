@@ -166,28 +166,36 @@ function getCurrentStepGoalSeconds(pattern, mode) {
 }
 
 function syncTimerControlsFromState() {
-  var pattern = getSelectedPattern();
-  var goalInput = document.getElementById('timer-goal-minutes');
   var modeSelect = document.getElementById('timer-mode-select');
-  var timedControls = document.getElementById('timer-timed-controls');
   var voiceToggle = document.getElementById('timer-voice-mode');
 
-  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  var currentStep = steps[currentStepIndex];
-  var goal = currentStep ? normaliseGoalSeconds(currentStep.goalSeconds) : null;
-
-  if (goalInput) {
-    goalInput.value = goal === null ? '' : String(goal);
-  }
   if (modeSelect) {
     modeSelect.value = _timerMode;
-  }
-  if (timedControls) {
-    timedControls.style.display = _timerMode === 'timed' ? '' : 'none';
   }
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
   }
+
+  syncStepGoalInputFromCurrentStep();
+}
+
+// The step's own goal time is edited inline in its header (rather than a separate control at
+// the top of the page), so it needs to stay in sync with both the active step and the mode.
+function syncStepGoalInputFromStep(step) {
+  var control = document.getElementById('step-goal-control');
+  var input = document.getElementById('step-goal-input');
+  if (control) control.style.display = _timerMode === 'timed' ? '' : 'none';
+  if (!input) return;
+  if (document.activeElement === input) return; // don't clobber a value the user is actively editing
+
+  var goal = step ? normaliseGoalSeconds(step.goalSeconds) : null;
+  input.value = goal === null ? '' : String(goal);
+}
+
+function syncStepGoalInputFromCurrentStep() {
+  var pattern = getSelectedPattern();
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  syncStepGoalInputFromStep(steps[currentStepIndex] || null);
 }
 
 
@@ -296,8 +304,8 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
 
   if (_timerMode === 'timed') {
     timerGoalSeconds = getCurrentStepGoalSeconds(safePattern, _timerMode);
-    syncTimerControlsFromState();
   }
+  syncStepGoalInputFromStep(safeStep);
 
   if (!(options && options.silentVoice)) {
     speakActiveStep(safeStep, safeIndex);
@@ -365,8 +373,9 @@ function renderStepTimeStats(step) {
     return;
   }
 
+  var pausedSuffix = (_timerMode === 'timed' && _autoAdvancePaused) ? ' · paused' : '';
   var elapsed = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
-  el.innerHTML = '<span class="step-time-current">' + formatTimerClock(elapsed) + '</span>' + (avgText ? ' · ' + avgText : '');
+  el.innerHTML = '<span class="step-time-current">' + formatTimerClock(elapsed) + '</span>' + (avgText ? ' · ' + avgText : '') + pausedSuffix;
 }
 
 function renderStepTimeStatsForCurrentStep() {
@@ -380,7 +389,7 @@ function toggleAutoAdvancePause() {
   if (!_autoAdvancePaused) {
     _timerStepEnteredAtSeconds = timerSeconds; // fresh full window for the current step on resume
   }
-  renderGoalStatus();
+  renderStepTimeStatsForCurrentStep();
   showToast(_autoAdvancePaused ? 'Auto-advance paused.' : 'Auto-advance resumed.');
 }
 
@@ -438,11 +447,11 @@ function initPatterns(userId) {
   document.getElementById('btn-start-timer').addEventListener('click', handleStartTimer);
   document.getElementById('btn-record-study').addEventListener('click', openRecordModal);
   document.getElementById('btn-stop-timer').addEventListener('click', stopTimer);
-  document.getElementById('btn-save-study-goal').addEventListener('click', saveStudyGoal);
-  document.getElementById('timer-goal-minutes').addEventListener('keydown', e => {
+  document.getElementById('step-goal-input').addEventListener('blur', saveCurrentStepGoal);
+  document.getElementById('step-goal-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      saveStudyGoal();
+      e.target.blur();
     }
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
@@ -455,7 +464,7 @@ function initPatterns(userId) {
     const pattern = getSelectedPattern();
     timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
     syncTimerControlsFromState();
-    renderGoalStatus();
+    renderStepTimeStatsForCurrentStep();
     updateTimerDisplay();
   });
 
@@ -2918,7 +2927,6 @@ function clearStepView() {
   _timerActivePatternId = '';
   _timerActiveStepIndex = -1;
   syncTimerControlsFromState();
-  renderGoalStatus();
 }
 
 function updatePatternStepAddButton() {
@@ -3252,10 +3260,10 @@ function stopTimer() {
 function updateTimerDisplay() {
   const timerDisplay = document.getElementById('timer-display');
   timerDisplay.textContent = formatTimerClock(timerSeconds);
-  const overGoal = timerGoalSeconds !== null && timerSeconds > timerGoalSeconds;
+  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  const overGoal = timerGoalSeconds !== null && elapsedOnStep > timerGoalSeconds;
   timerDisplay.classList.toggle('timer-display-over-goal', overGoal);
   applyTimerGoalTheme();
-  renderGoalStatus();
 }
 
 function updateTimerActionButtons() {
@@ -3332,48 +3340,7 @@ function formatTimerClock(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function renderGoalStatus() {
-  const statusEl = document.getElementById('timer-goal-status');
-  if (!statusEl) return;
-
-  if (_timerMode !== 'timed') {
-    statusEl.textContent = '';
-    statusEl.classList.remove('timer-goal-over');
-    statusEl.style.display = 'none';
-    return;
-  }
-  statusEl.style.display = '';
-
-  const pattern = getSelectedPattern();
-  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  const stepLabel = steps.length ? ('Step ' + String(currentStepIndex + 1) + ' of ' + String(steps.length)) : 'Step';
-  const pausedSuffix = _autoAdvancePaused ? ' • paused' : '';
-  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
-
-  if (timerGoalSeconds === null) {
-    statusEl.textContent = 'No goal set for this step' + (steps.length ? ' • ' + stepLabel : '') + pausedSuffix;
-    statusEl.classList.remove('timer-goal-over');
-    return;
-  }
-
-  if (elapsedOnStep <= timerGoalSeconds) {
-    const remaining = timerGoalSeconds - elapsedOnStep;
-    statusEl.textContent = stepLabel + ' • Goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + pausedSuffix;
-    statusEl.classList.remove('timer-goal-over');
-    return;
-  }
-
-  const overBy = elapsedOnStep - timerGoalSeconds;
-  statusEl.textContent = stepLabel + ' • Goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + pausedSuffix;
-  statusEl.classList.add('timer-goal-over');
-}
-
-
-function syncGoalInputFromState() {
-  syncTimerControlsFromState();
-}
-
-async function saveStudyGoal() {
+async function saveCurrentStepGoal() {
   const pattern = getSelectedPattern();
   if (!pattern || !_pUid) return;
 
@@ -3381,7 +3348,7 @@ async function saveStudyGoal() {
   const step = steps[currentStepIndex];
   if (!step) return;
 
-  const goalInput = document.getElementById('timer-goal-minutes');
+  const goalInput = document.getElementById('step-goal-input');
   const rawGoal = (goalInput && goalInput.value || '').trim();
 
   let nextGoalSeconds = null;
@@ -3389,12 +3356,15 @@ async function saveStudyGoal() {
     const seconds = Number(rawGoal);
     if (!Number.isFinite(seconds) || seconds <= 0) {
       showToast('Step goal must be a positive number of seconds.', true);
+      syncStepGoalInputFromStep(step);
       return;
     }
     nextGoalSeconds = Math.round(seconds);
   }
 
-  const previousGoalSeconds = step.goalSeconds;
+  const previousGoalSeconds = normaliseGoalSeconds(step.goalSeconds);
+  if (nextGoalSeconds === previousGoalSeconds) return; // nothing changed — skip the write
+
   const nextSteps = steps.map(function(s, idx) {
     return idx === currentStepIndex ? Object.assign({}, s, { goalSeconds: nextGoalSeconds }) : s;
   });
@@ -3411,15 +3381,13 @@ async function saveStudyGoal() {
     step.goalSeconds = nextGoalSeconds;
     pattern.steps = nextSteps;
     timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
-    syncTimerControlsFromState();
-    renderGoalStatus();
     updateTimerDisplay();
 
     const summary = nextGoalSeconds === null ? 'Goal cleared' : ('Goal ' + formatTimerClock(nextGoalSeconds));
     showToast('Saved step goal for "' + getCleanStepTitle(step.stepTitle) + '": ' + summary + '.');
   } catch (err) {
     console.error(err);
-    step.goalSeconds = previousGoalSeconds;
+    syncStepGoalInputFromStep(step);
     showToast('Failed to save step goal.', true);
   }
 }

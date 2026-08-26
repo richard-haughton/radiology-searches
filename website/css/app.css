@@ -529,11 +529,6 @@ body {
 .timer-display.timer-display-over-goal { color: var(--danger); }
 .timer-goal-control { display: inline-flex; align-items: center; gap: 8px; }
 .timer-goal-label { font-size: 0.78rem; color: var(--timer-soft); font-weight: 700; }
-.timer-goal-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
 .timer-goal-input {
   width: 80px;
   border: 1px solid var(--timer-input-border);
@@ -558,12 +553,6 @@ body {
 .timer-voice-toggle input {
   accent-color: var(--timer-accent-1);
 }
-.timer-goal-status {
-  font-size: 0.82rem;
-  color: var(--timer-soft);
-  font-weight: 600;
-}
-.timer-goal-status.timer-goal-over { color: var(--danger); }
 .timer-actions { display: flex; gap: 8px; }
 .timer-bar .btn-ghost {
   background: var(--timer-ghost-bg);
@@ -631,6 +620,24 @@ body {
   flex-wrap: wrap;
 }
 .step-counter { font-size: 0.85rem; color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
+.step-goal-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.step-goal-label { font-size: 0.78rem; color: var(--ink-muted); font-weight: 700; }
+.step-goal-input {
+  width: 56px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--card);
+}
+.step-goal-input:focus { border-color: var(--accent); }
+.step-goal-unit { font-size: 0.78rem; color: var(--ink-muted); }
 .step-time-stats { font-size: 0.85rem; color: var(--ink-muted); white-space: nowrap; }
 .step-time-stats .step-time-current { color: var(--accent); font-weight: 700; }
 .step-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 0; line-height: 1.2; }
