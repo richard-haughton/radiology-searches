@@ -650,7 +650,16 @@ body {
   background: var(--card);
 }
 .step-goal-input:focus { border-color: var(--accent); }
-.step-goal-unit { font-size: 0.78rem; color: var(--ink-muted); }
+.step-goal-unit-select {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px 4px;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  background: var(--card);
+}
+.step-goal-unit-select:focus { border-color: var(--accent); }
 .step-time-stats { font-size: 0.85rem; color: var(--ink-muted); white-space: nowrap; }
 .step-time-stats .step-time-current { color: var(--accent); font-weight: 700; }
 .step-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 0; line-height: 1.2; }

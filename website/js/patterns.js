@@ -1082,16 +1082,33 @@ function renderCurrentStep(pattern) {
     const existingStepGoal = normaliseGoalSeconds(step.goalSeconds);
     goalInput.value = existingStepGoal === null ? '' : String(existingStepGoal);
 
-    const goalUnit = document.createElement('span');
-    goalUnit.className = 'step-goal-unit';
-    goalUnit.textContent = 'sec';
+    const goalUnitSelect = document.createElement('select');
+    goalUnitSelect.className = 'step-goal-unit-select';
+    goalUnitSelect.setAttribute('aria-label', 'Goal time unit');
+    goalUnitSelect.innerHTML = '<option value="sec">sec</option><option value="min">min</option>';
+    goalUnitSelect.value = 'sec';
+    goalUnitSelect.dataset.prevUnit = 'sec';
 
     goalControl.appendChild(goalLabel);
     goalControl.appendChild(goalInput);
-    goalControl.appendChild(goalUnit);
+    goalControl.appendChild(goalUnitSelect);
+
+    goalUnitSelect.addEventListener('change', () => {
+      const newUnit = goalUnitSelect.value === 'min' ? 'min' : 'sec';
+      const prevUnit = goalUnitSelect.dataset.prevUnit || 'sec';
+      const current = Number(goalInput.value);
+      if (Number.isFinite(current) && current > 0 && newUnit !== prevUnit) {
+        goalInput.value = newUnit === 'min'
+          ? String(Math.round((current / 60) * 10) / 10)
+          : String(Math.round(current * 60));
+      }
+      goalInput.step = newUnit === 'min' ? '0.1' : '1';
+      goalInput.placeholder = newUnit;
+      goalUnitSelect.dataset.prevUnit = newUnit;
+    });
 
     goalInput.addEventListener('blur', () => {
-      saveStepGoalSeconds(pattern, idx, goalInput);
+      saveStepGoalSeconds(pattern, idx, goalInput, goalUnitSelect);
     });
     goalInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
@@ -3390,25 +3407,31 @@ function formatTimerClock(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-async function saveStepGoalSeconds(pattern, stepIndex, inputEl) {
+function formatGoalSecondsForUnit(seconds, unit) {
+  if (seconds === null) return '';
+  return unit === 'min' ? String(Math.round((seconds / 60) * 10) / 10) : String(seconds);
+}
+
+async function saveStepGoalSeconds(pattern, stepIndex, inputEl, unitSelectEl) {
   if (!pattern || !_pUid || !inputEl) return;
 
   const steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   const step = steps[stepIndex];
   if (!step) return;
 
+  const unit = unitSelectEl && unitSelectEl.value === 'min' ? 'min' : 'sec';
   const rawGoal = String(inputEl.value || '').trim();
   const previousGoalSeconds = normaliseGoalSeconds(step.goalSeconds);
 
   let nextGoalSeconds = null;
   if (rawGoal !== '') {
-    const seconds = Number(rawGoal);
-    if (!Number.isFinite(seconds) || seconds <= 0) {
-      showToast('Step goal must be a positive number of seconds.', true);
-      inputEl.value = previousGoalSeconds === null ? '' : String(previousGoalSeconds);
+    const rawNumber = Number(rawGoal);
+    if (!Number.isFinite(rawNumber) || rawNumber <= 0) {
+      showToast('Step goal must be a positive number.', true);
+      inputEl.value = formatGoalSecondsForUnit(previousGoalSeconds, unit);
       return;
     }
-    nextGoalSeconds = Math.round(seconds);
+    nextGoalSeconds = Math.round(unit === 'min' ? rawNumber * 60 : rawNumber);
   }
 
   if (nextGoalSeconds === previousGoalSeconds) return; // nothing changed — skip the write
@@ -3437,7 +3460,7 @@ async function saveStepGoalSeconds(pattern, stepIndex, inputEl) {
     showToast('Saved step goal for "' + getCleanStepTitle(step.stepTitle) + '": ' + summary + '.');
   } catch (err) {
     console.error(err);
-    inputEl.value = previousGoalSeconds === null ? '' : String(previousGoalSeconds);
+    inputEl.value = formatGoalSecondsForUnit(previousGoalSeconds, unit);
     showToast('Failed to save step goal.', true);
   }
 }
