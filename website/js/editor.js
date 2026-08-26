@@ -2695,6 +2695,7 @@ async function prepareStepsForStorage(steps) {
       return chunk && chunk.type !== 'image' && chunk.type !== 'subsection';
     });
 
+    const rawStepGoal = Number(step && step.goalSeconds);
     out.push({
       stepTitle: (step && step.stepTitle) || '',
       isRedStep: Boolean(step && step.isRedStep),
@@ -2703,7 +2704,8 @@ async function prepareStepsForStorage(steps) {
       linkMeta: null,
       sectionLinks: {},
       sections: compressedSections,
-      richContent: legacySearchPattern
+      richContent: legacySearchPattern,
+      goalSeconds: Number.isFinite(rawStepGoal) && rawStepGoal > 0 ? Math.round(rawStepGoal) : null
     });
   }
 

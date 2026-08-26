@@ -16,6 +16,11 @@ var _timerMode = 'timed';
 var _voiceModeEnabled = false;
 var _timerActiveStepKey = '';
 var _timerStepEnteredAtSeconds = 0;
+var _timerActivePatternId = '';
+var _timerActiveStepIndex = -1;
+var _autoAdvancePaused = false;
+var _stepTimingsCache = {}; // stepId -> {count, totalSeconds}
+var _stepTimingsPatternId = null; // which pattern _stepTimingsCache currently reflects
 var activeModality = 'All';
 var pendingRecordPatternName = '';
 var pendingRecordSeconds = 0;
@@ -51,10 +56,6 @@ var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
 var TIMER_GOAL_MODE_STATE_KEY = 'patternTimerGoalMode';
 var TIMER_VOICE_MODE_STATE_KEY = 'patternTimerVoiceMode';
-var VOICE_NAV_SPEED_STATE_KEY = 'patternVoiceNavSpeed';
-var VOICE_NAV_SPEED_MIN = 0.5;
-var VOICE_NAV_SPEED_MAX = 2;
-var VOICE_NAV_SPEED_DEFAULT = 1;
 var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
   searchPattern: true,
@@ -144,7 +145,7 @@ function bindInlineRichFontSizeControls(toolbar, editor) {
 
 function normaliseTimerMode(value) {
   var mode = String(value || '').trim().toLowerCase();
-  if (mode === 'walkthrough' || mode === 'voice') return mode;
+  if (mode === 'walkthrough') return mode;
   return 'timed';
 }
 
@@ -153,12 +154,15 @@ function loadTimerPreferences() {
   _voiceModeEnabled = localStorage.getItem(TIMER_VOICE_MODE_STATE_KEY) === '1';
 }
 
-function getGoalSecondsForMode(pattern, mode) {
-  var safePattern = pattern || null;
+// Each step carries its own goal time now (replacing the old whole-pattern goal divided evenly
+// across steps), so this depends on which step is currently active, not just the pattern.
+function getCurrentStepGoalSeconds(pattern, mode) {
   var safeMode = normaliseTimerMode(mode);
-  if (!safePattern) return null;
-  if (safeMode !== 'timed' && safeMode !== 'voice') return null;
-  return normaliseGoalSeconds(safePattern.goalSeconds);
+  if (!pattern || safeMode !== 'timed') return null;
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  var step = steps[currentStepIndex];
+  if (!step) return null;
+  return normaliseGoalSeconds(step.goalSeconds);
 }
 
 function syncTimerControlsFromState() {
@@ -167,24 +171,22 @@ function syncTimerControlsFromState() {
   var modeSelect = document.getElementById('timer-mode-select');
   var timedControls = document.getElementById('timer-timed-controls');
   var voiceToggle = document.getElementById('timer-voice-mode');
-  var voiceToggleLabel = voiceToggle ? voiceToggle.closest('.timer-voice-toggle') : null;
 
-  var goal = pattern ? normaliseGoalSeconds(pattern.goalSeconds) : null;
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  var currentStep = steps[currentStepIndex];
+  var goal = currentStep ? normaliseGoalSeconds(currentStep.goalSeconds) : null;
 
   if (goalInput) {
-    goalInput.value = goal === null ? '' : String(Math.max(1, Math.round(goal / 60)));
+    goalInput.value = goal === null ? '' : String(goal);
   }
   if (modeSelect) {
     modeSelect.value = _timerMode;
   }
   if (timedControls) {
-    timedControls.style.display = (_timerMode === 'timed' || _timerMode === 'voice') ? '' : 'none';
+    timedControls.style.display = _timerMode === 'timed' ? '' : 'none';
   }
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
-  }
-  if (voiceToggleLabel) {
-    voiceToggleLabel.style.display = _timerMode === 'voice' ? 'none' : '';
   }
 }
 
@@ -195,20 +197,74 @@ function getActiveStepAnnouncement(step, stepIndex) {
   return title ? title : ('Step ' + String(safeIndex + 1));
 }
 
-function speakActiveStep(step, stepIndex) {
-  if (!_voiceModeEnabled) return;
-  if (_timerMode === 'voice') return;
+// ── AI-augmented step voice announcements ───────────────────
+var _stepAnnouncementSpeechToken = 0;
+var _stepAnnouncementAudio = null;
+var STEP_ANNOUNCEMENT_TTS_INSTRUCTIONS = 'Speak clearly and naturally, like a calm colleague stating a checklist item during a live read. Brief, natural pacing, not robotic.';
+
+function stopStepAnnouncementAudio() {
+  _stepAnnouncementSpeechToken += 1; // invalidate any announcement request currently in flight
+  if (_stepAnnouncementAudio) {
+    try { _stepAnnouncementAudio.pause(); } catch (err) { /* already stopped */ }
+    _stepAnnouncementAudio.onplay = null;
+    _stepAnnouncementAudio.onended = null;
+    _stepAnnouncementAudio.onerror = null;
+    _stepAnnouncementAudio.src = '';
+    _stepAnnouncementAudio = null;
+  }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+function speakActiveStepWithBrowserTts(text, token) {
   if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
-
-  var text = getActiveStepAnnouncement(step, stepIndex);
-  if (!text) return;
-
+  if (token !== undefined && token !== _stepAnnouncementSpeechToken) return;
   window.speechSynthesis.cancel();
   var utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 1;
   utterance.pitch = 1;
   utterance.volume = 1;
   window.speechSynthesis.speak(utterance);
+}
+
+// Reads the step name aloud using AI-quality TTS when the "Voice" toggle is on, falling back to
+// the browser's built-in voice if AI synthesis is unavailable or fails. Guards against overlapping
+// announcements (e.g. quickly stepping through several steps) with a generation token, same
+// technique as the old voice navigator used for its speech.
+async function speakActiveStep(step, stepIndex) {
+  if (!_voiceModeEnabled) return;
+
+  var text = getActiveStepAnnouncement(step, stepIndex);
+  if (!text) return;
+
+  stopStepAnnouncementAudio();
+  var myToken = _stepAnnouncementSpeechToken;
+
+  if (typeof synthesizeAiVoiceSpeech !== 'function') {
+    speakActiveStepWithBrowserTts(text, myToken);
+    return;
+  }
+
+  try {
+    var dataUrl = await synthesizeAiVoiceSpeech(text, { instructions: STEP_ANNOUNCEMENT_TTS_INSTRUCTIONS });
+    if (myToken !== _stepAnnouncementSpeechToken) return;
+
+    var audio = new Audio(dataUrl);
+    _stepAnnouncementAudio = audio;
+    audio.onended = function() {
+      if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
+    };
+    audio.onerror = function() {
+      if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
+      if (myToken === _stepAnnouncementSpeechToken) speakActiveStepWithBrowserTts(text, myToken);
+    };
+    await audio.play();
+    if (myToken !== _stepAnnouncementSpeechToken) {
+      try { audio.pause(); } catch (err) { /* already stopped */ }
+    }
+  } catch (err) {
+    console.error('AI step announcement playback failed, falling back to browser voice:', err);
+    if (myToken === _stepAnnouncementSpeechToken) speakActiveStepWithBrowserTts(text, myToken);
+  }
 }
 
 function handleActiveStepChanged(pattern, stepIndex, step, options) {
@@ -219,9 +275,15 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
   var key = safePatternId && safeStep ? (safePatternId + '::' + String(safeIndex)) : '';
   var changed = key && key !== _timerActiveStepKey;
 
+  if (changed && timerRunning) {
+    recordActiveStepTiming();
+  }
+
   if (!key) {
     _timerActiveStepKey = '';
     _timerStepEnteredAtSeconds = timerSeconds;
+    _timerActivePatternId = '';
+    _timerActiveStepIndex = -1;
     return;
   }
 
@@ -229,701 +291,97 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
 
   _timerActiveStepKey = key;
   _timerStepEnteredAtSeconds = timerSeconds;
+  _timerActivePatternId = safePatternId;
+  _timerActiveStepIndex = safeIndex;
+
+  if (_timerMode === 'timed') {
+    timerGoalSeconds = getCurrentStepGoalSeconds(safePattern, _timerMode);
+    syncTimerControlsFromState();
+  }
 
   if (!(options && options.silentVoice)) {
     speakActiveStep(safeStep, safeIndex);
   }
 
-  // If the radiologist manually scrolled/clicked/keyboarded to a different step while the AI
-  // Voice navigator is active, have it catch up and announce the new step. Skip when the step
-  // change was actually driven by the navigator's own action (applyVoiceNavAction already
-  // speaks a reply for that) or when a pattern switch is still mid-flight (the fresh greeting
-  // triggered from syncVoiceNavigatorPanelVisibility handles that case instead).
-  if (
-    _timerMode === 'voice' &&
-    !(options && options.silentVoice) &&
-    !_voiceNav.suppressStepFollow &&
-    safePattern &&
-    _voiceNav.patternId === safePattern.id
-  ) {
-    announceVoiceNavStepFollow(safeIndex, safeStep);
-  }
+  renderStepTimeStats(safeStep);
 }
 
-// ── AI Voice Navigator ──────────────────────────────────────
-var VOICE_NAV_HISTORY_LIMIT = 8;
-// Bumped by stopVoiceNavAudio() and every speakVoiceNavReply() call, and captured as that call's
-// "token". Both the AI-audio and browser-TTS paths involve an async gap (network fetch, or just
-// event dispatch) before playback actually starts, so two calls fired close together (rapid
-// "next"s, or a manual step click landing while a voice reply is still being synthesized) could
-// otherwise resolve out of order and both end up producing sound. Checking "is my token still
-// current" right before each actual playback start guarantees only the most recently requested
-// utterance ever plays.
-var _voiceNavSpeechToken = 0;
-var _voiceNav = {
-  history: [],
-  recognition: null,
-  recognitionSupported: null,
-  listening: false,
-  alwaysOn: false,
-  restartTimer: null,
-  busy: false,
-  patternId: null,
-  bound: false,
-  audio: null,
-  speed: VOICE_NAV_SPEED_DEFAULT,
-  keepAliveAudio: null,
-  suppressStepFollow: false,
-  autoAdvancePaused: false
-};
+// ── Per-step timing (live + historical average) ─────────────
+function recordActiveStepTiming() {
+  if (!_timerActivePatternId || _timerActiveStepIndex < 0) return;
+  var elapsed = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  if (elapsed < 1) return; // ignore near-instant passes (e.g. quickly skimming through steps)
 
-// Fast, local (no LLM round trip) commands for pausing/resuming the timed auto-advance pace,
-// since these are safety-relevant ("let me look at this longer") and should respond instantly
-// rather than waiting on a network turn. Deliberately excludes a bare "stop", which is ambiguous
-// with the separate stopTimer/startTimer (whole-study recording) voice actions.
-var VOICE_NAV_PAUSE_PATTERNS = [
-  /\bpause\b/i,
-  /\bhold on\b/i,
-  /\bhang on\b/i,
-  /\bslow down\b/i,
-  /\bstay (on|here)\b/i,
-  /\bgive me a (second|minute|moment)\b/i
-];
-var VOICE_NAV_RESUME_PATTERNS = [
-  /\bresume\b/i,
-  /\bcontinue\b/i,
-  /\bkeep going\b/i,
-  /\bun-?pause\b/i,
-  /\bi'?m ready\b/i,
-  /\bready to (continue|move on|keep going)\b/i
-];
-
-function matchesAnyVoiceNavPattern(patterns, text) {
-  return patterns.some(function(re) { return re.test(text); });
-}
-
-function pauseVoiceNavAutoAdvance(userText) {
-  if (userText) appendVoiceNavTurn('user', userText);
-  _voiceNav.autoAdvancePaused = true;
-  renderGoalStatus();
-  var msg = 'Paused — take your time.';
-  appendVoiceNavTurn('assistant', msg);
-  speakVoiceNavReply(msg);
-}
-
-function resumeVoiceNavAutoAdvance(userText) {
-  if (userText) appendVoiceNavTurn('user', userText);
-  _voiceNav.autoAdvancePaused = false;
-  _timerStepEnteredAtSeconds = timerSeconds; // fresh full per-step allocation from right now
-  renderGoalStatus();
-  var msg = 'Resuming.';
-  appendVoiceNavTurn('assistant', msg);
-  speakVoiceNavReply(msg);
-}
-
-function buildVoiceNavStepAnnouncement(stepIndex, step) {
-  var title = step ? getCleanStepTitle(step.stepTitle) : '';
-  return title
-    ? ('Step ' + (stepIndex + 1) + ': ' + title + '.')
-    : ('Step ' + (stepIndex + 1) + '.');
-}
-
-function announceVoiceNavStepFollow(stepIndex, step) {
-  var announcement = buildVoiceNavStepAnnouncement(stepIndex, step);
-  appendVoiceNavTurn('assistant', announcement);
-  speakVoiceNavReply(announcement);
-}
-
-function normaliseVoiceNavSpeed(value) {
-  if (value === null || value === undefined || value === '') return VOICE_NAV_SPEED_DEFAULT;
-  var n = Number(value);
-  if (!Number.isFinite(n)) return VOICE_NAV_SPEED_DEFAULT;
-  return Math.max(VOICE_NAV_SPEED_MIN, Math.min(VOICE_NAV_SPEED_MAX, n));
-}
-
-function loadVoiceNavSpeedPreference() {
-  _voiceNav.speed = normaliseVoiceNavSpeed(localStorage.getItem(VOICE_NAV_SPEED_STATE_KEY));
-}
-
-function isVoiceNavSpeechRecognitionSupported() {
-  if (_voiceNav.recognitionSupported !== null) return _voiceNav.recognitionSupported;
-  var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  _voiceNav.recognitionSupported = typeof Ctor === 'function';
-  return _voiceNav.recognitionSupported;
-}
-
-function getVoiceNavStepData(step) {
-  var sections = normaliseStepSectionsSafe(step && step.sections, (step && step.richContent) || []);
-  var searchPatternChunks = normaliseRichContent(sections.searchPattern || []);
-  var findingsChunks = normaliseRichContent(sections.dontMissPathology || []);
-  var toText = function(chunks) {
-    return typeof richContentToPlainText === 'function'
-      ? richContentToPlainText(chunks)
-      : chunks.map(function(chunk) { return chunk && chunk.type === 'text' ? String(chunk.text || '') : ''; }).join(' ');
-  };
-  return {
-    title: getCleanStepTitle(step && step.stepTitle) || '',
-    searchPatternText: toText(searchPatternChunks),
-    findingsText: toText(findingsChunks)
-  };
-}
-
-function buildVoiceNavSteps(pattern) {
+  var pattern = allPatterns.find(function(p) { return p.id === _timerActivePatternId; });
   var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  return steps.map(getVoiceNavStepData);
-}
+  var step = steps[_timerActiveStepIndex];
+  if (!step || !step.stepId) return;
 
-function setVoiceNavStatus(state, text) {
-  var dot = document.getElementById('voice-navigator-status-dot');
-  var label = document.getElementById('voice-navigator-status-text');
-  if (dot) {
-    dot.classList.remove('is-listening', 'is-thinking', 'is-speaking');
-    if (state === 'listening' || state === 'thinking' || state === 'speaking') {
-      dot.classList.add('is-' + state);
-    }
-  }
-  if (label) label.textContent = text;
-}
-
-function scrollVoiceNavTranscriptToBottom() {
-  var transcript = document.getElementById('voice-navigator-transcript');
-  if (transcript) transcript.scrollTop = transcript.scrollHeight;
-}
-
-function appendVoiceNavTurn(role, text) {
-  var safeText = String(text || '').trim();
-  if (!safeText) return;
-
-  _voiceNav.history.push({ role: role, text: safeText });
-  if (_voiceNav.history.length > VOICE_NAV_HISTORY_LIMIT) {
-    _voiceNav.history = _voiceNav.history.slice(-VOICE_NAV_HISTORY_LIMIT);
-  }
-
-  var transcript = document.getElementById('voice-navigator-transcript');
-  if (!transcript) return;
-  var bubble = document.createElement('div');
-  bubble.className = 'voice-navigator-turn role-' + (role === 'user' ? 'user' : 'assistant');
-  bubble.textContent = safeText;
-  transcript.appendChild(bubble);
-  scrollVoiceNavTranscriptToBottom();
-}
-
-function createSilentWavDataUrl(durationSeconds) {
-  var sampleRate = 8000;
-  var numSamples = Math.max(1, Math.floor(sampleRate * durationSeconds));
-  var blockAlign = 2; // 16-bit mono
-  var dataSize = numSamples * blockAlign;
-  var buffer = new ArrayBuffer(44 + dataSize);
-  var view = new DataView(buffer);
-
-  function writeString(offset, str) {
-    for (var i = 0; i < str.length; i += 1) view.setUint8(offset + i, str.charCodeAt(i));
-  }
-
-  writeString(0, 'RIFF');
-  view.setUint32(4, 36 + dataSize, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, 16, true);
-  writeString(36, 'data');
-  view.setUint32(40, dataSize, true);
-  // Sample bytes are already zero-initialized (silence).
-
-  var bytes = new Uint8Array(buffer);
-  var binary = '';
-  for (var j = 0; j < bytes.length; j += 1) binary += String.fromCharCode(bytes[j]);
-  return 'data:audio/wav;base64,' + btoa(binary);
-}
-
-function setupVoiceNavMediaSession() {
-  if (!('mediaSession' in navigator)) return;
-  try {
-    // A single tap of an AirPods stem (or any Bluetooth headset's play/pause button) sends
-    // a play or pause media-key command to the OS, which routes here as one of these two
-    // handlers depending on the playbackState we last reported — so both just toggle the mic.
-    navigator.mediaSession.setActionHandler('play', function() { toggleVoiceNavListening(); });
-    navigator.mediaSession.setActionHandler('pause', function() { toggleVoiceNavListening(); });
-  } catch (err) {
-    // Some browsers throw for action types they don't support; hardware toggle just won't work there.
-  }
-}
-
-function startVoiceNavMediaSessionKeepAlive() {
-  if (!('mediaSession' in navigator)) return;
-
-  if (!_voiceNav.keepAliveAudio) {
-    _voiceNav.keepAliveAudio = new Audio(createSilentWavDataUrl(1));
-    _voiceNav.keepAliveAudio.loop = true;
-  }
-  var playPromise = _voiceNav.keepAliveAudio.play();
-  if (playPromise && typeof playPromise.catch === 'function') {
-    playPromise.catch(function() {
-      // Needs a direct user gesture first (e.g. the mic button click that got us here);
-      // it'll succeed on the next call once that gesture has happened.
+  if (typeof recordStepTiming === 'function' && _pUid) {
+    recordStepTiming(_pUid, _timerActivePatternId, step.stepId, elapsed).catch(function(err) {
+      console.error('Failed to record step timing:', err);
     });
   }
-
-  try {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: 'AI Voice Navigator — listening',
-      artist: 'Searches'
-    });
-  } catch (err) { /* MediaMetadata unavailable in this browser */ }
-  navigator.mediaSession.playbackState = 'playing';
+  addLocalStepTimingSample(step.stepId, elapsed);
 }
 
-function stopVoiceNavMediaSessionKeepAlive() {
-  if (_voiceNav.keepAliveAudio) {
-    try { _voiceNav.keepAliveAudio.pause(); } catch (err) { /* already stopped */ }
-  }
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.playbackState = 'paused';
-  }
+function addLocalStepTimingSample(stepId, seconds) {
+  if (!stepId) return;
+  var entry = _stepTimingsCache[stepId] || { count: 0, totalSeconds: 0 };
+  entry.count += 1;
+  entry.totalSeconds += Math.round(seconds);
+  _stepTimingsCache[stepId] = entry;
 }
 
-function updateMicButtonUi() {
-  var micBtn = document.getElementById('btn-voice-nav-mic');
-  if (!micBtn) return;
-  micBtn.classList.toggle('is-listening', !!_voiceNav.alwaysOn);
-  micBtn.setAttribute('aria-pressed', _voiceNav.alwaysOn ? 'true' : 'false');
-  if (!micBtn.disabled) {
-    micBtn.title = (_voiceNav.alwaysOn ? 'Mute microphone' : 'Enable hands-free listening') + ' (Space)';
-  }
-}
-
-function isVoiceNavSpeaking() {
-  if (_voiceNav.audio && !_voiceNav.audio.paused) return true;
-  if (window.speechSynthesis && window.speechSynthesis.speaking) return true;
-  return false;
-}
-
-function setVoiceNavIdleOrListeningStatus() {
-  if (_voiceNav.alwaysOn) {
-    setVoiceNavStatus('listening', 'Listening… just start talking');
-  } else {
-    setVoiceNavStatus('idle', 'Tap the mic to start');
-  }
-}
-
-function stopVoiceNavListening() {
-  if (_voiceNav.recognition && _voiceNav.listening) {
-    try { _voiceNav.recognition.stop(); } catch (err) { /* already stopped */ }
-  }
-  _voiceNav.listening = false;
-}
-
-function scheduleVoiceNavRecognitionRestart() {
-  if (_voiceNav.restartTimer) return;
-  _voiceNav.restartTimer = setTimeout(function() {
-    _voiceNav.restartTimer = null;
-    startVoiceNavRecognitionLoop();
-  }, 300);
-}
-
-function startVoiceNavRecognitionLoop() {
-  if (!_voiceNav.alwaysOn) return;
-  if (_voiceNav.listening) return;
-  // Never open the mic while the navigator itself is talking — otherwise it hears its own
-  // TTS output through speaker bleed and misreads it as the radiologist speaking.
-  if (isVoiceNavSpeaking()) return;
-
-  var recognition = ensureVoiceNavRecognition();
-  if (!recognition) return;
-
-  try {
-    recognition.start();
-    _voiceNav.listening = true;
-    updateMicButtonUi();
-    setVoiceNavIdleOrListeningStatus();
-    startVoiceNavMediaSessionKeepAlive();
-  } catch (err) {
-    _voiceNav.listening = false;
-    if (err && err.name === 'NotAllowedError') {
-      _voiceNav.alwaysOn = false;
-      updateMicButtonUi();
-      setVoiceNavStatus('idle', 'Microphone access denied — tap the mic to try again');
-      return;
-    }
-    // A thrown start() (e.g. InvalidStateError from restarting too soon after the previous
-    // session ended) never fires onend/onerror, so nothing else will retry this — without an
-    // explicit reschedule here the hands-free loop dies silently and stops responding to speech.
-    scheduleVoiceNavRecognitionRestart();
-  }
-}
-
-function stopVoiceNavRecognitionLoop() {
-  _voiceNav.alwaysOn = false;
-  if (_voiceNav.restartTimer) {
-    clearTimeout(_voiceNav.restartTimer);
-    _voiceNav.restartTimer = null;
-  }
-  stopVoiceNavListening();
-  updateMicButtonUi();
-  stopVoiceNavMediaSessionKeepAlive();
-}
-
-function stopVoiceNavAudio() {
-  _voiceNavSpeechToken += 1; // invalidate any speech request currently in flight
-  if (_voiceNav.audio) {
-    try { _voiceNav.audio.pause(); } catch (err) { /* already stopped */ }
-    _voiceNav.audio.onplay = null;
-    _voiceNav.audio.onended = null;
-    _voiceNav.audio.onerror = null;
-    _voiceNav.audio.src = '';
-    _voiceNav.audio = null;
-  }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-}
-
-function resetVoiceNavConversation() {
-  _voiceNav.history = [];
-  _voiceNav.autoAdvancePaused = false;
-  var transcript = document.getElementById('voice-navigator-transcript');
-  if (transcript) transcript.innerHTML = '';
-  stopVoiceNavRecognitionLoop();
-  stopVoiceNavAudio();
-  setVoiceNavStatus('idle', 'Tap the mic to start');
-}
-
-function speakVoiceNavReplyWithBrowserTts(text, token) {
-  var safeText = String(text || '').trim();
-  var myToken = token === undefined ? (_voiceNavSpeechToken += 1) : token;
-  if (!safeText) return;
-  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') {
-    if (myToken === _voiceNavSpeechToken) setVoiceNavIdleOrListeningStatus();
+function loadStepTimingsForPattern(pattern) {
+  if (!pattern || !_pUid) return;
+  if (_stepTimingsPatternId === pattern.id) {
+    renderStepTimeStatsForCurrentStep();
     return;
   }
 
-  window.speechSynthesis.cancel();
-  stopVoiceNavListening();
-  var utterance = new SpeechSynthesisUtterance(safeText);
-  utterance.rate = _voiceNav.speed;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-  utterance.onstart = function() {
-    if (myToken === _voiceNavSpeechToken) {
-      stopVoiceNavListening(); // guards races where listening started after speak() was requested but before it actually began
-      setVoiceNavStatus('speaking', 'Speaking…');
-    }
-  };
-  utterance.onend = function() {
-    if (myToken === _voiceNavSpeechToken) {
-      setVoiceNavIdleOrListeningStatus();
-      if (_voiceNav.alwaysOn) startVoiceNavRecognitionLoop();
-    }
-  };
-  utterance.onerror = function() {
-    if (myToken === _voiceNavSpeechToken) {
-      setVoiceNavIdleOrListeningStatus();
-      if (_voiceNav.alwaysOn) startVoiceNavRecognitionLoop();
-    }
-  };
-  window.speechSynthesis.speak(utterance);
+  _stepTimingsPatternId = pattern.id;
+  _stepTimingsCache = {};
+  if (typeof fetchStepTimings !== 'function') return;
+
+  fetchStepTimings(_pUid, pattern.id).then(function(result) {
+    if (_stepTimingsPatternId !== pattern.id) return; // pattern changed again before this resolved
+    _stepTimingsCache = result || {};
+    renderStepTimeStatsForCurrentStep();
+  }).catch(function(err) {
+    console.error('Failed to load step timing history:', err);
+  });
 }
 
-var VOICE_NAV_TTS_INSTRUCTIONS = 'Speak warmly and conversationally, like a calm, focused colleague talking a radiologist through a checklist during a live read. Natural pacing and inflection, not robotic or overly formal.';
+function renderStepTimeStats(step) {
+  var el = document.getElementById('step-time-stats');
+  if (!el) return;
 
-async function speakVoiceNavReply(text) {
-  var safeText = String(text || '').trim();
-  if (!safeText) return;
+  var entry = step && step.stepId ? _stepTimingsCache[step.stepId] : null;
+  var avgText = entry && entry.count > 0 ? ('Avg ' + formatTimerClock(Math.round(entry.totalSeconds / entry.count))) : '';
 
-  stopVoiceNavAudio(); // bumps the token, invalidating anything previously in flight
-  var myToken = _voiceNavSpeechToken; // this call now owns the current (latest) token
-
-  if (typeof synthesizeVoiceNavigatorSpeech !== 'function') {
-    speakVoiceNavReplyWithBrowserTts(safeText, myToken);
+  if (!timerRunning) {
+    el.textContent = avgText;
     return;
   }
 
-  try {
-    var dataUrl = await synthesizeVoiceNavigatorSpeech(safeText, { instructions: VOICE_NAV_TTS_INSTRUCTIONS });
-    if (myToken !== _voiceNavSpeechToken) return; // superseded by a newer request while we waited on the network
-
-    var audio = new Audio(dataUrl);
-    audio.playbackRate = _voiceNav.speed;
-    _voiceNav.audio = audio;
-    stopVoiceNavListening();
-    audio.onplay = function() {
-      if (myToken === _voiceNavSpeechToken) {
-        stopVoiceNavListening(); // guards races where listening started after speak() was requested but before playback actually began
-        setVoiceNavStatus('speaking', 'Speaking…');
-      }
-    };
-    audio.onended = function() {
-      if (_voiceNav.audio === audio) _voiceNav.audio = null;
-      if (myToken === _voiceNavSpeechToken) {
-        setVoiceNavIdleOrListeningStatus();
-        if (_voiceNav.alwaysOn) startVoiceNavRecognitionLoop();
-      }
-    };
-    audio.onerror = function() {
-      if (_voiceNav.audio === audio) _voiceNav.audio = null;
-      if (myToken === _voiceNavSpeechToken) speakVoiceNavReplyWithBrowserTts(safeText, myToken);
-    };
-    await audio.play();
-    if (myToken !== _voiceNavSpeechToken) {
-      // Got superseded the instant playback began (e.g. a very rapid double "next") — stop now.
-      try { audio.pause(); } catch (err) { /* already stopped */ }
-    }
-  } catch (err) {
-    console.error('AI voice playback failed, falling back to browser voice:', err);
-    if (myToken === _voiceNavSpeechToken) speakVoiceNavReplyWithBrowserTts(safeText, myToken);
-  }
+  var elapsed = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  el.innerHTML = '<span class="step-time-current">' + formatTimerClock(elapsed) + '</span>' + (avgText ? ' · ' + avgText : '');
 }
 
-function applyVoiceNavAction(result) {
-  if (!result) return;
+function renderStepTimeStatsForCurrentStep() {
   var pattern = getSelectedPattern();
-  if (!pattern) return;
-
-  if (result.action === 'startTimer') {
-    if (!timerRunning) handleStartTimer();
-    return;
-  }
-  if (result.action === 'stopTimer') {
-    if (timerRunning) stopTimer();
-    return;
-  }
-
-  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
-  if (!steps.length) return;
-
-  if (result.action === 'next' || result.action === 'previous' || result.action === 'goto') {
-    // The LLM's reply already narrates the destination step — suppress the manual-follow
-    // announcement so this navigation doesn't get spoken twice.
-    _voiceNav.suppressStepFollow = true;
-    if (result.action === 'next') {
-      navigateStep(1);
-    } else if (result.action === 'previous') {
-      navigateStep(-1);
-    } else if (Number.isInteger(result.targetStepIndex)) {
-      navigateStep(result.targetStepIndex - currentStepIndex);
-    }
-    _voiceNav.suppressStepFollow = false;
-  }
-
-  if (result.showFindings) {
-    applyPatternFindingsPanelState(false, true);
-    var findingsIndex = Number.isInteger(result.findingsStepIndex) ? result.findingsStepIndex : currentStepIndex;
-    if (findingsIndex !== currentStepIndex && typeof renderCurrentStepFindings === 'function') {
-      var targetStep = steps[findingsIndex];
-      if (targetStep) renderCurrentStepFindings(pattern, targetStep, findingsIndex, steps.length);
-    }
-  }
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  renderStepTimeStats(steps[currentStepIndex] || null);
 }
 
-async function handleVoiceNavUserMessage(text) {
-  var safeText = String(text || '').trim();
-  var pattern = getSelectedPattern();
-  if (!pattern) {
-    showToast('Select a pattern first.', true);
-    return;
+function toggleAutoAdvancePause() {
+  _autoAdvancePaused = !_autoAdvancePaused;
+  if (!_autoAdvancePaused) {
+    _timerStepEnteredAtSeconds = timerSeconds; // fresh full window for the current step on resume
   }
-
-  // Fast local path — no LLM round trip, so pause/resume respond instantly regardless of
-  // whether a previous request is still in flight.
-  if (safeText && !_voiceNav.autoAdvancePaused && matchesAnyVoiceNavPattern(VOICE_NAV_PAUSE_PATTERNS, safeText)) {
-    pauseVoiceNavAutoAdvance(safeText);
-    return;
-  }
-  if (safeText && _voiceNav.autoAdvancePaused && matchesAnyVoiceNavPattern(VOICE_NAV_RESUME_PATTERNS, safeText)) {
-    resumeVoiceNavAutoAdvance(safeText);
-    return;
-  }
-
-  if (_voiceNav.busy) return;
-
-  var provider = typeof getSelectedAiProvider === 'function' ? getSelectedAiProvider() : 'openai';
-  var model = typeof getSelectedAiModel === 'function' ? getSelectedAiModel() : '';
-  if (typeof isAiProviderConfigured === 'function' && !isAiProviderConfigured(provider)) {
-    showToast('Add an AI provider key in Settings to use AI Voice navigation.', true);
-    return;
-  }
-
-  var historyBeforeThisTurn = _voiceNav.history.slice();
-  if (safeText) appendVoiceNavTurn('user', safeText);
-
-  _voiceNav.busy = true;
-  setVoiceNavStatus('thinking', 'Thinking…');
-
-  try {
-    var result = await sendVoiceNavigatorTurn({
-      provider: provider,
-      model: model,
-      patternName: pattern.name || 'this pattern',
-      steps: buildVoiceNavSteps(pattern),
-      currentStepIndex: currentStepIndex,
-      history: historyBeforeThisTurn,
-      userMessage: safeText,
-      timerRunning: timerRunning
-    });
-
-    appendVoiceNavTurn('assistant', result.reply);
-    applyVoiceNavAction(result);
-    speakVoiceNavReply(result.reply);
-  } catch (err) {
-    console.error(err);
-    var errorMessage = 'Sorry, I ran into a problem: ' + ((err && err.message) || 'please try again.');
-    appendVoiceNavTurn('assistant', errorMessage);
-    setVoiceNavIdleOrListeningStatus();
-    showToast((err && err.message) || 'Voice navigator request failed.', true);
-  } finally {
-    _voiceNav.busy = false;
-  }
-}
-
-function ensureVoiceNavRecognition() {
-  if (_voiceNav.recognition) return _voiceNav.recognition;
-  var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (typeof Ctor !== 'function') return null;
-
-  var recognition = new Ctor();
-  recognition.lang = 'en-US';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-
-  recognition.onresult = function(event) {
-    var transcript = '';
-    for (var i = 0; i < event.results.length; i += 1) {
-      transcript += event.results[i][0].transcript;
-    }
-    transcript = transcript.trim();
-    if (!transcript) return;
-
-    if (isVoiceNavSpeaking()) {
-      // The radiologist started talking over the navigator — treat it as an interruption.
-      stopVoiceNavAudio();
-    }
-    handleVoiceNavUserMessage(transcript);
-  };
-  recognition.onerror = function(event) {
-    if (event && event.error && event.error !== 'no-speech' && event.error !== 'aborted') {
-      showToast('Voice input error: ' + event.error, true);
-    }
-  };
-  recognition.onend = function() {
-    _voiceNav.listening = false;
-    if (_voiceNav.alwaysOn) {
-      // If we're stopped because the navigator started speaking, don't auto-restart here —
-      // the speech-playback code explicitly re-opens the mic once it's done talking.
-      if (!isVoiceNavSpeaking()) scheduleVoiceNavRecognitionRestart();
-    } else {
-      updateMicButtonUi();
-      setVoiceNavStatus('idle', 'Tap the mic to start');
-    }
-  };
-
-  _voiceNav.recognition = recognition;
-  return recognition;
-}
-
-function toggleVoiceNavListening() {
-  if (_voiceNav.alwaysOn) {
-    stopVoiceNavRecognitionLoop();
-    setVoiceNavStatus('idle', 'Muted — tap the mic to resume listening');
-    return;
-  }
-
-  if (!isVoiceNavSpeechRecognitionSupported()) {
-    showToast('Speech recognition is not supported in this browser. Type your message instead.', true);
-    return;
-  }
-
-  stopVoiceNavAudio();
-  _voiceNav.alwaysOn = true;
-  startVoiceNavRecognitionLoop();
-}
-
-function greetVoiceNavPattern(pattern) {
-  if (!pattern || _timerMode !== 'voice') return;
-  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
-  var firstStep = steps[currentStepIndex] || steps[0] || null;
-  var greeting = buildVoiceNavStepAnnouncement(currentStepIndex, firstStep);
-  appendVoiceNavTurn('assistant', greeting);
-  speakVoiceNavReply(greeting);
-  _voiceNav.patternId = pattern.id;
-
-  _voiceNav.alwaysOn = true;
-  startVoiceNavRecognitionLoop();
-}
-
-function leaveVoiceNavigatorMode() {
-  stopVoiceNavRecognitionLoop();
-  stopVoiceNavAudio();
-  setVoiceNavStatus('idle', 'Tap the mic to start');
-}
-
-function syncVoiceNavigatorPanelVisibility() {
-  var panel = document.getElementById('voice-navigator-panel');
-  var isVoiceMode = _timerMode === 'voice';
-  if (panel) panel.style.display = isVoiceMode ? '' : 'none';
-  if (!isVoiceMode) return;
-
-  var pattern = getSelectedPattern();
-  if (pattern && (_voiceNav.patternId !== pattern.id || !_voiceNav.history.length)) {
-    resetVoiceNavConversation();
-    greetVoiceNavPattern(pattern);
-  } else {
-    _voiceNav.alwaysOn = true;
-    startVoiceNavRecognitionLoop();
-  }
-}
-
-function initVoiceNavigator() {
-  if (_voiceNav.bound) return;
-  _voiceNav.bound = true;
-
-  setupVoiceNavMediaSession();
-
-  var micBtn = document.getElementById('btn-voice-nav-mic');
-  var restartBtn = document.getElementById('btn-voice-nav-restart');
-  var form = document.getElementById('voice-navigator-text-form');
-  var input = document.getElementById('voice-navigator-text-input');
-  var unsupportedNote = document.getElementById('voice-navigator-unsupported');
-  var speedInput = document.getElementById('voice-navigator-speed');
-  var speedValueLabel = document.getElementById('voice-navigator-speed-value');
-
-  var speechSupported = isVoiceNavSpeechRecognitionSupported();
-  if (unsupportedNote) unsupportedNote.style.display = speechSupported ? 'none' : '';
-  if (micBtn && !speechSupported) {
-    micBtn.disabled = true;
-    micBtn.title = 'Speech recognition is not supported in this browser';
-  }
-
-  if (speedInput) {
-    speedInput.value = String(_voiceNav.speed);
-    if (speedValueLabel) speedValueLabel.textContent = _voiceNav.speed.toFixed(1) + 'x';
-    speedInput.addEventListener('input', function() {
-      _voiceNav.speed = normaliseVoiceNavSpeed(speedInput.value);
-      localStorage.setItem(VOICE_NAV_SPEED_STATE_KEY, String(_voiceNav.speed));
-      if (speedValueLabel) speedValueLabel.textContent = _voiceNav.speed.toFixed(1) + 'x';
-      if (_voiceNav.audio) _voiceNav.audio.playbackRate = _voiceNav.speed;
-    });
-  }
-
-  if (micBtn) micBtn.addEventListener('click', toggleVoiceNavListening);
-  if (restartBtn) {
-    restartBtn.addEventListener('click', function() {
-      resetVoiceNavConversation();
-      greetVoiceNavPattern(getSelectedPattern());
-    });
-  }
-  if (form) {
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var text = input ? input.value.trim() : '';
-      if (!text) return;
-      if (input) input.value = '';
-      handleVoiceNavUserMessage(text);
-    });
-  }
+  renderGoalStatus();
+  showToast(_autoAdvancePaused ? 'Auto-advance paused.' : 'Auto-advance resumed.');
 }
 
 // ── Init ─────────────────────────────────────────────────────
@@ -936,7 +394,6 @@ function initPatterns(userId) {
   loadAccordionModeState();
   loadInlineEditorFontSizePreference();
   loadTimerPreferences();
-  loadVoiceNavSpeedPreference();
   initPatternViewControls();
   bindInlineToolbarOffsetSync();
 
@@ -992,32 +449,21 @@ function initPatterns(userId) {
     const previousMode = _timerMode;
     _timerMode = normaliseTimerMode(e.target && e.target.value);
     localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerMode);
-    if (previousMode === 'voice' && _timerMode !== 'voice') {
-      leaveVoiceNavigatorMode();
+    if (previousMode === 'timed' && _timerMode !== 'timed') {
+      _autoAdvancePaused = false;
     }
     const pattern = getSelectedPattern();
-    if (previousMode !== 'voice' && _timerMode === 'voice') {
-      // Returning to AI Voice mode should always restart the walkthrough from step one rather
-      // than resume mid-pattern — clearing patternId forces syncVoiceNavigatorPanelVisibility's
-      // "new pattern" branch below to reset the conversation and re-greet from the top.
-      currentStepIndex = 0;
-      _voiceNav.patternId = null;
-      if (pattern && Array.isArray(pattern.steps) && pattern.steps.length) {
-        _openStepIndices = new Set([0]);
-        renderCurrentStep(pattern);
-      }
-    }
-    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
+    timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
     syncTimerControlsFromState();
-    syncVoiceNavigatorPanelVisibility();
+    renderGoalStatus();
     updateTimerDisplay();
   });
 
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
     _voiceModeEnabled = Boolean(e.target && e.target.checked);
     localStorage.setItem(TIMER_VOICE_MODE_STATE_KEY, _voiceModeEnabled ? '1' : '0');
-    if (!_voiceModeEnabled && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (!_voiceModeEnabled) {
+      stopStepAnnouncementAudio();
       return;
     }
     const pattern = getSelectedPattern();
@@ -1027,8 +473,6 @@ function initPatterns(userId) {
   });
   syncTimerControlsFromState();
   updateTimerActionButtons();
-  initVoiceNavigator();
-  syncVoiceNavigatorPanelVisibility();
 
   // Record modal
   document.getElementById('btn-record-confirm').addEventListener('click', confirmRecord);
@@ -1431,10 +875,13 @@ function loadPattern(id, preferredStepIndex) {
     stopTimer();
     timerSeconds = 0;
     _timerActiveStepKey = '';
+    _timerActivePatternId = '';
+    _timerActiveStepIndex = -1;
+    _autoAdvancePaused = false;
     startTimer(pattern);
   } else {
     // Keep elapsed time when reloading the same pattern after background updates.
-    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
+    timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
     syncTimerControlsFromState();
 
     document.getElementById('timer-pattern-name').textContent = (pattern && pattern.name) ? pattern.name : '';
@@ -1447,7 +894,7 @@ function loadPattern(id, preferredStepIndex) {
   }
 
   renderCurrentStep(pattern);
-  syncVoiceNavigatorPanelVisibility();
+  loadStepTimingsForPattern(pattern);
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(new CustomEvent('pattern-selection-changed', {
       detail: { patternId: id }
@@ -3468,6 +2915,8 @@ function clearStepView() {
   stopTimer();
   timerGoalSeconds = null;
   _timerActiveStepKey = '';
+  _timerActivePatternId = '';
+  _timerActiveStepIndex = -1;
   syncTimerControlsFromState();
   renderGoalStatus();
 }
@@ -3772,11 +3221,13 @@ function startTimer(pattern) {
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (timerBar) timerBar.style.display = '';
   document.getElementById('timer-pattern-name').textContent = patternName;
-  timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
+  timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
   syncTimerControlsFromState();
   timerSeconds = 0;
   timerStartWallTime = Date.now();
   _timerActiveStepKey = '';
+  _timerActivePatternId = '';
+  _timerActiveStepIndex = -1;
   _timerStepEnteredAtSeconds = 0;
   timerRunning = true;
   updateTimerDisplay();
@@ -3785,11 +3236,13 @@ function startTimer(pattern) {
     timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
     updateTimerDisplay();
     maybeAutoAdvanceStep();
+    renderStepTimeStatsForCurrentStep();
   }, 1000);
 }
 
 
 function stopTimer() {
+  if (timerRunning) recordActiveStepTiming();
   clearInterval(timerInterval);
   timerInterval = null;
   timerRunning = false;
@@ -3821,11 +3274,11 @@ function applyTimerGoalTheme() {
   if (!timerBar) return;
 
   timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red', 'timer-goal-double');
-  if (_timerMode !== 'timed' && _timerMode !== 'voice') return;
+  if (_timerMode !== 'timed') return;
   if (timerGoalSeconds === null) return;
 
-
-  const progress = timerSeconds / timerGoalSeconds;
+  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  const progress = elapsedOnStep / timerGoalSeconds;
   if (progress >= 2) {
     timerBar.classList.add('timer-goal-red', 'timer-goal-double');
     return;
@@ -3846,8 +3299,8 @@ function applyTimerGoalTheme() {
 
 function maybeAutoAdvanceStep() {
   if (!timerRunning) return;
-  if (_timerMode !== 'timed' && _timerMode !== 'voice') return;
-  if (_timerMode === 'voice' && _voiceNav.autoAdvancePaused) return;
+  if (_timerMode !== 'timed') return;
+  if (_autoAdvancePaused) return;
 
   var pattern = getSelectedPattern();
   if (!pattern) return;
@@ -3855,12 +3308,12 @@ function maybeAutoAdvanceStep() {
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   if (steps.length < 2) return;
 
-  var goal = normaliseGoalSeconds(pattern.goalSeconds);
-  if (goal === null) return;
+  var step = steps[currentStepIndex];
+  var goal = step ? normaliseGoalSeconds(step.goalSeconds) : null;
+  if (goal === null) return; // no goal set for this step — stay until manually advanced
 
-  var perStepSeconds = Math.max(1, Math.round(goal / steps.length));
   var elapsedOnCurrentStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
-  if (elapsedOnCurrentStep < perStepSeconds) return;
+  if (elapsedOnCurrentStep < goal) return;
 
   if (currentStepIndex >= steps.length - 1) return;
 
@@ -3883,7 +3336,7 @@ function renderGoalStatus() {
   const statusEl = document.getElementById('timer-goal-status');
   if (!statusEl) return;
 
-  if (_timerMode !== 'timed' && _timerMode !== 'voice') {
+  if (_timerMode !== 'timed') {
     statusEl.textContent = '';
     statusEl.classList.remove('timer-goal-over');
     statusEl.style.display = 'none';
@@ -3893,28 +3346,25 @@ function renderGoalStatus() {
 
   const pattern = getSelectedPattern();
   const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  const perStepSeconds = pattern && steps.length > 1 && normaliseGoalSeconds(pattern.goalSeconds) !== null
-    ? Math.max(1, Math.round(normaliseGoalSeconds(pattern.goalSeconds) / steps.length))
-    : null;
-  const stepRemaining = perStepSeconds !== null ? Math.max(0, perStepSeconds - Math.max(0, timerSeconds - _timerStepEnteredAtSeconds)) : null;
   const stepLabel = steps.length ? ('Step ' + String(currentStepIndex + 1) + ' of ' + String(steps.length)) : 'Step';
-  const pausedSuffix = (_timerMode === 'voice' && _voiceNav.autoAdvancePaused) ? ' • paused' : '';
+  const pausedSuffix = _autoAdvancePaused ? ' • paused' : '';
+  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
 
   if (timerGoalSeconds === null) {
-    statusEl.textContent = 'No goal set' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '') + pausedSuffix;
+    statusEl.textContent = 'No goal set for this step' + (steps.length ? ' • ' + stepLabel : '') + pausedSuffix;
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
-  if (timerSeconds <= timerGoalSeconds) {
-    const remaining = timerGoalSeconds - timerSeconds;
-    statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '') + pausedSuffix;
+  if (elapsedOnStep <= timerGoalSeconds) {
+    const remaining = timerGoalSeconds - elapsedOnStep;
+    statusEl.textContent = stepLabel + ' • Goal ' + formatTimerClock(timerGoalSeconds) + ' • ' + formatTimerClock(remaining) + ' left' + pausedSuffix;
     statusEl.classList.remove('timer-goal-over');
     return;
   }
 
-  const overBy = timerSeconds - timerGoalSeconds;
-  statusEl.textContent = 'Goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + (stepRemaining !== null ? ' • ' + stepLabel + ' • ' + formatTimerClock(stepRemaining) + ' left on this step' : '') + pausedSuffix;
+  const overBy = elapsedOnStep - timerGoalSeconds;
+  statusEl.textContent = stepLabel + ' • Goal ' + formatTimerClock(timerGoalSeconds) + ' • over by ' + formatTimerClock(overBy) + pausedSuffix;
   statusEl.classList.add('timer-goal-over');
 }
 
@@ -3927,49 +3377,50 @@ async function saveStudyGoal() {
   const pattern = getSelectedPattern();
   if (!pattern || !_pUid) return;
 
+  const steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  const step = steps[currentStepIndex];
+  if (!step) return;
+
   const goalInput = document.getElementById('timer-goal-minutes');
   const rawGoal = (goalInput && goalInput.value || '').trim();
 
-  function parseGoalMinutes(raw, label) {
-    if (raw === '') return null;
-    const minutes = Number(raw);
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      throw new Error(label + ' must be a positive number.');
-    }
-    return Math.round(minutes * 60);
-  }
-
   let nextGoalSeconds = null;
-  try {
-    nextGoalSeconds = parseGoalMinutes(rawGoal, 'Goal minutes');
-  } catch (parseErr) {
-    showToast(parseErr.message, true);
-    return;
+  if (rawGoal !== '') {
+    const seconds = Number(rawGoal);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      showToast('Step goal must be a positive number of seconds.', true);
+      return;
+    }
+    nextGoalSeconds = Math.round(seconds);
   }
 
-  try {
-    if (typeof updatePatternGoalSeconds === 'function') {
-      await updatePatternGoalSeconds(_pUid, pattern.id, nextGoalSeconds);
-    } else {
-      await updatePattern(_pUid, pattern.id, {
-        name: pattern.name,
-        modality: pattern.modality || 'Other',
-        reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-        goalSeconds: nextGoalSeconds,
-        steps: pattern.steps || []
-      });
-    }
+  const previousGoalSeconds = step.goalSeconds;
+  const nextSteps = steps.map(function(s, idx) {
+    return idx === currentStepIndex ? Object.assign({}, s, { goalSeconds: nextGoalSeconds }) : s;
+  });
 
-    pattern.goalSeconds = nextGoalSeconds;
-    timerGoalSeconds = getGoalSecondsForMode(pattern, _timerMode);
+  try {
+    await updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      goalSeconds: pattern.goalSeconds,
+      steps: nextSteps
+    });
+
+    step.goalSeconds = nextGoalSeconds;
+    pattern.steps = nextSteps;
+    timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
     syncTimerControlsFromState();
+    renderGoalStatus();
     updateTimerDisplay();
 
     const summary = nextGoalSeconds === null ? 'Goal cleared' : ('Goal ' + formatTimerClock(nextGoalSeconds));
-    showToast('Saved goal for "' + pattern.name + '": ' + summary + '.');
+    showToast('Saved step goal for "' + getCleanStepTitle(step.stepTitle) + '": ' + summary + '.');
   } catch (err) {
     console.error(err);
-    showToast('Failed to save goal time.', true);
+    step.goalSeconds = previousGoalSeconds;
+    showToast('Failed to save step goal.', true);
   }
 }
 
@@ -4339,8 +3790,8 @@ function handleKeydown(e) {
     navigateStep(e.shiftKey ? -1 : 1);
   } else if (e.key === ' ') {
     e.preventDefault();
-    if (_timerMode === 'voice') {
-      toggleVoiceNavListening();
+    if (_timerMode === 'timed' && timerRunning) {
+      toggleAutoAdvancePause();
     } else {
       openRecordModal();
     }

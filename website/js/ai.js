@@ -238,13 +238,12 @@ function buildStepPrompt(input) {
   ].join('\n');
 }
 
-async function requestProviderText(provider, model, prompt, opts) {
+async function requestProviderText(provider, model, prompt) {
   var safeProvider = assertProvider(provider);
   var payload = await callAiProxy('completeText', {
     provider: safeProvider,
     model: String(model || '').trim(),
-    prompt: String(prompt || ''),
-    fast: !!(opts && opts.fast)
+    prompt: String(prompt || '')
   });
   var text = String((payload && payload.data && payload.data.text) || '').trim();
   if (!text) {
@@ -518,116 +517,7 @@ function buildReportRefinementPrompt(input) {
   ].join('\n');
 }
 
-function coerceVoiceNavigatorResponse(parsed, stepCount) {
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('AI returned invalid voice navigator JSON.');
-  }
-
-  var safeStepCount = Number.isInteger(stepCount) && stepCount > 0 ? stepCount : 1;
-  var reply = String(parsed.reply || '').trim() || 'Okay.';
-
-  var action = String(parsed.action || 'stay').trim().toLowerCase();
-  if (['stay', 'next', 'previous', 'goto', 'repeat', 'starttimer', 'stoptimer'].indexOf(action) === -1) {
-    action = 'stay';
-  }
-  if (action === 'starttimer') action = 'startTimer';
-  if (action === 'stoptimer') action = 'stopTimer';
-
-  var targetStepIndex = null;
-  if (action === 'goto') {
-    var rawTarget = Number(parsed.targetStepIndex);
-    targetStepIndex = Number.isFinite(rawTarget)
-      ? Math.max(0, Math.min(Math.round(rawTarget), safeStepCount - 1))
-      : null;
-    if (targetStepIndex === null) action = 'stay';
-  }
-
-  var showFindings = parsed.showFindings === true;
-  var findingsStepIndex = null;
-  if (showFindings) {
-    var rawFindingsTarget = Number(parsed.findingsStepIndex);
-    findingsStepIndex = Number.isFinite(rawFindingsTarget)
-      ? Math.max(0, Math.min(Math.round(rawFindingsTarget), safeStepCount - 1))
-      : null;
-  }
-
-  return {
-    reply: reply,
-    action: action,
-    targetStepIndex: targetStepIndex,
-    showFindings: showFindings,
-    findingsStepIndex: findingsStepIndex
-  };
-}
-
-function buildVoiceNavigatorPrompt(input) {
-  var patternName = String(input.patternName || 'this search pattern').trim();
-  var steps = Array.isArray(input.steps) ? input.steps : [];
-  var currentStepIndex = Number.isInteger(input.currentStepIndex) ? input.currentStepIndex : 0;
-  var history = Array.isArray(input.history) ? input.history : [];
-  var userMessage = String(input.userMessage || '').trim();
-  var timerRunning = input.timerRunning === true;
-
-  var stepsBlock = steps.map(function(step, idx) {
-    var lines = ['Step ' + (idx + 1) + (idx === currentStepIndex ? ' (CURRENT STEP)' : '') + ': ' + (step.title || '(untitled)')];
-    if (step.searchPatternText) lines.push('  Search pattern: ' + step.searchPatternText);
-    if (step.findingsText) lines.push('  Don\'t-miss findings: ' + step.findingsText);
-    return lines.join('\n');
-  }).join('\n\n');
-
-  var historyBlock = history.map(function(turn) {
-    var speaker = turn.role === 'user' ? 'Radiologist' : 'Navigator';
-    return speaker + ': ' + turn.text;
-  }).join('\n');
-
-  return [
-    'You are a hands-free voice navigator helping a radiologist read a study by walking them through a structured search pattern.',
-    'You are speaking OUT LOUD via text-to-speech, so keep replies short and conversational — normally 1 to 3 sentences, unless the radiologist explicitly asks for more detail.',
-    'The radiologist talks to you via speech-to-text, so their message may contain minor transcription errors; interpret intent charitably.',
-    '',
-    'The radiologist has an always-on microphone and can interrupt you mid-sentence at any time; treat any new message from them as a fresh turn.',
-    '',
-    'Behavior rules:',
-    '- When you arrive at a step — whether the radiologist just started, or moved via next/previous/goto/repeat — your reply must be ONLY the step name, nothing else. Example: "Step 3: Liver and biliary tree." Do not describe the step\'s content, checklist items, or findings in that reply.',
-    '- The brief "just the name" rule applies ONLY to step-transition replies. If the radiologist asks a question or requests detail about a step (current or otherwise), answer normally and helpfully using only the information in the pattern below.',
-    '- Only move to a different step when the radiologist clearly asks to (e.g. "next", "next step", "go back", "previous", "repeat", "go to step 4", "let\'s do the liver step").',
-    '- Use action="next" / "previous" for relative moves, action="goto" with a zero-based targetStepIndex for a named/numbered step, action="repeat" to re-state the current step\'s name, action="stay" otherwise (e.g. while answering a question).',
-    '- Do not read step content verbatim even when answering questions; paraphrase concisely.',
-    '- If the radiologist asks to see, pull up, or review findings (for the current step or another step), set showFindings=true and findingsStepIndex to the relevant zero-based step index (default to the current step if unspecified), and mention them briefly in your reply.',
-    '- If the radiologist asks a clinical question about a finding, answer using only the information in the pattern below; do not invent findings not present in the data.',
-    '- If the radiologist asks you to start the timer, start recording, or begin the clock, use action="startTimer" and reply with a brief acknowledgement (e.g. "Timer started."). If they ask to stop the timer, stop recording, or pause the clock, use action="stopTimer" and reply briefly (e.g. "Timer stopped."). These do not change the current step or step reply format.',
-    '- Do not emit action="startTimer" if the timer is already running, or action="stopTimer" if it is already stopped — use action="stay" and briefly say so instead (e.g. "Already recording.").',
-    '',
-    'Return ONLY valid JSON with this exact schema, no markdown fences:',
-    '{"reply":"string","action":"stay|next|previous|goto|repeat|startTimer|stopTimer","targetStepIndex":number|null,"showFindings":boolean,"findingsStepIndex":number|null}',
-    '',
-    'TIMER STATUS: ' + (timerRunning ? 'currently running' : 'currently stopped'),
-    'SEARCH PATTERN: ' + patternName,
-    stepsBlock,
-    '',
-    historyBlock ? ('CONVERSATION SO FAR:\n' + historyBlock) : 'CONVERSATION SO FAR: (none yet — this is the start of the conversation)',
-    '',
-    'Radiologist just said: ' + (userMessage || '(no speech — they just switched into voice navigation mode; greet them and orient on the current step)')
-  ].join('\n');
-}
-
-async function sendVoiceNavigatorTurn(options) {
-  var input = options || {};
-  var safeProvider = assertProvider(input.provider || 'openai');
-  var model = getModelForProvider(safeProvider, input.model);
-  var prompt = buildVoiceNavigatorPrompt(input);
-
-  var raw = await requestProviderText(safeProvider, model, prompt, { fast: true });
-  var parsed = safeJsonParse(raw);
-  if (!parsed) {
-    throw new Error('AI did not return valid JSON for voice navigation.');
-  }
-
-  var stepCount = Array.isArray(input.steps) ? input.steps.length : 1;
-  return coerceVoiceNavigatorResponse(parsed, stepCount);
-}
-
-async function synthesizeVoiceNavigatorSpeech(text, options) {
+async function synthesizeAiVoiceSpeech(text, options) {
   var opts = options || {};
   var safeText = String(text || '').trim();
   if (!safeText) {

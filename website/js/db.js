@@ -973,7 +973,8 @@ function _normalisePatternDoc(doc) {
       linkedStepId: (step && (step.linkedStepId || step.linked_step_id)) || '',
       linkMeta: _normaliseLinkMeta(step && (step.linkMeta || step.link_meta)),
       sectionLinks: _normaliseSectionLinks(step && (step.sectionLinks || step.section_links)),
-      sections: normaliseStepSections(step && step.sections, richContent)
+      sections: normaliseStepSections(step && step.sections, richContent),
+      goalSeconds: _normaliseGoalSeconds(step && step.goalSeconds, null)
     };
   });
 
@@ -1167,6 +1168,45 @@ function updatePatternGoalTimes(uid, patternId, goalSeconds, pathologyGoalSecond
       updatedAt: _now()
     });
   });
+}
+
+// ── Per-step timing history ─────────────────────────────────────
+// Stored as a lightweight subcollection (count + running total, not a growing list) so it never
+// contributes to the pattern document's own size — some real patterns already sit near Firestore's
+// 1MB document limit from embedded rich content, so this data deliberately lives elsewhere.
+function _stepTimingsRef(uid, patternId) {
+  return _patternsRef(uid).doc(patternId).collection('stepTimings');
+}
+
+function recordStepTiming(uid, patternId, stepId, seconds) {
+  var safeSeconds = Math.round(Number(seconds));
+  if (!uid || !patternId || !stepId || !Number.isFinite(safeSeconds) || safeSeconds <= 0) {
+    return Promise.resolve();
+  }
+  return _runFirestoreWrite(function() {
+    return _stepTimingsRef(uid, patternId).doc(stepId).set({
+      count: firebase.firestore.FieldValue.increment(1),
+      totalSeconds: firebase.firestore.FieldValue.increment(safeSeconds),
+      updatedAt: _now()
+    }, { merge: true });
+  });
+}
+
+async function fetchStepTimings(uid, patternId) {
+  if (!uid || !patternId) return {};
+  var snap = await _stepTimingsRef(uid, patternId).get();
+  var result = {};
+  snap.forEach(function(doc) {
+    var data = doc.data() || {};
+    var count = Number(data.count) || 0;
+    var totalSeconds = Number(data.totalSeconds) || 0;
+    result[doc.id] = {
+      count: count,
+      totalSeconds: totalSeconds,
+      avgSeconds: count > 0 ? totalSeconds / count : null
+    };
+  });
+  return result;
 }
 
 function updatePatternReportConfig(uid, patternId, reportConfig) {
