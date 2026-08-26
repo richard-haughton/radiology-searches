@@ -14,6 +14,7 @@ var timerGoalSeconds = null;
 var _timerMode = 'timed';
 
 var _voiceModeEnabled = false;
+var _voiceSpeed = 1;
 var _timerActiveStepKey = '';
 var _timerStepEnteredAtSeconds = 0;
 var _timerActivePatternId = '';
@@ -56,6 +57,10 @@ var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
 var TIMER_GOAL_MODE_STATE_KEY = 'patternTimerGoalMode';
 var TIMER_VOICE_MODE_STATE_KEY = 'patternTimerVoiceMode';
+var TIMER_VOICE_SPEED_STATE_KEY = 'patternTimerVoiceSpeed';
+var TIMER_VOICE_SPEED_MIN = 0.5;
+var TIMER_VOICE_SPEED_MAX = 2;
+var TIMER_VOICE_SPEED_DEFAULT = 1;
 var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
   searchPattern: true,
@@ -152,6 +157,14 @@ function normaliseTimerMode(value) {
 function loadTimerPreferences() {
   _timerMode = normaliseTimerMode(localStorage.getItem(TIMER_GOAL_MODE_STATE_KEY));
   _voiceModeEnabled = localStorage.getItem(TIMER_VOICE_MODE_STATE_KEY) === '1';
+  _voiceSpeed = normaliseVoiceSpeed(localStorage.getItem(TIMER_VOICE_SPEED_STATE_KEY));
+}
+
+function normaliseVoiceSpeed(value) {
+  if (value === null || value === undefined || value === '') return TIMER_VOICE_SPEED_DEFAULT;
+  var n = Number(value);
+  if (!Number.isFinite(n)) return TIMER_VOICE_SPEED_DEFAULT;
+  return Math.max(TIMER_VOICE_SPEED_MIN, Math.min(TIMER_VOICE_SPEED_MAX, n));
 }
 
 // Each step carries its own goal time now (replacing the old whole-pattern goal divided evenly
@@ -168,6 +181,8 @@ function getCurrentStepGoalSeconds(pattern, mode) {
 function syncTimerControlsFromState() {
   var modeSelect = document.getElementById('timer-mode-select');
   var voiceToggle = document.getElementById('timer-voice-mode');
+  var voiceSpeedInput = document.getElementById('timer-voice-speed');
+  var voiceSpeedValue = document.getElementById('timer-voice-speed-value');
 
   if (modeSelect) {
     modeSelect.value = _timerMode;
@@ -175,27 +190,24 @@ function syncTimerControlsFromState() {
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
   }
+  if (voiceSpeedInput && document.activeElement !== voiceSpeedInput) {
+    voiceSpeedInput.value = String(_voiceSpeed);
+  }
+  if (voiceSpeedValue) {
+    voiceSpeedValue.textContent = _voiceSpeed.toFixed(1) + 'x';
+  }
 
-  syncStepGoalInputFromCurrentStep();
+  syncAllStepGoalControlsVisibility();
 }
 
-// The step's own goal time is edited inline in its header (rather than a separate control at
-// the top of the page), so it needs to stay in sync with both the active step and the mode.
-function syncStepGoalInputFromStep(step) {
-  var control = document.getElementById('step-goal-control');
-  var input = document.getElementById('step-goal-input');
-  if (control) control.style.display = _timerMode === 'timed' ? '' : 'none';
-  if (!input) return;
-  if (document.activeElement === input) return; // don't clobber a value the user is actively editing
-
-  var goal = step ? normaliseGoalSeconds(step.goalSeconds) : null;
-  input.value = goal === null ? '' : String(goal);
-}
-
-function syncStepGoalInputFromCurrentStep() {
-  var pattern = getSelectedPattern();
-  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  syncStepGoalInputFromStep(steps[currentStepIndex] || null);
+// Each step's own goal time is edited inline in its own header row (not a single control tied to
+// whichever step happens to be active), so switching modes just needs to show/hide every already-
+// rendered row's control rather than resync any particular value.
+function syncAllStepGoalControlsVisibility() {
+  var display = _timerMode === 'timed' ? '' : 'none';
+  document.querySelectorAll('.step-item-goal-control').forEach(function(el) {
+    el.style.display = display;
+  });
 }
 
 
@@ -228,7 +240,7 @@ function speakActiveStepWithBrowserTts(text, token) {
   if (token !== undefined && token !== _stepAnnouncementSpeechToken) return;
   window.speechSynthesis.cancel();
   var utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1;
+  utterance.rate = _voiceSpeed;
   utterance.pitch = 1;
   utterance.volume = 1;
   window.speechSynthesis.speak(utterance);
@@ -257,6 +269,7 @@ async function speakActiveStep(step, stepIndex) {
     if (myToken !== _stepAnnouncementSpeechToken) return;
 
     var audio = new Audio(dataUrl);
+    audio.playbackRate = _voiceSpeed;
     _stepAnnouncementAudio = audio;
     audio.onended = function() {
       if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
@@ -305,7 +318,6 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
   if (_timerMode === 'timed') {
     timerGoalSeconds = getCurrentStepGoalSeconds(safePattern, _timerMode);
   }
-  syncStepGoalInputFromStep(safeStep);
 
   if (!(options && options.silentVoice)) {
     speakActiveStep(safeStep, safeIndex);
@@ -447,12 +459,11 @@ function initPatterns(userId) {
   document.getElementById('btn-start-timer').addEventListener('click', handleStartTimer);
   document.getElementById('btn-record-study').addEventListener('click', openRecordModal);
   document.getElementById('btn-stop-timer').addEventListener('click', stopTimer);
-  document.getElementById('step-goal-input').addEventListener('blur', saveCurrentStepGoal);
-  document.getElementById('step-goal-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.target.blur();
-    }
+  document.getElementById('timer-voice-speed').addEventListener('input', e => {
+    _voiceSpeed = normaliseVoiceSpeed(e.target && e.target.value);
+    localStorage.setItem(TIMER_VOICE_SPEED_STATE_KEY, String(_voiceSpeed));
+    const speedValueEl = document.getElementById('timer-voice-speed-value');
+    if (speedValueEl) speedValueEl.textContent = _voiceSpeed.toFixed(1) + 'x';
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
     const previousMode = _timerMode;
@@ -1052,8 +1063,46 @@ function renderCurrentStep(pattern) {
     toggle.appendChild(label);
     toggle.appendChild(chevron);
 
+    const goalControl = document.createElement('div');
+    goalControl.className = 'step-item-goal-control';
+    if (_timerMode !== 'timed') goalControl.style.display = 'none';
+
+    const goalLabel = document.createElement('label');
+    goalLabel.className = 'step-goal-label';
+    goalLabel.setAttribute('for', 'step-item-goal-' + idx);
+    goalLabel.textContent = 'Goal';
+
+    const goalInput = document.createElement('input');
+    goalInput.type = 'number';
+    goalInput.min = '1';
+    goalInput.step = '1';
+    goalInput.id = 'step-item-goal-' + idx;
+    goalInput.className = 'step-goal-input';
+    goalInput.placeholder = 'sec';
+    const existingStepGoal = normaliseGoalSeconds(step.goalSeconds);
+    goalInput.value = existingStepGoal === null ? '' : String(existingStepGoal);
+
+    const goalUnit = document.createElement('span');
+    goalUnit.className = 'step-goal-unit';
+    goalUnit.textContent = 'sec';
+
+    goalControl.appendChild(goalLabel);
+    goalControl.appendChild(goalInput);
+    goalControl.appendChild(goalUnit);
+
+    goalInput.addEventListener('blur', () => {
+      saveStepGoalSeconds(pattern, idx, goalInput);
+    });
+    goalInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        goalInput.blur();
+      }
+    });
+
     header.appendChild(dragHandle);
     header.appendChild(toggle);
+    header.appendChild(goalControl);
 
     const panel = document.createElement('div');
     panel.className = 'step-item-panel';
@@ -1607,7 +1656,8 @@ function normaliseStepForViewer(step) {
     linkedStepId: (step && step.linkedStepId) || '',
     linkMeta: (step && step.linkMeta) || null,
     sectionLinks: normaliseSectionLinksForViewer(step && step.sectionLinks),
-    sections: normaliseStepSectionsSafe(step && step.sections, fallback)
+    sections: normaliseStepSectionsSafe(step && step.sections, fallback),
+    goalSeconds: normaliseGoalSeconds(step && step.goalSeconds)
   };
 }
 
@@ -3340,33 +3390,31 @@ function formatTimerClock(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-async function saveCurrentStepGoal() {
-  const pattern = getSelectedPattern();
-  if (!pattern || !_pUid) return;
+async function saveStepGoalSeconds(pattern, stepIndex, inputEl) {
+  if (!pattern || !_pUid || !inputEl) return;
 
   const steps = Array.isArray(pattern.steps) ? pattern.steps : [];
-  const step = steps[currentStepIndex];
+  const step = steps[stepIndex];
   if (!step) return;
 
-  const goalInput = document.getElementById('step-goal-input');
-  const rawGoal = (goalInput && goalInput.value || '').trim();
+  const rawGoal = String(inputEl.value || '').trim();
+  const previousGoalSeconds = normaliseGoalSeconds(step.goalSeconds);
 
   let nextGoalSeconds = null;
   if (rawGoal !== '') {
     const seconds = Number(rawGoal);
     if (!Number.isFinite(seconds) || seconds <= 0) {
       showToast('Step goal must be a positive number of seconds.', true);
-      syncStepGoalInputFromStep(step);
+      inputEl.value = previousGoalSeconds === null ? '' : String(previousGoalSeconds);
       return;
     }
     nextGoalSeconds = Math.round(seconds);
   }
 
-  const previousGoalSeconds = normaliseGoalSeconds(step.goalSeconds);
   if (nextGoalSeconds === previousGoalSeconds) return; // nothing changed — skip the write
 
   const nextSteps = steps.map(function(s, idx) {
-    return idx === currentStepIndex ? Object.assign({}, s, { goalSeconds: nextGoalSeconds }) : s;
+    return idx === stepIndex ? Object.assign({}, s, { goalSeconds: nextGoalSeconds }) : s;
   });
 
   try {
@@ -3380,14 +3428,16 @@ async function saveCurrentStepGoal() {
 
     step.goalSeconds = nextGoalSeconds;
     pattern.steps = nextSteps;
-    timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
-    updateTimerDisplay();
+    if (stepIndex === currentStepIndex) {
+      timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
+      updateTimerDisplay();
+    }
 
     const summary = nextGoalSeconds === null ? 'Goal cleared' : ('Goal ' + formatTimerClock(nextGoalSeconds));
     showToast('Saved step goal for "' + getCleanStepTitle(step.stepTitle) + '": ' + summary + '.');
   } catch (err) {
     console.error(err);
-    syncStepGoalInputFromStep(step);
+    inputEl.value = previousGoalSeconds === null ? '' : String(previousGoalSeconds);
     showToast('Failed to save step goal.', true);
   }
 }

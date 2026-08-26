@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20260816d" />
+  <link rel="stylesheet" href="css/app.css?v=20260816e" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -22,7 +22,7 @@
   <script src="js/calculations.js?v=20260605b"></script>
   <script src="js/study-log.js?v=20260605b"></script>
   <script src="js/rvus.js?v=20260605b"></script>
-  <script src="js/patterns.js?v=20260816m"></script>
+  <script src="js/patterns.js?v=20260816n"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20260605b"></script>
   <script src="js/app.js?v=20260605b"></script>
@@ -121,6 +121,10 @@
                   <input id="timer-voice-mode" type="checkbox">
                   <span>Voice</span>
                 </label>
+                <div class="timer-voice-speed-control">
+                  <label for="timer-voice-speed" class="timer-goal-label">Speed <span id="timer-voice-speed-value">1.0x</span></label>
+                  <input id="timer-voice-speed" type="range" min="0.5" max="2" step="0.1" value="1" aria-label="Voice speaking speed">
+                </div>
               </div>
             </div>
             <div class="timer-actions">
@@ -140,11 +144,6 @@
               <div class="step-nav-bar">
                 <div class="step-nav-info">
                   <span class="step-counter" id="step-counter"></span>
-                  <div id="step-goal-control" class="step-goal-control" style="display:none">
-                    <label for="step-goal-input" class="step-goal-label">Goal</label>
-                    <input id="step-goal-input" type="number" min="1" step="1" class="step-goal-input" placeholder="sec">
-                    <span class="step-goal-unit">sec</span>
-                  </div>
                   <span id="step-time-stats" class="step-time-stats"></span>
                 </div>
                 <div class="step-nav-actions">
