@@ -788,6 +788,18 @@ body {
   border-left: 1px solid var(--line);
   background: #e6f1e9;
 }
+.step-item-goal-display {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-left: 1px solid var(--line);
+  background: #e6f1e9;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .step-item-label {
   min-width: 0;
   display: flex;
@@ -2551,6 +2563,7 @@ html.dark .editor-step-item:hover   { background: #192b1e; color: #d8ead9; }
 html.dark .editor-step-item.active   { background: #1a2e22; color: #9fd2b6; }
 html.dark .step-item-toggle         { background: #193025; border-bottom-color: #2b4337; }
 html.dark .step-item-goal-control   { background: #193025; border-left-color: #2b4337; }
+html.dark .step-item-goal-display   { background: #193025; border-left-color: #2b4337; }
 html.dark .step-drag-handle         { background: #173026; border-right-color: #2b4337; color: #8ab89d; }
 html.dark .step-item-panel          { background: #14241b; }
 html.dark .step-item-panel-inner    { background: #14241b; }

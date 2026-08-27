@@ -167,6 +167,16 @@ function normaliseVoiceSpeed(value) {
   return Math.max(TIMER_VOICE_SPEED_MIN, Math.min(TIMER_VOICE_SPEED_MAX, n));
 }
 
+var STEP_GOAL_DEFAULT_SECONDS = 60;
+
+// Steps with no goal explicitly set default to 1 minute, so Timed mode pacing works out of the
+// box without per-step setup — this only affects the value used at runtime/display, it never
+// writes the default back into storage (an unset step stays unset until the user overrides it).
+function getEffectiveStepGoalSeconds(step) {
+  var explicit = step ? normaliseGoalSeconds(step.goalSeconds) : null;
+  return explicit === null ? STEP_GOAL_DEFAULT_SECONDS : explicit;
+}
+
 // Each step carries its own goal time now (replacing the old whole-pattern goal divided evenly
 // across steps), so this depends on which step is currently active, not just the pattern.
 function getCurrentStepGoalSeconds(pattern, mode) {
@@ -175,7 +185,7 @@ function getCurrentStepGoalSeconds(pattern, mode) {
   var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
   var step = steps[currentStepIndex];
   if (!step) return null;
-  return normaliseGoalSeconds(step.goalSeconds);
+  return getEffectiveStepGoalSeconds(step);
 }
 
 function syncTimerControlsFromState() {
@@ -1074,8 +1084,7 @@ function renderCurrentStep(pattern) {
       goalInput.id = 'step-item-goal-' + idx;
       goalInput.className = 'step-goal-input';
       goalInput.placeholder = 'sec';
-      const existingStepGoal = normaliseGoalSeconds(step.goalSeconds);
-      goalInput.value = existingStepGoal === null ? '' : String(existingStepGoal);
+      goalInput.value = String(getEffectiveStepGoalSeconds(step));
 
       const goalUnitSelect = document.createElement('select');
       goalUnitSelect.className = 'step-goal-unit-select';
@@ -1111,7 +1120,7 @@ function renderCurrentStep(pattern) {
           showToast('Step goal must be a positive number.', true);
           const currentPattern = getSelectedPattern();
           const currentSteps = currentPattern && Array.isArray(currentPattern.steps) ? currentPattern.steps : [];
-          const prevGoal = currentSteps[idx] ? normaliseGoalSeconds(currentSteps[idx].goalSeconds) : null;
+          const prevGoal = currentSteps[idx] ? getEffectiveStepGoalSeconds(currentSteps[idx]) : STEP_GOAL_DEFAULT_SECONDS;
           goalInput.value = formatGoalSecondsForUnit(prevGoal, goalUnitSelect.value);
           return;
         }
@@ -1125,6 +1134,13 @@ function renderCurrentStep(pattern) {
       });
 
       header.appendChild(goalControl);
+    } else if (_timerMode === 'timed') {
+      // Read-only outside edit mode — editing only happens in Edit Pattern mode, but the goal
+      // time should still be visible while actually walking through the pattern in Timed mode.
+      const goalDisplay = document.createElement('span');
+      goalDisplay.className = 'step-item-goal-display';
+      goalDisplay.textContent = 'Goal ' + formatTimerClock(getEffectiveStepGoalSeconds(step));
+      header.appendChild(goalDisplay);
     }
 
     const panel = document.createElement('div');
@@ -2040,13 +2056,19 @@ function commitPatternEditDraftIfNeeded() {
   _patternEditCommitInFlight = true;
   updateSidebarButtons(Boolean(selectedPatternId));
 
-  return withSyncTimeout(updatePattern(_pUid, pattern.id, {
-    name: pattern.name,
-    modality: pattern.modality || 'Other',
-    goalSeconds: pattern.goalSeconds,
-    reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-    steps: pattern.steps || []
-  }), PATTERN_SYNC_TIMEOUT_MS).then(function() {
+  var syncPromise = compressEmbeddedImagesForStorage(pattern.steps || [], _pUid).then(function(stepsForWrite) {
+    return updatePattern(_pUid, pattern.id, {
+      name: pattern.name,
+      modality: pattern.modality || 'Other',
+      goalSeconds: pattern.goalSeconds,
+      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
+      steps: stepsForWrite
+    }).then(function() {
+      pattern.steps = stepsForWrite;
+    });
+  });
+
+  return withSyncTimeout(syncPromise, PATTERN_SYNC_TIMEOUT_MS).then(function() {
     if (_patternEditDraft && _patternEditDraft.patternId === patternId) {
       _patternEditDraft.dirty = false;
     }
@@ -2516,14 +2538,15 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
   }
 
   try {
+    const stepsForWrite = await compressEmbeddedImagesForStorage(nextSteps, _pUid);
     await updatePattern(_pUid, pattern.id, {
       name: pattern.name,
       modality: pattern.modality || 'Other',
       goalSeconds: pattern.goalSeconds,
       reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-      steps: nextSteps
+      steps: stepsForWrite
     });
-    pattern.steps = nextSteps;
+    pattern.steps = stepsForWrite;
     if (sectionKey === 'dontMissPathology' && !_patternViewerEditMode) {
       setFindingPanelOpen(findingId, true);
     }
@@ -2533,7 +2556,7 @@ async function saveInlineEdit(sectionKey, findingId, nextTitle, nextContent, nex
     _activeInlineEdit = null;
     _inlineEditSaving = false;
     renderCurrentStep(pattern);
-    queuePatternStepReloadFromFirestore(pattern.id, currentStepIndex, nextSteps[currentStepIndex], 0);
+    queuePatternStepReloadFromFirestore(pattern.id, currentStepIndex, stepsForWrite[currentStepIndex], 0);
     if (detachedLiveLink) {
       showToast((sectionKey === 'searchPattern' ? 'Search pattern' : 'Finding') + ' updated. Live link detached so your edits persist.');
     } else {
@@ -3390,8 +3413,8 @@ function maybeAutoAdvanceStep() {
   if (steps.length < 2) return;
 
   var step = steps[currentStepIndex];
-  var goal = step ? normaliseGoalSeconds(step.goalSeconds) : null;
-  if (goal === null) return; // no goal set for this step — stay until manually advanced
+  if (!step) return;
+  var goal = getEffectiveStepGoalSeconds(step); // defaults to 1 minute when unset
 
   var elapsedOnCurrentStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
   if (elapsedOnCurrentStep < goal) return;
@@ -3931,6 +3954,46 @@ async function handleH5Import(e) {
     console.error('HDF5 import error:', err);
     showToast('Import failed: ' + (err.message || err), true);
   }
+}
+
+// Deep-walks any step/section/finding structure and replaces embedded base64 image
+// chunks (type: 'image', data: <base64>) with Storage-backed references (url/path),
+// uploading + downscaling as needed. Every other field (linkMeta, subsectionId, etc.)
+// is passed through untouched so this is safe to run over an entire steps tree before
+// every write, keeping documents under Firestore's ~1MB size limit.
+async function compressEmbeddedImagesForStorage(node, uid) {
+  if (Array.isArray(node)) {
+    const out = [];
+    for (const item of node) out.push(await compressEmbeddedImagesForStorage(item, uid));
+    return out;
+  }
+  if (node && typeof node === 'object') {
+    if (node.type === 'image' && !node.url && node.data) {
+      let data = node.data;
+      let format = node.format || 'png';
+      try {
+        data = await compressBase64Image(data, format);
+        format = 'jpeg';
+      } catch (e) {
+        // Keep original bytes if compression fails.
+      }
+      try {
+        const uploaded = await uploadImageToStorage(uid, data, format);
+        return { type: 'image', url: uploaded.url, path: uploaded.path, format: format };
+      } catch (e) {
+        console.warn('Image upload failed, keeping embedded copy:', e);
+        return Object.assign({}, node, { format: format, data: data });
+      }
+    }
+    const out = {};
+    for (const key in node) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        out[key] = await compressEmbeddedImagesForStorage(node[key], uid);
+      }
+    }
+    return out;
+  }
+  return node;
 }
 
 // Compress all base64 images in patterns to stay under Firestore's 1MB doc limit.
