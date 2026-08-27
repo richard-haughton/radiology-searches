@@ -197,19 +197,7 @@ function syncTimerControlsFromState() {
     voiceSpeedValue.textContent = _voiceSpeed.toFixed(1) + 'x';
   }
 
-  syncAllStepGoalControlsVisibility();
 }
-
-// Each step's own goal time is edited inline in its own header row (not a single control tied to
-// whichever step happens to be active), so switching modes just needs to show/hide every already-
-// rendered row's control rather than resync any particular value.
-function syncAllStepGoalControlsVisibility() {
-  var display = _timerMode === 'timed' ? '' : 'none';
-  document.querySelectorAll('.step-item-goal-control').forEach(function(el) {
-    el.style.display = display;
-  });
-}
-
 
 function getActiveStepAnnouncement(step, stepIndex) {
   var safeIndex = Number.isInteger(stepIndex) ? stepIndex : currentStepIndex;
@@ -1063,63 +1051,81 @@ function renderCurrentStep(pattern) {
     toggle.appendChild(label);
     toggle.appendChild(chevron);
 
-    const goalControl = document.createElement('div');
-    goalControl.className = 'step-item-goal-control';
-    if (_timerMode !== 'timed') goalControl.style.display = 'none';
-
-    const goalLabel = document.createElement('label');
-    goalLabel.className = 'step-goal-label';
-    goalLabel.setAttribute('for', 'step-item-goal-' + idx);
-    goalLabel.textContent = 'Goal';
-
-    const goalInput = document.createElement('input');
-    goalInput.type = 'number';
-    goalInput.min = '1';
-    goalInput.step = '1';
-    goalInput.id = 'step-item-goal-' + idx;
-    goalInput.className = 'step-goal-input';
-    goalInput.placeholder = 'sec';
-    const existingStepGoal = normaliseGoalSeconds(step.goalSeconds);
-    goalInput.value = existingStepGoal === null ? '' : String(existingStepGoal);
-
-    const goalUnitSelect = document.createElement('select');
-    goalUnitSelect.className = 'step-goal-unit-select';
-    goalUnitSelect.setAttribute('aria-label', 'Goal time unit');
-    goalUnitSelect.innerHTML = '<option value="sec">sec</option><option value="min">min</option>';
-    goalUnitSelect.value = 'sec';
-    goalUnitSelect.dataset.prevUnit = 'sec';
-
-    goalControl.appendChild(goalLabel);
-    goalControl.appendChild(goalInput);
-    goalControl.appendChild(goalUnitSelect);
-
-    goalUnitSelect.addEventListener('change', () => {
-      const newUnit = goalUnitSelect.value === 'min' ? 'min' : 'sec';
-      const prevUnit = goalUnitSelect.dataset.prevUnit || 'sec';
-      const current = Number(goalInput.value);
-      if (Number.isFinite(current) && current > 0 && newUnit !== prevUnit) {
-        goalInput.value = newUnit === 'min'
-          ? String(Math.round((current / 60) * 10) / 10)
-          : String(Math.round(current * 60));
-      }
-      goalInput.step = newUnit === 'min' ? '0.1' : '1';
-      goalInput.placeholder = newUnit;
-      goalUnitSelect.dataset.prevUnit = newUnit;
-    });
-
-    goalInput.addEventListener('blur', () => {
-      saveStepGoalSeconds(pattern, idx, goalInput, goalUnitSelect);
-    });
-    goalInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        goalInput.blur();
-      }
-    });
-
     header.appendChild(dragHandle);
     header.appendChild(toggle);
-    header.appendChild(goalControl);
+
+    // Goal time is only editable in Edit Pattern mode now (inline-during-walkthrough editing was
+    // clunky) — it stages into the pattern-edit draft exactly like step titles/findings do, and
+    // only actually saves when the user clicks "Done Editing".
+    if (_patternViewerEditMode) {
+      const goalControl = document.createElement('div');
+      goalControl.className = 'step-item-goal-control';
+      goalControl.dataset.stepIndex = String(idx);
+
+      const goalLabel = document.createElement('label');
+      goalLabel.className = 'step-goal-label';
+      goalLabel.setAttribute('for', 'step-item-goal-' + idx);
+      goalLabel.textContent = 'Goal';
+
+      const goalInput = document.createElement('input');
+      goalInput.type = 'number';
+      goalInput.min = '1';
+      goalInput.step = '1';
+      goalInput.id = 'step-item-goal-' + idx;
+      goalInput.className = 'step-goal-input';
+      goalInput.placeholder = 'sec';
+      const existingStepGoal = normaliseGoalSeconds(step.goalSeconds);
+      goalInput.value = existingStepGoal === null ? '' : String(existingStepGoal);
+
+      const goalUnitSelect = document.createElement('select');
+      goalUnitSelect.className = 'step-goal-unit-select';
+      goalUnitSelect.setAttribute('aria-label', 'Goal time unit');
+      goalUnitSelect.innerHTML = '<option value="sec">sec</option><option value="min">min</option>';
+      goalUnitSelect.value = 'sec';
+      goalUnitSelect.dataset.prevUnit = 'sec';
+
+      goalControl.appendChild(goalLabel);
+      goalControl.appendChild(goalInput);
+      goalControl.appendChild(goalUnitSelect);
+
+      goalUnitSelect.addEventListener('change', () => {
+        const newUnit = goalUnitSelect.value === 'min' ? 'min' : 'sec';
+        const prevUnit = goalUnitSelect.dataset.prevUnit || 'sec';
+        const current = Number(goalInput.value);
+        if (Number.isFinite(current) && current > 0 && newUnit !== prevUnit) {
+          goalInput.value = newUnit === 'min'
+            ? String(Math.round((current / 60) * 10) / 10)
+            : String(Math.round(current * 60));
+        }
+        goalInput.step = newUnit === 'min' ? '0.1' : '1';
+        goalInput.placeholder = newUnit;
+        goalUnitSelect.dataset.prevUnit = newUnit;
+      });
+
+      goalInput.addEventListener('input', () => {
+        if (!isValidGoalInputValue(goalInput.value)) return; // don't stage garbage mid-keystroke
+        applyPatternViewerStepGoalDraft(idx, goalInput.value, goalUnitSelect.value);
+      });
+      goalInput.addEventListener('blur', () => {
+        if (!isValidGoalInputValue(goalInput.value)) {
+          showToast('Step goal must be a positive number.', true);
+          const currentPattern = getSelectedPattern();
+          const currentSteps = currentPattern && Array.isArray(currentPattern.steps) ? currentPattern.steps : [];
+          const prevGoal = currentSteps[idx] ? normaliseGoalSeconds(currentSteps[idx].goalSeconds) : null;
+          goalInput.value = formatGoalSecondsForUnit(prevGoal, goalUnitSelect.value);
+          return;
+        }
+        applyPatternViewerStepGoalDraft(idx, goalInput.value, goalUnitSelect.value);
+      });
+      goalInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          goalInput.blur();
+        }
+      });
+
+      header.appendChild(goalControl);
+    }
 
     const panel = document.createElement('div');
     panel.className = 'step-item-panel';
@@ -3412,57 +3418,44 @@ function formatGoalSecondsForUnit(seconds, unit) {
   return unit === 'min' ? String(Math.round((seconds / 60) * 10) / 10) : String(seconds);
 }
 
-async function saveStepGoalSeconds(pattern, stepIndex, inputEl, unitSelectEl) {
-  if (!pattern || !_pUid || !inputEl) return;
+function isValidGoalInputValue(raw) {
+  const trimmed = String(raw || '').trim();
+  if (trimmed === '') return true; // empty means "clear the goal" — always a valid end state
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n > 0;
+}
+
+// Stages a step's goal time into the pattern-edit draft, same as step titles and findings do —
+// only actually persisted to Firestore when the user clicks "Done Editing" (commitPatternEditDraftIfNeeded).
+function applyPatternViewerStepGoalDraft(stepIndex, rawValue, unit) {
+  if (!_patternViewerEditMode) return false;
+  const pattern = getSelectedPattern();
+  if (!pattern) return false;
 
   const steps = Array.isArray(pattern.steps) ? pattern.steps : [];
-  const step = steps[stepIndex];
-  if (!step) return;
+  const safeStepIndex = Number.isInteger(stepIndex) ? stepIndex : -1;
+  const step = safeStepIndex >= 0 ? steps[safeStepIndex] : null;
+  if (!step) return false;
 
-  const unit = unitSelectEl && unitSelectEl.value === 'min' ? 'min' : 'sec';
-  const rawGoal = String(inputEl.value || '').trim();
+  const safeUnit = unit === 'min' ? 'min' : 'sec';
+  const rawGoal = String(rawValue || '').trim();
   const previousGoalSeconds = normaliseGoalSeconds(step.goalSeconds);
 
   let nextGoalSeconds = null;
   if (rawGoal !== '') {
     const rawNumber = Number(rawGoal);
-    if (!Number.isFinite(rawNumber) || rawNumber <= 0) {
-      showToast('Step goal must be a positive number.', true);
-      inputEl.value = formatGoalSecondsForUnit(previousGoalSeconds, unit);
-      return;
-    }
-    nextGoalSeconds = Math.round(unit === 'min' ? rawNumber * 60 : rawNumber);
+    if (!Number.isFinite(rawNumber) || rawNumber <= 0) return false;
+    nextGoalSeconds = Math.round(safeUnit === 'min' ? rawNumber * 60 : rawNumber);
   }
 
-  if (nextGoalSeconds === previousGoalSeconds) return; // nothing changed — skip the write
+  if (nextGoalSeconds === previousGoalSeconds) return false;
 
-  const nextSteps = steps.map(function(s, idx) {
-    return idx === stepIndex ? Object.assign({}, s, { goalSeconds: nextGoalSeconds }) : s;
-  });
-
-  try {
-    await updatePattern(_pUid, pattern.id, {
-      name: pattern.name,
-      modality: pattern.modality || 'Other',
-      reportConfig: pattern.reportConfig && typeof pattern.reportConfig === 'object' ? pattern.reportConfig : null,
-      goalSeconds: pattern.goalSeconds,
-      steps: nextSteps
-    });
-
-    step.goalSeconds = nextGoalSeconds;
-    pattern.steps = nextSteps;
-    if (stepIndex === currentStepIndex) {
-      timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
-      updateTimerDisplay();
-    }
-
-    const summary = nextGoalSeconds === null ? 'Goal cleared' : ('Goal ' + formatTimerClock(nextGoalSeconds));
-    showToast('Saved step goal for "' + getCleanStepTitle(step.stepTitle) + '": ' + summary + '.');
-  } catch (err) {
-    console.error(err);
-    inputEl.value = formatGoalSecondsForUnit(previousGoalSeconds, unit);
-    showToast('Failed to save step goal.', true);
+  step.goalSeconds = nextGoalSeconds;
+  markPatternEditDraftDirty(pattern);
+  if (safeStepIndex === currentStepIndex) {
+    timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
   }
+  return true;
 }
 
 
@@ -3722,6 +3715,16 @@ function flushPatternViewerDraftFromDom() {
     const stepIndex = Number(inputEl.dataset.stepIndex);
     if (!Number.isInteger(stepIndex)) return;
     applyPatternViewerStepTitleDraft(stepIndex, inputEl.value);
+  });
+
+  const goalControls = Array.from(document.querySelectorAll('.step-item-goal-control[data-step-index]'));
+  goalControls.forEach(function(controlEl) {
+    const stepIndex = Number(controlEl.dataset.stepIndex);
+    if (!Number.isInteger(stepIndex)) return;
+    const goalInput = controlEl.querySelector('.step-goal-input');
+    const goalUnitSelect = controlEl.querySelector('.step-goal-unit-select');
+    if (!goalInput || !isValidGoalInputValue(goalInput.value)) return;
+    applyPatternViewerStepGoalDraft(stepIndex, goalInput.value, goalUnitSelect ? goalUnitSelect.value : 'sec');
   });
 
   const inlineForms = Array.from(document.querySelectorAll('.step-inline-edit[data-step-index][data-section-key]'));
