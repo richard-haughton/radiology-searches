@@ -3648,6 +3648,9 @@ async function confirmRecord() {
     timerSeconds = 0;
     clearYellowStepMarks();
     if (pattern) {
+      currentStepIndex = 0;
+      _openStepIndices = new Set([0]);
+      _autoAdvancePaused = false;
       startTimer(pattern);
       renderCurrentStep(pattern);
     } else {
@@ -3655,7 +3658,7 @@ async function confirmRecord() {
       updateTimerActionButtons();
     }
     pendingRecordSeconds = 0;
-    showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(recordedSeconds)}`);
+    showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(recordedSeconds)} — restarted from step 1.`);
   } catch (err) {
     console.error(err);
     updateTimerActionButtons();
