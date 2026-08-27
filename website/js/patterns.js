@@ -190,6 +190,26 @@ function getEffectiveStepGoalSeconds(step) {
   return explicit === null ? STEP_GOAL_DEFAULT_SECONDS : explicit;
 }
 
+function computeTotalGoalSeconds(pattern) {
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  return steps.reduce(function(sum, step) {
+    return sum + getEffectiveStepGoalSeconds(step);
+  }, 0);
+}
+
+function renderTotalGoalDisplay(pattern) {
+  var el = document.getElementById('step-total-goal');
+  if (!el) return;
+
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (_timerMode !== 'timed' || !steps.length) {
+    el.textContent = '';
+    return;
+  }
+
+  el.textContent = 'Total goal ' + formatTimerClock(computeTotalGoalSeconds(pattern));
+}
+
 // Each step carries its own goal time now (replacing the old whole-pattern goal divided evenly
 // across steps), so this depends on which step is currently active, not just the pattern.
 function getCurrentStepGoalSeconds(pattern, mode) {
@@ -502,6 +522,7 @@ function initPatterns(userId) {
     timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
     syncTimerControlsFromState();
     renderStepTimeStatsForCurrentStep();
+    renderTotalGoalDisplay(pattern);
     updateTimerDisplay();
   });
 
@@ -1013,6 +1034,7 @@ function renderCurrentStep(pattern) {
   contentEl.classList.toggle('step-content-edit-mode', Boolean(_patternViewerEditMode));
 
   document.getElementById('step-counter').textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
+  renderTotalGoalDisplay(pattern);
   const currentStep = steps[currentStepIndex] || steps[0] || null;
   handleActiveStepChanged(pattern, currentStepIndex, currentStep);
   document.getElementById('step-title').textContent = (currentStep && getCleanStepTitle(currentStep.stepTitle))
@@ -3506,6 +3528,7 @@ function applyPatternViewerStepGoalDraft(stepIndex, rawValue, unit) {
   if (safeStepIndex === currentStepIndex) {
     timerGoalSeconds = getCurrentStepGoalSeconds(pattern, _timerMode);
   }
+  renderTotalGoalDisplay(pattern);
   return true;
 }
 
