@@ -15,6 +15,7 @@ var _timerMode = 'timed';
 
 var _voiceModeEnabled = false;
 var _voiceSpeed = 1;
+var _voiceVolume = 1;
 var _timerActiveStepKey = '';
 var _timerStepEnteredAtSeconds = 0;
 var _timerActivePatternId = '';
@@ -61,6 +62,10 @@ var TIMER_VOICE_SPEED_STATE_KEY = 'patternTimerVoiceSpeed';
 var TIMER_VOICE_SPEED_MIN = 0.5;
 var TIMER_VOICE_SPEED_MAX = 2;
 var TIMER_VOICE_SPEED_DEFAULT = 1;
+var TIMER_VOICE_VOLUME_STATE_KEY = 'patternTimerVoiceVolume';
+var TIMER_VOICE_VOLUME_MIN = 0;
+var TIMER_VOICE_VOLUME_MAX = 1;
+var TIMER_VOICE_VOLUME_DEFAULT = 1;
 var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
   searchPattern: true,
@@ -158,6 +163,7 @@ function loadTimerPreferences() {
   _timerMode = normaliseTimerMode(localStorage.getItem(TIMER_GOAL_MODE_STATE_KEY));
   _voiceModeEnabled = localStorage.getItem(TIMER_VOICE_MODE_STATE_KEY) === '1';
   _voiceSpeed = normaliseVoiceSpeed(localStorage.getItem(TIMER_VOICE_SPEED_STATE_KEY));
+  _voiceVolume = normaliseVoiceVolume(localStorage.getItem(TIMER_VOICE_VOLUME_STATE_KEY));
 }
 
 function normaliseVoiceSpeed(value) {
@@ -165,6 +171,13 @@ function normaliseVoiceSpeed(value) {
   var n = Number(value);
   if (!Number.isFinite(n)) return TIMER_VOICE_SPEED_DEFAULT;
   return Math.max(TIMER_VOICE_SPEED_MIN, Math.min(TIMER_VOICE_SPEED_MAX, n));
+}
+
+function normaliseVoiceVolume(value) {
+  if (value === null || value === undefined || value === '') return TIMER_VOICE_VOLUME_DEFAULT;
+  var n = Number(value);
+  if (!Number.isFinite(n)) return TIMER_VOICE_VOLUME_DEFAULT;
+  return Math.max(TIMER_VOICE_VOLUME_MIN, Math.min(TIMER_VOICE_VOLUME_MAX, n));
 }
 
 var STEP_GOAL_DEFAULT_SECONDS = 60;
@@ -193,6 +206,8 @@ function syncTimerControlsFromState() {
   var voiceToggle = document.getElementById('timer-voice-mode');
   var voiceSpeedInput = document.getElementById('timer-voice-speed');
   var voiceSpeedValue = document.getElementById('timer-voice-speed-value');
+  var voiceVolumeInput = document.getElementById('timer-voice-volume');
+  var voiceVolumeValue = document.getElementById('timer-voice-volume-value');
 
   if (modeSelect) {
     modeSelect.value = _timerMode;
@@ -206,7 +221,12 @@ function syncTimerControlsFromState() {
   if (voiceSpeedValue) {
     voiceSpeedValue.textContent = _voiceSpeed.toFixed(1) + 'x';
   }
-
+  if (voiceVolumeInput && document.activeElement !== voiceVolumeInput) {
+    voiceVolumeInput.value = String(_voiceVolume);
+  }
+  if (voiceVolumeValue) {
+    voiceVolumeValue.textContent = Math.round(_voiceVolume * 100) + '%';
+  }
 }
 
 function getActiveStepAnnouncement(step, stepIndex) {
@@ -240,7 +260,7 @@ function speakActiveStepWithBrowserTts(text, token) {
   var utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = _voiceSpeed;
   utterance.pitch = 1;
-  utterance.volume = 1;
+  utterance.volume = _voiceVolume;
   window.speechSynthesis.speak(utterance);
 }
 
@@ -268,6 +288,7 @@ async function speakActiveStep(step, stepIndex) {
 
     var audio = new Audio(dataUrl);
     audio.playbackRate = _voiceSpeed;
+    audio.volume = _voiceVolume;
     _stepAnnouncementAudio = audio;
     audio.onended = function() {
       if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
@@ -462,6 +483,13 @@ function initPatterns(userId) {
     localStorage.setItem(TIMER_VOICE_SPEED_STATE_KEY, String(_voiceSpeed));
     const speedValueEl = document.getElementById('timer-voice-speed-value');
     if (speedValueEl) speedValueEl.textContent = _voiceSpeed.toFixed(1) + 'x';
+  });
+  document.getElementById('timer-voice-volume').addEventListener('input', e => {
+    _voiceVolume = normaliseVoiceVolume(e.target && e.target.value);
+    localStorage.setItem(TIMER_VOICE_VOLUME_STATE_KEY, String(_voiceVolume));
+    const volumeValueEl = document.getElementById('timer-voice-volume-value');
+    if (volumeValueEl) volumeValueEl.textContent = Math.round(_voiceVolume * 100) + '%';
+    if (_stepAnnouncementAudio) _stepAnnouncementAudio.volume = _voiceVolume;
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
     const previousMode = _timerMode;
@@ -3978,7 +4006,11 @@ async function compressEmbeddedImagesForStorage(node, uid) {
         // Keep original bytes if compression fails.
       }
       try {
-        const uploaded = await uploadImageToStorage(uid, data, format);
+        // Firebase Storage's SDK retries failed uploads internally for up to ~2 minutes,
+        // which would otherwise blow through the whole save's sync timeout on a single
+        // image (e.g. if Storage/CORS isn't configured). Bound it so a bad upload falls
+        // back to the embedded copy quickly instead of stalling the entire save.
+        const uploaded = await withSyncTimeout(uploadImageToStorage(uid, data, format), 8000);
         return { type: 'image', url: uploaded.url, path: uploaded.path, format: format };
       } catch (e) {
         console.warn('Image upload failed, keeping embedded copy:', e);
