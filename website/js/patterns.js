@@ -64,7 +64,7 @@ var TIMER_VOICE_SPEED_MAX = 2;
 var TIMER_VOICE_SPEED_DEFAULT = 1;
 var TIMER_VOICE_VOLUME_STATE_KEY = 'patternTimerVoiceVolume';
 var TIMER_VOICE_VOLUME_MIN = 0;
-var TIMER_VOICE_VOLUME_MAX = 1;
+var TIMER_VOICE_VOLUME_MAX = 3;
 var TIMER_VOICE_VOLUME_DEFAULT = 1;
 var PATTERN_SYNC_TIMEOUT_MS = 60000;
 var _stepSectionsOpenState = {
@@ -258,7 +258,36 @@ function getActiveStepAnnouncement(step, stepIndex) {
 // ── AI-augmented step voice announcements ───────────────────
 var _stepAnnouncementSpeechToken = 0;
 var _stepAnnouncementAudio = null;
+var _stepAnnouncementGainNode = null;
+var _voiceAudioContext = null;
 var STEP_ANNOUNCEMENT_TTS_INSTRUCTIONS = 'Speak clearly and naturally, like a calm colleague stating a checklist item during a live read. Brief, natural pacing, not robotic.';
+
+// A plain <audio>/<utterance> volume is hard-capped at 1.0 (100%) by spec — setting it higher
+// throws. To go louder than that, AI-voice audio is routed through a Web Audio gain node instead,
+// which can amplify the signal past its native level (at the cost of possible clipping/distortion
+// at extreme settings, same tradeoff any "loudness boost" tool makes). The browser-voice fallback
+// has no such path available, so it stays capped at 100%.
+function ensureVoiceAudioContext() {
+  if (_voiceAudioContext) return _voiceAudioContext;
+  var Ctor = window.AudioContext || window.webkitAudioContext;
+  if (typeof Ctor !== 'function') return null;
+  try {
+    _voiceAudioContext = new Ctor();
+  } catch (err) {
+    _voiceAudioContext = null;
+  }
+  return _voiceAudioContext;
+}
+
+// AudioContexts start (or get auto-suspended back to) "suspended" until resumed from within a
+// genuine user gesture — call this from direct click/input handlers (the Voice toggle, the volume
+// slider) so it's already unlocked by the time an auto-advance-triggered announcement needs it.
+function resumeVoiceAudioContextFromUserGesture() {
+  var ctx = ensureVoiceAudioContext();
+  if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+    ctx.resume().catch(function() { /* ignore — falls back to capped native volume */ });
+  }
+}
 
 function stopStepAnnouncementAudio() {
   _stepAnnouncementSpeechToken += 1; // invalidate any announcement request currently in flight
@@ -270,6 +299,7 @@ function stopStepAnnouncementAudio() {
     _stepAnnouncementAudio.src = '';
     _stepAnnouncementAudio = null;
   }
+  _stepAnnouncementGainNode = null;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
@@ -280,7 +310,7 @@ function speakActiveStepWithBrowserTts(text, token) {
   var utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = _voiceSpeed;
   utterance.pitch = 1;
-  utterance.volume = _voiceVolume;
+  utterance.volume = Math.min(1, _voiceVolume); // browser TTS has no boost path — capped at 100%
   window.speechSynthesis.speak(utterance);
 }
 
@@ -308,7 +338,24 @@ async function speakActiveStep(step, stepIndex) {
 
     var audio = new Audio(dataUrl);
     audio.playbackRate = _voiceSpeed;
-    audio.volume = _voiceVolume;
+
+    var audioCtx = ensureVoiceAudioContext();
+    if (audioCtx) {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        var source = audioCtx.createMediaElementSource(audio);
+        var gainNode = audioCtx.createGain();
+        gainNode.gain.value = _voiceVolume; // can exceed 1.0 — actual amplification, not just native volume
+        source.connect(gainNode).connect(audioCtx.destination);
+        audio.volume = 1; // gain node now controls the real loudness
+        _stepAnnouncementGainNode = gainNode;
+      } catch (err) {
+        audio.volume = Math.min(1, _voiceVolume); // Web Audio routing failed — fall back to capped native volume
+      }
+    } else {
+      audio.volume = Math.min(1, _voiceVolume);
+    }
+
     _stepAnnouncementAudio = audio;
     audio.onended = function() {
       if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
@@ -505,11 +552,16 @@ function initPatterns(userId) {
     if (speedValueEl) speedValueEl.textContent = _voiceSpeed.toFixed(1) + 'x';
   });
   document.getElementById('timer-voice-volume').addEventListener('input', e => {
+    resumeVoiceAudioContextFromUserGesture(); // this handler runs on a real user gesture — unlock early
     _voiceVolume = normaliseVoiceVolume(e.target && e.target.value);
     localStorage.setItem(TIMER_VOICE_VOLUME_STATE_KEY, String(_voiceVolume));
     const volumeValueEl = document.getElementById('timer-voice-volume-value');
     if (volumeValueEl) volumeValueEl.textContent = Math.round(_voiceVolume * 100) + '%';
-    if (_stepAnnouncementAudio) _stepAnnouncementAudio.volume = _voiceVolume;
+    if (_stepAnnouncementGainNode) {
+      _stepAnnouncementGainNode.gain.value = _voiceVolume;
+    } else if (_stepAnnouncementAudio) {
+      _stepAnnouncementAudio.volume = Math.min(1, _voiceVolume);
+    }
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
     const previousMode = _timerMode;
@@ -527,6 +579,7 @@ function initPatterns(userId) {
   });
 
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
+    resumeVoiceAudioContextFromUserGesture(); // this handler runs on a real user gesture — unlock early
     _voiceModeEnabled = Boolean(e.target && e.target.checked);
     localStorage.setItem(TIMER_VOICE_MODE_STATE_KEY, _voiceModeEnabled ? '1' : '0');
     if (!_voiceModeEnabled) {
@@ -3405,10 +3458,19 @@ function stopTimer() {
 
 function updateTimerDisplay() {
   const timerDisplay = document.getElementById('timer-display');
-  timerDisplay.textContent = formatTimerClock(timerSeconds);
-  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
-  const overGoal = timerGoalSeconds !== null && elapsedOnStep > timerGoalSeconds;
-  timerDisplay.classList.toggle('timer-display-over-goal', overGoal);
+  // Walkthrough mode has no pacing goal, so a ticking clock only adds time pressure it isn't meant
+  // to have — keep tracking timerSeconds in the background (Record Study still needs it), just
+  // don't show or color-code it.
+  const showTimer = _timerMode !== 'walkthrough';
+  timerDisplay.style.display = showTimer ? '' : 'none';
+  if (showTimer) {
+    timerDisplay.textContent = formatTimerClock(timerSeconds);
+    const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+    const overGoal = timerGoalSeconds !== null && elapsedOnStep > timerGoalSeconds;
+    timerDisplay.classList.toggle('timer-display-over-goal', overGoal);
+  } else {
+    timerDisplay.classList.remove('timer-display-over-goal');
+  }
   applyTimerGoalTheme();
 }
 
@@ -3594,6 +3656,54 @@ async function confirmRecord() {
     }
     pendingRecordSeconds = 0;
     showToast(`Recorded "${pendingRecordPatternName}" — ${formatDuration(recordedSeconds)}`);
+  } catch (err) {
+    console.error(err);
+    updateTimerActionButtons();
+    showToast('Failed to save study record.', true);
+  }
+}
+
+// Pressing Space on the final step records the study immediately (skipping the RVU modal — best-
+// effort auto-filled the same way the modal does, if a matching RVU entry exists) and restarts the
+// same pattern from step 1, for fast back-to-back reads without touching the mouse.
+async function autoRecordAndRestartPattern() {
+  const pattern = getSelectedPattern();
+  if (!pattern) return;
+
+  const patternName = pattern.name;
+  const recordedSeconds = timerSeconds;
+  stopTimer();
+
+  let rvu = null;
+  try {
+    if (typeof RVUsData !== 'undefined' && RVUsData && typeof RVUsData.findIndex === 'function') {
+      const idx = RVUsData.findIndex(patternName);
+      if (idx !== -1) {
+        const entry = RVUsData.getEntry(idx);
+        if (entry) rvu = entry.rvu;
+      }
+    }
+  } catch (err) {
+    // Best-effort RVU auto-fill only — recording still proceeds without it.
+  }
+
+  try {
+    await addStudyLogEntry(_pUid, {
+      study: patternName,
+      seconds: recordedSeconds,
+      duration: formatDuration(recordedSeconds),
+      rvu: rvu
+    });
+
+    currentStepIndex = 0;
+    _openStepIndices = new Set([0]);
+    _autoAdvancePaused = false;
+    timerSeconds = 0;
+    clearYellowStepMarks();
+    startTimer(pattern);
+    renderCurrentStep(pattern);
+
+    showToast(`Recorded "${patternName}" — ${formatDuration(recordedSeconds)} — restarted from step 1.`);
   } catch (err) {
     console.error(err);
     updateTimerActionButtons();
@@ -3945,7 +4055,12 @@ function handleKeydown(e) {
     navigateStep(e.shiftKey ? -1 : 1);
   } else if (e.key === ' ') {
     e.preventDefault();
-    if (_timerMode === 'timed' && timerRunning) {
+    const pattern = getSelectedPattern();
+    const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+    const onFinalStep = steps.length > 0 && currentStepIndex >= steps.length - 1;
+    if (onFinalStep) {
+      autoRecordAndRestartPattern();
+    } else if (_timerMode === 'timed' && timerRunning) {
       toggleAutoAdvancePause();
     } else {
       openRecordModal();
