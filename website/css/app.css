@@ -374,7 +374,8 @@ body {
   gap: 8px;
 }
 .pattern-findings-panel.panel-collapsed .pattern-findings-header-text,
-.pattern-findings-panel.panel-collapsed .pattern-findings-body {
+.pattern-findings-panel.panel-collapsed .pattern-findings-body,
+.pattern-findings-panel.panel-collapsed #btn-findings-expand-all {
   display: none;
 }
 .pattern-findings-panel.panel-collapsed .pattern-findings-toggle {
@@ -404,6 +405,10 @@ body {
   font-size: 1.06rem;
   font-weight: 800;
   line-height: 1.2;
+}
+#btn-findings-expand-all {
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 .pattern-findings-toggle {
   width: 28px;

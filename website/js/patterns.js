@@ -497,6 +497,7 @@ function initPatterns(userId) {
 
   initPatternSidebarToggle();
   initPatternFindingsPanelToggle();
+  initFindingsExpandAllButton();
   loadStepSectionsOpenState();
   loadAccordionModeState();
   loadInlineEditorFontSizePreference();
@@ -1427,11 +1428,13 @@ function renderCurrentStepFindings(pattern, step, stepIndex, stepsLength) {
     empty.className = 'step-section-empty';
     empty.textContent = safePattern ? 'Select a step to view findings.' : 'Select a pattern to see findings.';
     contentEl.appendChild(empty);
+    updateFindingsExpandAllButton([], -1);
     return;
   }
 
   const sections = normaliseStepSectionsSafe(safeStep.sections, safeStep.richContent || []);
   const findings = sections.dontMissPathology || [];
+  updateFindingsExpandAllButton(findings, displayStepIndex);
 
   if (findings.length) {
     renderNestedSubsections(contentEl, findings, displayStepIndex, Number.isInteger(stepsLength) ? stepsLength : 0);
@@ -2942,6 +2945,7 @@ function renderNestedSubsections(container, content, stepIndex, stepsLength) {
       panel.style.display = nextOpen ? '' : 'none';
       const chevron = btn.querySelector('.step-subsection-chevron');
       if (chevron) chevron.textContent = nextOpen ? '▾' : '▸';
+      updateFindingsExpandAllButton(content, safeStepIndex);
 
       if (_patternViewerEditMode && nextOpen) {
         // Re-render so the opened finding switches into direct edit mode.
@@ -3408,6 +3412,51 @@ function updateExpandAllButton(stepCount) {
   btn.textContent = allOpen ? 'Collapse All' : 'Expand All';
   btn.disabled = false;
   btn.title = allOpen ? 'Collapse every step in this pattern.' : 'Expand every step in this pattern.';
+}
+
+function getFindingEntriesForStepIndex(stepIndex) {
+  const pattern = getSelectedPattern();
+  const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  const step = Number.isInteger(stepIndex) && stepIndex >= 0 ? steps[stepIndex] : null;
+  if (!step) return [];
+  const sections = normaliseStepSectionsSafe(step.sections, step.richContent || []);
+  return normaliseSubsectionEntries(sections.dontMissPathology || []).filter(entry => entry.subsectionId);
+}
+
+function initFindingsExpandAllButton() {
+  const btn = document.getElementById('btn-findings-expand-all');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    const pattern = getSelectedPattern();
+    if (!pattern) return;
+    const entries = getFindingEntriesForStepIndex(currentStepIndex);
+    if (!entries.length) return;
+
+    const allOpen = entries.every(entry => isFindingPanelOpen(entry.subsectionId, currentStepIndex));
+    entries.forEach(entry => setFindingPanelOpen(entry.subsectionId, !allOpen, currentStepIndex));
+
+    const steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+    renderCurrentStepFindings(pattern, steps[currentStepIndex], currentStepIndex, steps.length);
+  });
+}
+
+function updateFindingsExpandAllButton(findings, stepIndex) {
+  const btn = document.getElementById('btn-findings-expand-all');
+  if (!btn) return;
+
+  const entries = normaliseSubsectionEntries(findings || []).filter(entry => entry.subsectionId);
+  if (!entries.length) {
+    btn.textContent = 'Expand All';
+    btn.disabled = true;
+    btn.title = 'No findings in this step yet.';
+    return;
+  }
+
+  const allOpen = entries.every(entry => isFindingPanelOpen(entry.subsectionId, stepIndex));
+  btn.textContent = allOpen ? 'Collapse All' : 'Expand All';
+  btn.disabled = false;
+  btn.title = allOpen ? 'Collapse every finding in this step.' : 'Expand every finding in this step.';
 }
 
 // ── Timer ────────────────────────────────────────────────────
