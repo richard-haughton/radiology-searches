@@ -21,6 +21,8 @@ var _timerStepEnteredAtSeconds = 0;
 var _timerActivePatternId = '';
 var _timerActiveStepIndex = -1;
 var _autoAdvancePaused = false;
+var _timerPaused = false;          // true while the clock itself is frozen (full-screen "tap to pause")
+var _timerPausedAtWall = 0;
 var _stepTimingsCache = {}; // stepId -> {count, totalSeconds}
 var _stepTimingsPatternId = null; // which pattern _stepTimingsCache currently reflects
 var activeModality = 'All';
@@ -247,6 +249,13 @@ function syncTimerControlsFromState() {
   if (voiceVolumeValue) {
     voiceVolumeValue.textContent = Math.round(_voiceVolume * 100) + '%';
   }
+
+  // The full-screen read is a Timed-mode feature (auto-advance + goal pacing); CSS decides whether the
+  // current screen size actually shows it.
+  var fullscreenBtn = document.getElementById('btn-timer-fullscreen');
+  if (fullscreenBtn) {
+    fullscreenBtn.hidden = _timerMode !== 'timed';
+  }
 }
 
 function getActiveStepAnnouncement(step, stepIndex) {
@@ -257,17 +266,29 @@ function getActiveStepAnnouncement(step, stepIndex) {
 
 // ── AI-augmented step voice announcements ───────────────────
 var _stepAnnouncementSpeechToken = 0;
-var _stepAnnouncementAudio = null;
-var _stepAnnouncementGainNode = null;
+var _voiceAudioEl = null;        // one long-lived <audio> element reused for every announcement
+var _voiceGainNode = null;       // Web Audio gain (desktop-only loudness boost), wired once to _voiceAudioEl
 var _voiceAudioContext = null;
+var _voiceAudioUnlocked = false;
+var _voiceSpeechUnlocked = false;
+var _voiceAnnouncementCache = new Map(); // announcement text -> Promise<data URL> (also serves as prefetch cache)
+var VOICE_ANNOUNCEMENT_CACHE_MAX = 40;
 var STEP_ANNOUNCEMENT_TTS_INSTRUCTIONS = 'Speak clearly and naturally, like a calm colleague stating a checklist item during a live read. Brief, natural pacing, not robotic.';
+var VOICE_SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+
+function isTouchPrimaryDevice() {
+  return Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
 
 // A plain <audio>/<utterance> volume is hard-capped at 1.0 (100%) by spec — setting it higher
-// throws. To go louder than that, AI-voice audio is routed through a Web Audio gain node instead,
-// which can amplify the signal past its native level (at the cost of possible clipping/distortion
-// at extreme settings, same tradeoff any "loudness boost" tool makes). The browser-voice fallback
-// has no such path available, so it stays capped at 100%.
+// throws. To go louder than that on desktop, AI-voice audio is routed through a Web Audio gain
+// node instead, which can amplify the signal past its native level (at the cost of possible
+// clipping at extreme settings). Phones skip this path on purpose: iOS/Android suspend the
+// AudioContext outside a user gesture, and audio routed through a suspended context plays as
+// silence — hardware volume is the right control there. The browser-voice fallback has no boost
+// path either, so it stays capped at 100%.
 function ensureVoiceAudioContext() {
+  if (isTouchPrimaryDevice()) return null;
   if (_voiceAudioContext) return _voiceAudioContext;
   var Ctor = window.AudioContext || window.webkitAudioContext;
   if (typeof Ctor !== 'function') return null;
@@ -289,17 +310,77 @@ function resumeVoiceAudioContextFromUserGesture() {
   }
 }
 
+function getVoiceAudioElement() {
+  if (_voiceAudioEl) return _voiceAudioEl;
+  var el = new Audio();
+  el.preload = 'auto';
+  el.setAttribute('playsinline', '');
+  _voiceAudioEl = el;
+  return el;
+}
+
+function applyVoiceVolumeToPlayback() {
+  if (_voiceGainNode) {
+    _voiceGainNode.gain.value = _voiceVolume; // can exceed 1.0 — actual amplification, not just native volume
+  } else if (_voiceAudioEl) {
+    _voiceAudioEl.volume = Math.min(1, _voiceVolume);
+  }
+}
+
+// Mobile browsers (iOS Safari especially) only let a media element play programmatically if that
+// same element was first started from inside a real tap. Announcements fire from a timer, after
+// an async network round trip, so they are never "in" a gesture — without this unlock the audio
+// silently fails and the browser-voice fallback is blocked too. The one long-lived element is
+// played (silent clip) on the first tap, after which it can be reused freely for real speech.
+function unlockVoiceOutput() {
+  resumeVoiceAudioContextFromUserGesture();
+
+  if (!_voiceAudioUnlocked) {
+    var el = getVoiceAudioElement();
+    if (el.paused) { // never clobber an announcement that is already playing
+      try {
+        el.src = VOICE_SILENT_WAV;
+        var playing = el.play();
+        if (playing && typeof playing.then === 'function') {
+          playing.then(function() {
+            _voiceAudioUnlocked = true;
+            el.pause();
+          }).catch(function() { /* not a usable gesture — the next tap retries */ });
+        } else {
+          _voiceAudioUnlocked = true;
+        }
+      } catch (err) { /* retry on next gesture */ }
+    }
+  }
+
+  if (!_voiceSpeechUnlocked && window.speechSynthesis && typeof window.SpeechSynthesisUtterance === 'function') {
+    try {
+      var warmup = new SpeechSynthesisUtterance(' ');
+      warmup.volume = 0;
+      window.speechSynthesis.speak(warmup);
+      _voiceSpeechUnlocked = true;
+    } catch (err) { /* retry on next gesture */ }
+  }
+}
+
+function bindVoiceUnlockOnGesture() {
+  var handler = function() {
+    if (!_voiceModeEnabled) return;
+    if (_voiceAudioUnlocked && _voiceSpeechUnlocked) return;
+    unlockVoiceOutput();
+  };
+  ['touchend', 'click', 'keydown'].forEach(function(type) {
+    document.addEventListener(type, handler, { passive: true });
+  });
+}
+
 function stopStepAnnouncementAudio() {
   _stepAnnouncementSpeechToken += 1; // invalidate any announcement request currently in flight
-  if (_stepAnnouncementAudio) {
-    try { _stepAnnouncementAudio.pause(); } catch (err) { /* already stopped */ }
-    _stepAnnouncementAudio.onplay = null;
-    _stepAnnouncementAudio.onended = null;
-    _stepAnnouncementAudio.onerror = null;
-    _stepAnnouncementAudio.src = '';
-    _stepAnnouncementAudio = null;
+  if (_voiceAudioEl) {
+    try { _voiceAudioEl.pause(); } catch (err) { /* already stopped */ }
+    _voiceAudioEl.onended = null;
+    _voiceAudioEl.onerror = null;
   }
-  _stepAnnouncementGainNode = null;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
@@ -311,7 +392,39 @@ function speakActiveStepWithBrowserTts(text, token) {
   utterance.rate = _voiceSpeed;
   utterance.pitch = 1;
   utterance.volume = Math.min(1, _voiceVolume); // browser TTS has no boost path — capped at 100%
-  window.speechSynthesis.speak(utterance);
+  // Mobile Chrome/Safari drop an utterance queued in the same tick as cancel(), so give it a beat.
+  setTimeout(function() {
+    if (token !== undefined && token !== _stepAnnouncementSpeechToken) return;
+    window.speechSynthesis.speak(utterance);
+  }, 60);
+}
+
+// Fetches (or reuses) synthesized audio for a phrase. Keeping the in-flight promise in the cache
+// means prefetching the next step and then speaking it never triggers two paid TTS calls.
+function getStepAnnouncementAudio(text) {
+  var cached = _voiceAnnouncementCache.get(text);
+  if (cached) return cached;
+
+  var pending = synthesizeAiVoiceSpeech(text, { instructions: STEP_ANNOUNCEMENT_TTS_INSTRUCTIONS });
+  _voiceAnnouncementCache.set(text, pending);
+  pending.catch(function() { _voiceAnnouncementCache.delete(text); });
+
+  if (_voiceAnnouncementCache.size > VOICE_ANNOUNCEMENT_CACHE_MAX) {
+    _voiceAnnouncementCache.delete(_voiceAnnouncementCache.keys().next().value);
+  }
+  return pending;
+}
+
+// Synthesizing the next step's phrase while the current one is being read removes the network delay
+// (noticeable on cellular) between "step changes" and "voice speaks".
+function prefetchNextStepAnnouncement(stepIndex) {
+  if (!_voiceModeEnabled || typeof synthesizeAiVoiceSpeech !== 'function') return;
+  var pattern = getSelectedPattern();
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  var nextIndex = (Number.isInteger(stepIndex) ? stepIndex : currentStepIndex) + 1;
+  if (nextIndex >= steps.length) return;
+  var text = getActiveStepAnnouncement(steps[nextIndex], nextIndex);
+  if (text) getStepAnnouncementAudio(text).catch(function() { /* prefetch is best-effort */ });
 }
 
 // Reads the step name aloud using AI-quality TTS when the "Voice" toggle is on, falling back to
@@ -333,45 +446,59 @@ async function speakActiveStep(step, stepIndex) {
   }
 
   try {
-    var dataUrl = await synthesizeAiVoiceSpeech(text, { instructions: STEP_ANNOUNCEMENT_TTS_INSTRUCTIONS });
+    var dataUrl = await getStepAnnouncementAudio(text);
     if (myToken !== _stepAnnouncementSpeechToken) return;
 
-    var audio = new Audio(dataUrl);
+    var audio = getVoiceAudioElement();
+    audio.onended = null;
+    audio.onerror = null;
+    audio.src = dataUrl;
+    // Assigning src resets the playback rate to the default, so set both.
+    audio.defaultPlaybackRate = _voiceSpeed;
     audio.playbackRate = _voiceSpeed;
 
     var audioCtx = ensureVoiceAudioContext();
-    if (audioCtx) {
+    if (audioCtx && !_voiceGainNode) {
       try {
         if (audioCtx.state === 'suspended') audioCtx.resume();
+        // A media element can only ever be wired into Web Audio once, so this happens a single time.
         var source = audioCtx.createMediaElementSource(audio);
         var gainNode = audioCtx.createGain();
-        gainNode.gain.value = _voiceVolume; // can exceed 1.0 — actual amplification, not just native volume
         source.connect(gainNode).connect(audioCtx.destination);
-        audio.volume = 1; // gain node now controls the real loudness
-        _stepAnnouncementGainNode = gainNode;
+        _voiceGainNode = gainNode;
       } catch (err) {
-        audio.volume = Math.min(1, _voiceVolume); // Web Audio routing failed — fall back to capped native volume
+        _voiceGainNode = null; // Web Audio routing failed — fall back to capped native volume
       }
-    } else {
-      audio.volume = Math.min(1, _voiceVolume);
     }
+    audio.volume = _voiceGainNode ? 1 : Math.min(1, _voiceVolume);
+    applyVoiceVolumeToPlayback();
 
-    _stepAnnouncementAudio = audio;
-    audio.onended = function() {
-      if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
-    };
     audio.onerror = function() {
-      if (_stepAnnouncementAudio === audio) _stepAnnouncementAudio = null;
       if (myToken === _stepAnnouncementSpeechToken) speakActiveStepWithBrowserTts(text, myToken);
     };
     await audio.play();
     if (myToken !== _stepAnnouncementSpeechToken) {
       try { audio.pause(); } catch (err) { /* already stopped */ }
+      return;
     }
+    prefetchNextStepAnnouncement(stepIndex);
   } catch (err) {
-    console.error('AI step announcement playback failed, falling back to browser voice:', err);
+    if (err && err.name === 'NotAllowedError') {
+      notifyVoiceBlockedOnce();
+    } else {
+      console.error('AI step announcement playback failed, falling back to browser voice:', err);
+    }
     if (myToken === _stepAnnouncementSpeechToken) speakActiveStepWithBrowserTts(text, myToken);
   }
+}
+
+// If the browser still refuses audio (e.g. the page was reloaded with Voice already on and nothing has
+// been tapped yet), say so once instead of failing silently; the next tap unlocks it.
+var _voiceBlockedNoticeShown = false;
+function notifyVoiceBlockedOnce() {
+  if (_voiceBlockedNoticeShown) return;
+  _voiceBlockedNoticeShown = true;
+  showToast('Voice is blocked until you tap the screen once.', true);
 }
 
 function handleActiveStepChanged(pattern, stepIndex, step, options) {
@@ -405,11 +532,12 @@ function handleActiveStepChanged(pattern, stepIndex, step, options) {
     timerGoalSeconds = getCurrentStepGoalSeconds(safePattern, _timerMode);
   }
 
-  if (!(options && options.silentVoice)) {
+  if (!(options && options.silentVoice) && !_timerPaused) {
     speakActiveStep(safeStep, safeIndex);
   }
 
   renderStepTimeStats(safeStep);
+  renderTimedFullscreen();
 }
 
 // ── Per-step timing (live + historical average) ─────────────
@@ -471,7 +599,7 @@ function renderStepTimeStats(step) {
     return;
   }
 
-  var pausedSuffix = (_timerMode === 'timed' && _autoAdvancePaused) ? ' · paused' : '';
+  var pausedSuffix = (_timerPaused || (_timerMode === 'timed' && _autoAdvancePaused)) ? ' · paused' : '';
   var elapsed = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
   el.innerHTML = '<span class="step-time-current">' + formatTimerClock(elapsed) + '</span>' + (avgText ? ' · ' + avgText : '') + pausedSuffix;
 }
@@ -504,6 +632,9 @@ function initPatterns(userId) {
   loadTimerPreferences();
   initPatternViewControls();
   bindInlineToolbarOffsetSync();
+  initMobilePatternPicker();
+  bindVoiceUnlockOnGesture();
+  initTimedFullscreen();
 
   // Subscribe to Firestore patterns
   _unsubscribePatterns = subscribePatterns(_pUid, patterns => {
@@ -558,11 +689,7 @@ function initPatterns(userId) {
     localStorage.setItem(TIMER_VOICE_VOLUME_STATE_KEY, String(_voiceVolume));
     const volumeValueEl = document.getElementById('timer-voice-volume-value');
     if (volumeValueEl) volumeValueEl.textContent = Math.round(_voiceVolume * 100) + '%';
-    if (_stepAnnouncementGainNode) {
-      _stepAnnouncementGainNode.gain.value = _voiceVolume;
-    } else if (_stepAnnouncementAudio) {
-      _stepAnnouncementAudio.volume = Math.min(1, _voiceVolume);
-    }
+    applyVoiceVolumeToPlayback();
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
     const previousMode = _timerMode;
@@ -580,18 +707,27 @@ function initPatterns(userId) {
   });
 
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
-    resumeVoiceAudioContextFromUserGesture(); // this handler runs on a real user gesture — unlock early
     _voiceModeEnabled = Boolean(e.target && e.target.checked);
     localStorage.setItem(TIMER_VOICE_MODE_STATE_KEY, _voiceModeEnabled ? '1' : '0');
     if (!_voiceModeEnabled) {
       stopStepAnnouncementAudio();
       return;
     }
+    unlockVoiceOutput(); // this handler runs on a real user gesture — unlock audio for later announcements
     const pattern = getSelectedPattern();
     const steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
     const activeStep = steps[currentStepIndex] || null;
     speakActiveStep(activeStep, currentStepIndex);
   });
+  const timerOptionsBtn = document.getElementById('btn-timer-options');
+  if (timerOptionsBtn) {
+    timerOptionsBtn.addEventListener('click', () => {
+      const timerBar = document.getElementById('timer-bar');
+      if (!timerBar) return;
+      const open = timerBar.classList.toggle('timer-options-open');
+      timerOptionsBtn.setAttribute('aria-expanded', String(open));
+    });
+  }
   syncTimerControlsFromState();
   updateTimerActionButtons();
 
@@ -802,12 +938,21 @@ function initPatternFindingsPanelToggle() {
   const btn = document.getElementById('btn-toggle-pattern-findings-panel');
   if (!panel || !btn) return;
 
+  // On a phone the panel is a bottom drawer that starts closed, and its open/closed state is not
+  // persisted so it never overwrites the desktop preference.
   const saved = localStorage.getItem('patternFindingsPanelCollapsed');
-  applyPatternFindingsPanelState(saved === '1', false);
+  applyPatternFindingsPanelState(isMobileLayout() || saved === '1', false);
 
   btn.addEventListener('click', () => {
-    applyPatternFindingsPanelState(!_findingsPanelCollapsed, true);
+    applyPatternFindingsPanelState(!_findingsPanelCollapsed, !isMobileLayout());
   });
+
+  const headerText = panel.querySelector('.pattern-findings-header-text');
+  if (headerText) {
+    headerText.addEventListener('click', () => {
+      if (isMobileLayout()) btn.click();
+    });
+  }
 
   bindFindingsPanelResizeHandle();
   loadPatternFindingsPanelWidth();
@@ -921,6 +1066,136 @@ function bindFindingsPanelResizeHandle() {
   _findingsPanelResizeBound = true;
 }
 
+// ── Phone layout: pattern picker sheet ───────────────────────
+// Keep this query identical to the mobile @media block in app.css.
+var MOBILE_LAYOUT_QUERY = '(max-width: 700px), (max-height: 500px) and (pointer: coarse)';
+
+function isMobileLayout() {
+  return Boolean(window.matchMedia && window.matchMedia(MOBILE_LAYOUT_QUERY).matches);
+}
+
+function setPatternSheetOpen(open) {
+  const layout = document.querySelector('.patterns-layout');
+  const picker = document.getElementById('btn-pattern-picker');
+  if (!layout) return;
+  layout.classList.toggle('pattern-sheet-open', open);
+  if (picker) picker.setAttribute('aria-expanded', String(open));
+}
+
+function initMobilePatternPicker() {
+  const picker = document.getElementById('btn-pattern-picker');
+  const closeBtn = document.getElementById('btn-close-pattern-sheet');
+  const backdrop = document.getElementById('pattern-sheet-backdrop');
+  const list = document.getElementById('pattern-list-mobile');
+  if (!picker || !list) return;
+
+  picker.addEventListener('click', () => setPatternSheetOpen(true));
+  if (closeBtn) closeBtn.addEventListener('click', () => setPatternSheetOpen(false));
+  if (backdrop) backdrop.addEventListener('click', () => setPatternSheetOpen(false));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') setPatternSheetOpen(false);
+  });
+
+  list.addEventListener('click', e => {
+    const item = e.target.closest('.pattern-list-item');
+    if (!item) return;
+    const id = item.dataset.patternId;
+    if (!id) return;
+
+    if (e.target.closest('.pattern-list-item-more')) {
+      e.stopPropagation(); // the document-level click handler would immediately hide the menu again
+      const rect = e.target.closest('.pattern-list-item-more').getBoundingClientRect();
+      showPatternListContextMenu(rect.right, rect.bottom, id);
+      return;
+    }
+
+    if (_voiceModeEnabled) unlockVoiceOutput(); // picking a pattern starts its timer (and first announcement)
+    const select = document.getElementById('pattern-select');
+    if (select) select.value = id;
+    loadPattern(id);
+    setPatternSheetOpen(false);
+  });
+
+  // Crossing the phone/desktop breakpoint (rotation, window resize) should not strand the sheet open
+  // or leave the findings drawer in the wrong default state.
+  const mq = window.matchMedia ? window.matchMedia(MOBILE_LAYOUT_QUERY) : null;
+  if (mq) {
+    const onChange = () => {
+      setPatternSheetOpen(false);
+      if (mq.matches) {
+        applyPatternFindingsPanelState(true, false);
+      } else {
+        applyPatternFindingsPanelState(localStorage.getItem('patternFindingsPanelCollapsed') === '1', false);
+        if (isTimedFullscreenOpen()) exitTimedFullscreen();
+      }
+    };
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
+    else if (typeof mq.addListener === 'function') mq.addListener(onChange);
+  }
+}
+
+function renderMobilePatternList() {
+  const list = document.getElementById('pattern-list-mobile');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!filteredPatterns.length) {
+    const empty = document.createElement('li');
+    empty.className = 'pattern-list-empty';
+    empty.textContent = allPatterns.length ? 'No patterns match your filter.' : 'No patterns yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  filteredPatterns.forEach(p => {
+    const item = document.createElement('li');
+    item.className = 'pattern-list-item';
+    item.dataset.patternId = p.id;
+
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'pattern-list-item-main';
+    const name = document.createElement('span');
+    name.className = 'pattern-list-item-name';
+    name.textContent = p.name;
+    main.appendChild(name);
+    if (p.modality) {
+      const mod = document.createElement('span');
+      mod.className = 'pattern-list-item-mod';
+      mod.textContent = p.modality;
+      main.appendChild(mod);
+    }
+
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'pattern-list-item-more';
+    more.setAttribute('aria-label', 'Pattern actions for ' + p.name);
+    more.textContent = '⋯';
+
+    item.appendChild(main);
+    item.appendChild(more);
+    list.appendChild(item);
+  });
+}
+
+function updateMobilePatternSelection() {
+  const list = document.getElementById('pattern-list-mobile');
+  if (list) {
+    Array.prototype.forEach.call(list.querySelectorAll('.pattern-list-item'), item => {
+      const selected = item.dataset.patternId === selectedPatternId;
+      item.classList.toggle('is-selected', selected);
+      if (selected) item.setAttribute('aria-current', 'true');
+      else item.removeAttribute('aria-current');
+    });
+  }
+
+  const nameEl = document.getElementById('pattern-picker-name');
+  if (nameEl) {
+    const pattern = selectedPatternId ? allPatterns.find(p => p.id === selectedPatternId) : null;
+    nameEl.textContent = pattern && pattern.name ? pattern.name : 'Choose a pattern';
+  }
+}
+
 // ── Filter & Render list ─────────────────────────────────────
 function applyFilters() {
   const q = document.getElementById('pattern-filter').value.trim().toLowerCase();
@@ -947,6 +1222,7 @@ function renderPatternList() {
     opt.textContent = p.name;
     sel.appendChild(opt);
   });
+  renderMobilePatternList();
 
   // Restore selection if still present, otherwise auto-load first pattern
   if (prevId && filteredPatterns.find(p => p.id === prevId)) {
@@ -960,6 +1236,7 @@ function renderPatternList() {
     clearStepView();
     updateSidebarButtons(false);
   }
+  updateMobilePatternSelection();
 }
 
 // ── Load pattern ─────────────────────────────────────────────
@@ -969,6 +1246,7 @@ function loadPattern(id, preferredStepIndex) {
 
   const wasSamePattern = selectedPatternId === id;
   selectedPatternId = id;
+  updateMobilePatternSelection();
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
     currentStepIndex = Math.max(0, Math.min(preferredStepIndex, steps.length - 1));
@@ -3486,23 +3764,54 @@ function startTimer(pattern) {
   _timerActiveStepIndex = -1;
   _timerStepEnteredAtSeconds = 0;
   timerRunning = true;
+  _timerPaused = false;
   updateTimerDisplay();
   updateTimerActionButtons();
-  timerInterval = setInterval(() => {
-    timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
-    updateTimerDisplay();
-    maybeAutoAdvanceStep();
-    renderStepTimeStatsForCurrentStep();
-  }, 1000);
+  timerInterval = setInterval(tickTimer, 1000);
 }
 
+function tickTimer() {
+  timerSeconds = Math.floor((Date.now() - timerStartWallTime) / 1000);
+  updateTimerDisplay();
+  maybeAutoAdvanceStep();
+  renderStepTimeStatsForCurrentStep();
+}
 
 function stopTimer() {
   if (timerRunning) recordActiveStepTiming();
   clearInterval(timerInterval);
   timerInterval = null;
   timerRunning = false;
+  _timerPaused = false;
   updateTimerActionButtons();
+}
+
+// A real pause: the clock (and therefore the per-step goal countdown and the recorded study time)
+// stops, unlike toggleAutoAdvancePause() which only holds off the automatic step change. Resuming
+// shifts the wall-clock origin forward by however long we were paused so no time is counted.
+function pauseTimerClock() {
+  if (!timerRunning || _timerPaused) return;
+  _timerPaused = true;
+  _timerPausedAtWall = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = null;
+  stopStepAnnouncementAudio();
+  renderStepTimeStatsForCurrentStep();
+  renderTimedFullscreen();
+}
+
+function resumeTimerClock() {
+  if (!timerRunning || !_timerPaused) return;
+  timerStartWallTime += Date.now() - _timerPausedAtWall;
+  _timerPaused = false;
+  timerInterval = setInterval(tickTimer, 1000);
+  renderStepTimeStatsForCurrentStep();
+  renderTimedFullscreen();
+}
+
+function toggleTimerClockPause() {
+  if (_timerPaused) resumeTimerClock();
+  else pauseTimerClock();
 }
 
 function updateTimerDisplay() {
@@ -3521,6 +3830,7 @@ function updateTimerDisplay() {
     timerDisplay.classList.remove('timer-display-over-goal');
   }
   applyTimerGoalTheme();
+  renderTimedFullscreen();
 }
 
 function updateTimerActionButtons() {
@@ -3534,32 +3844,31 @@ function updateTimerActionButtons() {
   if (recordButton) recordButton.disabled = !hasPattern;
 }
 
+// 'green' up to 2/3 of the step goal, 'yellow' up to the goal, 'red' past it, 'double' at 2x the goal;
+// '' when there is no goal to pace against (Walkthrough mode).
+function getStepGoalState() {
+  if (_timerMode !== 'timed') return '';
+  if (timerGoalSeconds === null) return '';
+
+  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  const progress = elapsedOnStep / timerGoalSeconds;
+  if (progress >= 2) return 'double';
+  if (progress <= (2 / 3)) return 'green';
+  if (progress <= 1) return 'yellow';
+  return 'red';
+}
+
 function applyTimerGoalTheme() {
   const timerBar = document.getElementById('timer-bar') || document.querySelector('.timer-bar');
   if (!timerBar) return;
 
   timerBar.classList.remove('timer-goal-green', 'timer-goal-yellow', 'timer-goal-red', 'timer-goal-double');
-  if (_timerMode !== 'timed') return;
-  if (timerGoalSeconds === null) return;
-
-  const elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
-  const progress = elapsedOnStep / timerGoalSeconds;
-  if (progress >= 2) {
+  const state = getStepGoalState();
+  if (state === 'double') {
     timerBar.classList.add('timer-goal-red', 'timer-goal-double');
-    return;
+  } else if (state) {
+    timerBar.classList.add('timer-goal-' + state);
   }
-
-  if (progress <= (2 / 3)) {
-    timerBar.classList.add('timer-goal-green');
-    return;
-  }
-
-  if (progress <= 1) {
-    timerBar.classList.add('timer-goal-yellow');
-    return;
-  }
-
-  timerBar.classList.add('timer-goal-red');
 }
 
 function maybeAutoAdvanceStep() {
@@ -3644,6 +3953,225 @@ function applyPatternViewerStepGoalDraft(stepIndex, rawValue, unit) {
 }
 
 
+
+// ── Full-screen timed read (phone) ───────────────────────────
+// A distraction-free view for working through a pattern in Timed mode: just the current step, its
+// pacing clock and what's next. Tap anywhere to pause/resume, swipe to change step, and the final
+// step offers Record / Exit. Built as an overlay (not the Fullscreen API) because iPhone Safari only
+// allows native fullscreen for video — the native API is still requested where it exists (Android).
+var _timedFsOpen = false;
+var _timedFsWakeLock = null;
+var _timedFsNativeFullscreen = false;
+var _timedFsTouch = null;
+var _timedFsSuppressTapUntil = 0;
+var TIMED_FS_SWIPE_MIN_PX = 60;
+
+function isTimedFullscreenOpen() {
+  return _timedFsOpen;
+}
+
+function getTimedFullscreenStepTitle(steps, index) {
+  var raw = steps[index];
+  if (!raw) return '';
+  var step = (typeof resolveLinkedStep === 'function' && resolveLinkedStep(raw)) || raw;
+  return getCleanStepTitle(step.stepTitle) || ('Step ' + String(index + 1));
+}
+
+function renderTimedFullscreen() {
+  if (!_timedFsOpen) return;
+  var overlay = document.getElementById('timed-fs');
+  if (!overlay) return;
+
+  var pattern = getSelectedPattern();
+  var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!timerRunning || !steps.length) {
+    exitTimedFullscreen(); // timer was stopped/changed elsewhere — nothing left to show
+    return;
+  }
+
+  var index = Math.max(0, Math.min(currentStepIndex, steps.length - 1));
+  var isFinal = index >= steps.length - 1;
+  var elapsedOnStep = Math.max(0, timerSeconds - _timerStepEnteredAtSeconds);
+  var goalState = getStepGoalState();
+  var goalSeconds = timerGoalSeconds;
+
+  overlay.dataset.state = _timerPaused ? 'paused' : 'running';
+  overlay.dataset.goal = goalState === 'double' ? 'red' : (goalState || 'green');
+  overlay.classList.toggle('is-double', goalState === 'double');
+  overlay.classList.toggle('is-final', isFinal);
+
+  document.getElementById('timed-fs-count').textContent = 'Step ' + (index + 1) + ' of ' + steps.length;
+  document.getElementById('timed-fs-total').textContent = formatTimerClock(timerSeconds);
+  document.getElementById('timed-fs-pattern').textContent = pattern.name || '';
+  var stepTitle = getTimedFullscreenStepTitle(steps, index);
+  document.getElementById('timed-fs-title').textContent = stepTitle;
+  document.getElementById('timed-fs-paused-step').textContent = stepTitle;
+  document.getElementById('timed-fs-clock').textContent = formatTimerClock(elapsedOnStep);
+  document.getElementById('timed-fs-goal-text').textContent = goalSeconds ? ('Goal ' + formatTimerClock(goalSeconds)) : '';
+  document.getElementById('timed-fs-goal-fill').style.width = (goalSeconds ? Math.min(100, (elapsedOnStep / goalSeconds) * 100) : 0) + '%';
+  document.getElementById('timed-fs-progress-fill').style.width = (((index + 1) / steps.length) * 100) + '%';
+  document.getElementById('timed-fs-next').textContent = isFinal
+    ? 'Final step'
+    : 'Next: ' + getTimedFullscreenStepTitle(steps, index + 1);
+  document.getElementById('timed-fs-final').hidden = !isFinal;
+  document.getElementById('timed-fs-hint').hidden = isFinal;
+}
+
+// Screen sleeping mid-read would freeze the voice and hide the steps, so hold the screen awake while
+// the overlay is open (Screen Wake Lock: iOS 16.4+, Android Chrome). Unsupported browsers just skip it —
+// the timer runs off the wall clock, so it still catches up if the screen does dim.
+async function requestScreenWakeLock() {
+  if (!navigator.wakeLock || _timedFsWakeLock) return;
+  try {
+    var sentinel = await navigator.wakeLock.request('screen');
+    if (!_timedFsOpen) {
+      sentinel.release().catch(function() { /* already released */ });
+      return;
+    }
+    _timedFsWakeLock = sentinel;
+    sentinel.addEventListener('release', function() {
+      if (_timedFsWakeLock === sentinel) _timedFsWakeLock = null;
+    });
+  } catch (err) {
+    // Denied or unsupported — not worth interrupting the read for.
+  }
+}
+
+function releaseScreenWakeLock() {
+  var sentinel = _timedFsWakeLock;
+  _timedFsWakeLock = null;
+  if (sentinel) sentinel.release().catch(function() { /* already released */ });
+}
+
+function openTimedFullscreen() {
+  var overlay = document.getElementById('timed-fs');
+  if (!overlay) return;
+
+  _timedFsOpen = true;
+  overlay.style.display = 'flex';
+  document.documentElement.classList.add('timed-fs-open');
+  renderTimedFullscreen();
+  requestScreenWakeLock();
+
+  try {
+    var requestNative = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
+    if (requestNative) {
+      var result = requestNative.call(overlay);
+      if (result && typeof result.then === 'function') {
+        result.then(function() { _timedFsNativeFullscreen = true; }).catch(function() { /* overlay alone is fine */ });
+      }
+    }
+  } catch (err) {
+    // The overlay already covers the page; native fullscreen is a bonus.
+  }
+}
+
+function exitTimedFullscreen() {
+  if (!_timedFsOpen) return;
+  _timedFsOpen = false;
+
+  var overlay = document.getElementById('timed-fs');
+  if (overlay) overlay.style.display = 'none';
+  document.documentElement.classList.remove('timed-fs-open');
+  releaseScreenWakeLock();
+
+  if (_timedFsNativeFullscreen) {
+    _timedFsNativeFullscreen = false;
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(function() { /* already out */ });
+      }
+    } catch (err) {
+      // Nothing to do.
+    }
+  }
+
+  // Leaving while paused would strand a frozen clock in the normal view, so pick it back up.
+  if (_timerPaused) resumeTimerClock();
+}
+
+// Starts a fresh timed read of the selected pattern from step 1 and shows it full screen. Runs from a
+// tap, so this is also where voice audio gets unlocked for the announcements that follow.
+function startTimedFullscreen() {
+  var pattern = getSelectedPattern();
+  if (!pattern) {
+    showToast('Select a pattern first.', true);
+    return;
+  }
+  var steps = Array.isArray(pattern.steps) ? pattern.steps : [];
+  if (!steps.length) {
+    showToast('This pattern has no steps yet.', true);
+    return;
+  }
+  if (_patternViewerEditMode) {
+    showToast('Finish editing before starting a timed read.', true);
+    return;
+  }
+
+  if (_voiceModeEnabled) unlockVoiceOutput();
+
+  currentStepIndex = 0;
+  _openStepIndices = new Set([0]);
+  _autoAdvancePaused = false;
+  startTimer(pattern);
+  renderCurrentStep(pattern);
+  openTimedFullscreen();
+}
+
+function recordFromTimedFullscreen() {
+  exitTimedFullscreen();
+  openRecordModal();
+}
+
+function initTimedFullscreen() {
+  var overlay = document.getElementById('timed-fs');
+  if (!overlay) return;
+
+  document.getElementById('btn-timer-fullscreen').addEventListener('click', startTimedFullscreen);
+  document.getElementById('timed-fs-close').addEventListener('click', exitTimedFullscreen);
+  document.getElementById('timed-fs-exit').addEventListener('click', exitTimedFullscreen);
+  document.getElementById('timed-fs-record').addEventListener('click', recordFromTimedFullscreen);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target.closest('button')) return;
+    if (Date.now() < _timedFsSuppressTapUntil) return; // the tail end of a swipe, not a tap
+    toggleTimerClockPause();
+  });
+
+  overlay.addEventListener('touchstart', function(e) {
+    var touch = e.changedTouches[0];
+    _timedFsTouch = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }, { passive: true });
+
+  overlay.addEventListener('touchend', function(e) {
+    var start = _timedFsTouch;
+    _timedFsTouch = null;
+    var touch = e.changedTouches[0];
+    if (!start || !touch) return;
+
+    var dx = touch.clientX - start.x;
+    var dy = touch.clientY - start.y;
+    if (Math.abs(dx) < TIMED_FS_SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    _timedFsSuppressTapUntil = Date.now() + 400;
+    navigateStep(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && _timedFsOpen) {
+      requestScreenWakeLock(); // the browser drops the wake lock whenever the page is hidden
+      renderTimedFullscreen();
+    }
+  });
+
+  // Backing out of native fullscreen (Android back gesture / Esc) should also leave the overlay.
+  document.addEventListener('fullscreenchange', function() {
+    if (_timedFsNativeFullscreen && !document.fullscreenElement) {
+      _timedFsNativeFullscreen = false;
+      exitTimedFullscreen();
+    }
+  });
+}
 
 // ── Record modal ─────────────────────────────────────────────
 function openRecordModal() {
@@ -4095,6 +4623,19 @@ function handleKeydown(e) {
   // Only when patterns panel is active
   const panel = document.getElementById('panel-patterns');
   if (!panel.classList.contains('active')) return;
+
+  if (_timedFsOpen) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      exitTimedFullscreen();
+      return;
+    }
+    if (e.key === ' ') {
+      e.preventDefault();
+      toggleTimerClockPause();
+      return;
+    }
+  }
 
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
     e.preventDefault();

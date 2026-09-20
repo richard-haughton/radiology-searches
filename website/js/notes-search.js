@@ -1475,6 +1475,17 @@ async function applyFindingToSelectedStep() {
     return;
   }
 
+  var targetStepId = String((targetSteps[targetIndex] && targetSteps[targetIndex].stepId) || '');
+  var existingLinks = Array.isArray(_findingsAddContext.links) ? _findingsAddContext.links : [];
+  var alreadyLinked = existingLinks.some(function(link) {
+    return String((link && link.patternId) || '') === String(targetPattern.id || '')
+      && String((link && link.stepId) || '') === targetStepId;
+  });
+  if (alreadyLinked) {
+    statusEl.textContent = 'This finding is already in that step.';
+    return;
+  }
+
   var isRedFinding = Boolean(redEl.checked);
 
   var sourceContent = normaliseRichContent((_findingsAddContext && _findingsAddContext.content) || []);
