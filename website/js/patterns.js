@@ -3986,7 +3986,7 @@ function renderTimedFullscreen() {
 
   var pattern = getSelectedPattern();
   var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  if (!timerRunning || !steps.length) {
+  if ((!timerRunning && !_timedFsRestarting) || !steps.length) {
     exitTimedFullscreen(); // timer was stopped/changed elsewhere — nothing left to show
     return;
   }
@@ -4046,6 +4046,94 @@ function releaseScreenWakeLock() {
   if (sentinel) sentinel.release().catch(function() { /* already released */ });
 }
 
+// Holding the phone's audio focus. A short spoken clip only makes other apps duck their music for a
+// second before it returns to full volume. Playing a continuous silent loop for the whole read keeps
+// this page as the "current" audio, which pauses other apps' music (iOS, Android) until the read ends.
+// Only when Voice is on (the music would clash with the announcements) and only on touch devices.
+var _audioFocusEl = null;
+
+function buildSilentWavUrl(seconds) {
+  var rate = 8000;
+  var samples = rate * seconds;
+  var buffer = new ArrayBuffer(44 + samples);
+  var view = new DataView(buffer);
+  var writeText = function(offset, text) {
+    for (var i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  writeText(0, 'RIFF'); view.setUint32(4, 36 + samples, true); writeText(8, 'WAVE');
+  writeText(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true); view.setUint32(28, rate, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+  writeText(36, 'data'); view.setUint32(40, samples, true);
+  new Uint8Array(buffer, 44).fill(128); // 8-bit PCM silence
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+}
+
+// With audio focus held, the lock-screen / notification / headset controls belong to this page, so
+// route them to something sensible: play/pause toggles the read, next/previous change step.
+function bindMediaSessionControls() {
+  if (!('mediaSession' in navigator)) return;
+  try {
+    var pattern = getSelectedPattern();
+    if (typeof MediaMetadata === 'function') {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Timed read', artist: (pattern && pattern.name) || 'Searches' });
+    }
+    navigator.mediaSession.setActionHandler('play', toggleTimerClockPause);
+    navigator.mediaSession.setActionHandler('pause', toggleTimerClockPause);
+    navigator.mediaSession.setActionHandler('nexttrack', function() { navigateStep(1); });
+    navigator.mediaSession.setActionHandler('previoustrack', function() { navigateStep(-1); });
+  } catch (err) {
+    // Unsupported action on this browser — the silent loop still does its job.
+  }
+}
+
+function clearMediaSessionControls() {
+  if (!('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = null;
+    ['play', 'pause', 'nexttrack', 'previoustrack'].forEach(function(action) {
+      navigator.mediaSession.setActionHandler(action, null);
+    });
+  } catch (err) {
+    // Nothing to clear.
+  }
+}
+
+function acquirePhoneAudioFocus() {
+  if (!_voiceModeEnabled || !isTouchPrimaryDevice()) return;
+
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback'; // Safari: interrupt, don't mix with, other audio
+  } catch (err) {
+    // Older browser — the playing element alone is enough there.
+  }
+
+  if (!_audioFocusEl) {
+    var el = new Audio();
+    el.loop = true;
+    el.preload = 'auto';
+    el.setAttribute('playsinline', '');
+    el.src = buildSilentWavUrl(1);
+    _audioFocusEl = el;
+  }
+  var playing = _audioFocusEl.play();
+  if (playing && typeof playing.catch === 'function') {
+    playing.catch(function() { /* blocked — music keeps ducking around announcements, as before */ });
+  }
+  bindMediaSessionControls();
+}
+
+function releasePhoneAudioFocus() {
+  if (_audioFocusEl) {
+    try { _audioFocusEl.pause(); } catch (err) { /* already stopped */ }
+  }
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'auto';
+  } catch (err) {
+    // Nothing to restore.
+  }
+  clearMediaSessionControls();
+}
+
 function openTimedFullscreen() {
   var overlay = document.getElementById('timed-fs');
   if (!overlay) return;
@@ -4055,6 +4143,7 @@ function openTimedFullscreen() {
   document.documentElement.classList.add('timed-fs-open');
   renderTimedFullscreen();
   requestScreenWakeLock();
+  acquirePhoneAudioFocus();
 
   try {
     var requestNative = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
@@ -4078,6 +4167,7 @@ function exitTimedFullscreen() {
   if (overlay) overlay.style.display = 'none';
   document.documentElement.classList.remove('timed-fs-open');
   releaseScreenWakeLock();
+  releasePhoneAudioFocus();
 
   if (_timedFsNativeFullscreen) {
     _timedFsNativeFullscreen = false;
@@ -4161,9 +4251,25 @@ function closeTimedFullscreenFindings() {
   if (handle) handle.setAttribute('aria-expanded', 'false');
 }
 
-function recordFromTimedFullscreen() {
-  exitTimedFullscreen();
-  openRecordModal();
+// Finishing a study logs it (same as Space on desktop: RVU filled in from the pattern name when known)
+// and immediately starts the next read from step 1, without leaving full screen.
+var _timedFsRestarting = false;
+
+async function finishAndRestartTimedFullscreen() {
+  if (_timedFsRestarting) return;
+  _timedFsRestarting = true;
+  var button = document.getElementById('timed-fs-record');
+  if (button) button.disabled = true;
+
+  try {
+    await autoRecordAndRestartPattern();
+  } finally {
+    _timedFsRestarting = false;
+    if (button) button.disabled = false;
+  }
+
+  // The save failed, so the timer was left stopped: drop back to the normal view (its error toast is up).
+  if (_timedFsOpen && !timerRunning) exitTimedFullscreen();
 }
 
 function initTimedFullscreen() {
@@ -4173,7 +4279,7 @@ function initTimedFullscreen() {
   document.getElementById('btn-timer-fullscreen').addEventListener('click', startTimedFullscreen);
   document.getElementById('timed-fs-close').addEventListener('click', exitTimedFullscreen);
   document.getElementById('timed-fs-exit').addEventListener('click', exitTimedFullscreen);
-  document.getElementById('timed-fs-record').addEventListener('click', recordFromTimedFullscreen);
+  document.getElementById('timed-fs-record').addEventListener('click', finishAndRestartTimedFullscreen);
 
   document.getElementById('timed-fs-findings-handle').addEventListener('click', function() {
     if (_timedFsFindingsOpen) closeTimedFullscreenFindings();
@@ -4243,6 +4349,7 @@ function initTimedFullscreen() {
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && _timedFsOpen) {
       requestScreenWakeLock(); // the browser drops the wake lock whenever the page is hidden
+      if (_audioFocusEl && _audioFocusEl.paused) acquirePhoneAudioFocus();
       renderTimedFullscreen();
     }
   });
