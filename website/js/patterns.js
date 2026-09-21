@@ -3728,6 +3728,7 @@ function updateFindingsExpandAllButton(findings, stepIndex) {
     btn.textContent = 'Expand All';
     btn.disabled = true;
     btn.title = 'No findings in this step yet.';
+    syncTimedFullscreenFindingsHeader();
     return;
   }
 
@@ -3735,6 +3736,7 @@ function updateFindingsExpandAllButton(findings, stepIndex) {
   btn.textContent = allOpen ? 'Collapse All' : 'Expand All';
   btn.disabled = false;
   btn.title = allOpen ? 'Collapse every finding in this step.' : 'Expand every finding in this step.';
+  syncTimedFullscreenFindingsHeader();
 }
 
 // ── Timer ────────────────────────────────────────────────────
@@ -4006,6 +4008,7 @@ function renderTimedFullscreen() {
   var stepTitle = getTimedFullscreenStepTitle(steps, index);
   document.getElementById('timed-fs-title').textContent = stepTitle;
   document.getElementById('timed-fs-paused-step').textContent = stepTitle;
+  document.getElementById('timed-fs-findings-step').textContent = 'Step ' + (index + 1) + ' · ' + stepTitle;
   document.getElementById('timed-fs-clock').textContent = formatTimerClock(elapsedOnStep);
   document.getElementById('timed-fs-goal-text').textContent = goalSeconds ? ('Goal ' + formatTimerClock(goalSeconds)) : '';
   document.getElementById('timed-fs-goal-fill').style.width = (goalSeconds ? Math.min(100, (elapsedOnStep / goalSeconds) * 100) : 0) + '%';
@@ -4068,6 +4071,7 @@ function openTimedFullscreen() {
 
 function exitTimedFullscreen() {
   if (!_timedFsOpen) return;
+  closeTimedFullscreenFindings(); // hand the findings list back to its normal panel first
   _timedFsOpen = false;
 
   var overlay = document.getElementById('timed-fs');
@@ -4118,6 +4122,45 @@ function startTimedFullscreen() {
   openTimedFullscreen();
 }
 
+// Findings sheet: the same live #pattern-findings-content node is moved into the sheet while it is open
+// (and back on close), so it keeps re-rendering per step and keeps its expand/collapse behaviour.
+var _timedFsFindingsOpen = false;
+
+function syncTimedFullscreenFindingsHeader() {
+  var source = document.getElementById('btn-findings-expand-all');
+  var target = document.getElementById('timed-fs-findings-expand');
+  if (!source || !target) return;
+  target.textContent = source.textContent;
+  target.disabled = source.disabled;
+}
+
+function openTimedFullscreenFindings() {
+  var overlay = document.getElementById('timed-fs');
+  var content = document.getElementById('pattern-findings-content');
+  var body = document.getElementById('timed-fs-findings-body');
+  if (!_timedFsOpen || _timedFsFindingsOpen || !overlay || !content || !body) return;
+
+  _timedFsFindingsOpen = true;
+  body.appendChild(content);
+  content.scrollTop = 0;
+  overlay.classList.add('findings-open');
+  document.getElementById('timed-fs-findings-handle').setAttribute('aria-expanded', 'true');
+  syncTimedFullscreenFindingsHeader();
+}
+
+function closeTimedFullscreenFindings() {
+  if (!_timedFsFindingsOpen) return;
+  _timedFsFindingsOpen = false;
+
+  var overlay = document.getElementById('timed-fs');
+  var content = document.getElementById('pattern-findings-content');
+  var home = document.querySelector('#pattern-findings-panel .pattern-findings-body');
+  if (content && home) home.appendChild(content);
+  if (overlay) overlay.classList.remove('findings-open');
+  var handle = document.getElementById('timed-fs-findings-handle');
+  if (handle) handle.setAttribute('aria-expanded', 'false');
+}
+
 function recordFromTimedFullscreen() {
   exitTimedFullscreen();
   openRecordModal();
@@ -4132,15 +4175,38 @@ function initTimedFullscreen() {
   document.getElementById('timed-fs-exit').addEventListener('click', exitTimedFullscreen);
   document.getElementById('timed-fs-record').addEventListener('click', recordFromTimedFullscreen);
 
+  document.getElementById('timed-fs-findings-handle').addEventListener('click', function() {
+    if (_timedFsFindingsOpen) closeTimedFullscreenFindings();
+    else openTimedFullscreenFindings();
+  });
+  document.getElementById('timed-fs-findings-close').addEventListener('click', closeTimedFullscreenFindings);
+  document.getElementById('timed-fs-findings-expand').addEventListener('click', function() {
+    var source = document.getElementById('btn-findings-expand-all');
+    if (source) source.click(); // re-renders the findings and refreshes this button's label via the sync hook
+  });
+  document.querySelector('.timed-fs-findings-head').addEventListener('click', function(e) {
+    if (!e.target.closest('button')) closeTimedFullscreenFindings();
+  });
+
   overlay.addEventListener('click', function(e) {
     if (e.target.closest('button')) return;
+    if (e.target.closest('.timed-fs-findings-sheet')) return; // reading/expanding findings, not pausing
     if (Date.now() < _timedFsSuppressTapUntil) return; // the tail end of a swipe, not a tap
+    if (_timedFsFindingsOpen) {
+      closeTimedFullscreenFindings(); // tap outside the sheet dismisses it
+      return;
+    }
     toggleTimerClockPause();
   });
 
   overlay.addEventListener('touchstart', function(e) {
     var touch = e.changedTouches[0];
-    _timedFsTouch = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    _timedFsTouch = touch ? {
+      x: touch.clientX,
+      y: touch.clientY,
+      inSheet: Boolean(e.target.closest('.timed-fs-findings-sheet')),
+      onSheetHead: Boolean(e.target.closest('.timed-fs-findings-head'))
+    } : null;
   }, { passive: true });
 
   overlay.addEventListener('touchend', function(e) {
@@ -4151,6 +4217,23 @@ function initTimedFullscreen() {
 
     var dx = touch.clientX - start.x;
     var dy = touch.clientY - start.y;
+    var isVerticalSwipe = Math.abs(dy) >= TIMED_FS_SWIPE_MIN_PX && Math.abs(dy) >= Math.abs(dx) * 1.5;
+
+    if (_timedFsFindingsOpen) {
+      // Inside the sheet only its header is a swipe target (down closes); the list itself just scrolls.
+      if (start.onSheetHead && isVerticalSwipe && dy > 0) {
+        _timedFsSuppressTapUntil = Date.now() + 400;
+        closeTimedFullscreenFindings();
+      }
+      return;
+    }
+
+    if (isVerticalSwipe && dy < 0) {
+      _timedFsSuppressTapUntil = Date.now() + 400;
+      openTimedFullscreenFindings();
+      return;
+    }
+
     if (Math.abs(dx) < TIMED_FS_SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
 
     _timedFsSuppressTapUntil = Date.now() + 400;
@@ -4627,7 +4710,8 @@ function handleKeydown(e) {
   if (_timedFsOpen) {
     if (e.key === 'Escape') {
       e.preventDefault();
-      exitTimedFullscreen();
+      if (_timedFsFindingsOpen) closeTimedFullscreenFindings();
+      else exitTimedFullscreen();
       return;
     }
     if (e.key === ' ') {

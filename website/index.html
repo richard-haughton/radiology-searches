@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#125f49" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20260920a" />
+  <link rel="stylesheet" href="css/app.css?v=20260921a" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -23,7 +23,7 @@
   <script src="js/calculations.js?v=20260605b"></script>
   <script src="js/study-log.js?v=20260605b"></script>
   <script src="js/rvus.js?v=20260605b"></script>
-  <script src="js/patterns.js?v=20260920a"></script>
+  <script src="js/patterns.js?v=20260921a"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20260605b"></script>
   <script src="js/app.js?v=20260605b"></script>
@@ -620,11 +620,27 @@
       <div class="timed-fs-paused" aria-hidden="true"><strong>Paused</strong><em id="timed-fs-paused-step" class="timed-fs-paused-step"></em><span>Tap to resume</span></div>
     </div>
     <div class="timed-fs-bottom">
-      <p id="timed-fs-hint" class="timed-fs-hint">Tap to pause &middot; swipe left or right to change step</p>
+      <p id="timed-fs-hint" class="timed-fs-hint">Tap to pause &middot; &larr; &rarr; steps &middot; &uarr; findings</p>
       <div id="timed-fs-final" class="timed-fs-final" hidden>
         <button id="timed-fs-record" class="timed-fs-btn timed-fs-btn-primary" type="button">Record study</button>
         <button id="timed-fs-exit" class="timed-fs-btn" type="button">Exit</button>
       </div>
+    </div>
+    <button id="timed-fs-findings-handle" class="timed-fs-findings-handle" type="button" aria-expanded="false" aria-controls="timed-fs-findings-sheet">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+      Findings
+    </button>
+    <div id="timed-fs-findings-backdrop" class="timed-fs-findings-backdrop" aria-hidden="true"></div>
+    <div id="timed-fs-findings-sheet" class="timed-fs-findings-sheet" role="region" aria-label="Findings for this step">
+      <div class="timed-fs-findings-head">
+        <div class="timed-fs-findings-titles">
+          <h3>Findings</h3>
+          <span id="timed-fs-findings-step" class="timed-fs-findings-step"></span>
+        </div>
+        <button id="timed-fs-findings-expand" class="btn btn-ghost btn-sm" type="button">Expand All</button>
+        <button id="timed-fs-findings-close" class="timed-fs-findings-close" type="button" aria-label="Close findings">&#x2715;</button>
+      </div>
+      <div id="timed-fs-findings-body" class="timed-fs-findings-body"></div>
     </div>
   </div>
 
