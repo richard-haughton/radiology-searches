@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#125f49" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20260921a" />
+  <link rel="stylesheet" href="css/app.css?v=20260921b" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -16,14 +16,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <!-- App scripts (plain, no modules) -->
   <script src="js/firebase-config.js?v=20260804a"></script>
-  <script src="js/db.js?v=20260816b"></script>
+  <script src="js/db.js?v=20260921a"></script>
   <script src="js/ai.js?v=20260816g"></script>
   <script src="js/settings.js?v=20260816a"></script>
   <script src="js/editor.js?v=20260804b"></script>
   <script src="js/calculations.js?v=20260605b"></script>
   <script src="js/study-log.js?v=20260605b"></script>
   <script src="js/rvus.js?v=20260605b"></script>
-  <script src="js/patterns.js?v=20260921c"></script>
+  <script src="js/pattern-folders.js?v=20260921a"></script>
+  <script src="js/patterns.js?v=20260921e"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20260605b"></script>
   <script src="js/app.js?v=20260605b"></script>
@@ -93,7 +94,10 @@
             <button id="btn-close-pattern-sheet" class="pattern-sheet-close" type="button" aria-label="Close pattern list">&#x2715;</button>
           </div>
           <div class="sidebar-controls">
-            <input id="pattern-filter" type="search" class="filter-input" placeholder="Filter patterns…" autocomplete="off" spellcheck="false">
+            <div class="pattern-filter-row">
+              <input id="pattern-filter" type="search" class="filter-input" placeholder="Filter patterns…" autocomplete="off" spellcheck="false">
+              <button id="btn-new-folder" class="btn-new-folder" type="button" aria-label="New folder" title="New folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6M9 14h6"/></svg></button>
+            </div>
             <div class="modality-bar">
               <button class="mod-btn active" data-mod="All">All</button>
               <button class="mod-btn" data-mod="CT">CT</button>
@@ -102,8 +106,7 @@
               <button class="mod-btn" data-mod="Plain Radiograph">XR</button>
               <button class="mod-btn" data-mod="Nuclear Medicine">NM</button>
             </div>
-            <select id="pattern-select" class="pattern-select" size="12" aria-label="Select a search pattern"></select>
-            <ul id="pattern-list-mobile" class="pattern-list-mobile" aria-label="Search patterns"></ul>
+            <div id="pattern-tree" class="pattern-tree" aria-label="Search patterns"></div>
           </div>
           <div class="sidebar-actions">
             <button id="btn-new-pattern" class="btn btn-accent btn-block">+ New Pattern</button>

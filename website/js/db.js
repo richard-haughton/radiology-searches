@@ -26,6 +26,66 @@ async function clearAiApiKey(uid, provider) {
   await _aiSettingsRef(uid).set(update, { merge: true });
 }
 
+// ── Pattern folders ──────────────────────────────────────────
+// One settings doc per user: { folders: [{id, name}], assignments: { patternId: folderId } }.
+// Kept off the pattern docs so filing a pattern never rewrites (or re-syncs) the pattern itself, and so a
+// move from one device only touches that one assignment key.
+function _patternFoldersRef(uid) { return _userRef(uid).collection('settings').doc('patternFolders'); }
+
+function _normalisePatternFolders(data) {
+  var folders = [];
+  var knownIds = {};
+  (Array.isArray(data && data.folders) ? data.folders : []).forEach(function(folder) {
+    var id = String((folder && folder.id) || '').trim();
+    var name = String((folder && folder.name) || '').trim();
+    if (!id || !name || knownIds[id]) return;
+    knownIds[id] = true;
+    folders.push({ id: id, name: name });
+  });
+
+  var assignments = {};
+  var rawAssignments = (data && data.assignments && typeof data.assignments === 'object') ? data.assignments : {};
+  Object.keys(rawAssignments).forEach(function(patternId) {
+    var folderId = String(rawAssignments[patternId] || '').trim();
+    if (knownIds[folderId]) assignments[patternId] = folderId; // a deleted folder leaves nothing dangling
+  });
+
+  return { folders: folders, assignments: assignments };
+}
+
+function subscribePatternFolders(uid, callback) {
+  return _patternFoldersRef(uid).onSnapshot(function(snap) {
+    callback(_normalisePatternFolders(snap.exists ? (snap.data() || {}) : {}));
+  }, function(err) { console.error('subscribePatternFolders error:', err); });
+}
+
+// changes: { patternId: folderId | null } — null puts the pattern back in "Unfiled".
+function _assignmentChangesToUpdate(changes) {
+  var assignments = {};
+  Object.keys(changes || {}).forEach(function(patternId) {
+    var folderId = changes[patternId];
+    assignments[patternId] = folderId ? folderId : firebase.firestore.FieldValue.delete();
+  });
+  return assignments;
+}
+
+function savePatternFolderAssignments(uid, changes) {
+  return _patternFoldersRef(uid).set({
+    assignments: _assignmentChangesToUpdate(changes),
+    updatedAt: _now()
+  }, { merge: true });
+}
+
+// Saves the folder list, optionally moving patterns in the same write (used to create a folder and file
+// a pattern into it, or to delete a folder and release what was inside it).
+function savePatternFolders(uid, folders, assignmentChanges) {
+  var update = { folders: folders, updatedAt: _now() };
+  if (assignmentChanges && Object.keys(assignmentChanges).length) {
+    update.assignments = _assignmentChangesToUpdate(assignmentChanges);
+  }
+  return _patternFoldersRef(uid).set(update, { merge: true });
+}
+
 function stripStepTitleNumbering(title) {
   var raw = String(title || '').trim();
   if (!raw) return '';

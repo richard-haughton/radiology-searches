@@ -47,7 +47,6 @@ var _openFindingPanels = new Set();
 var _draggingPatternFinding = null;
 var _accordionMode = false;
 var _patternListContextMenu = null;
-var _patternListContextPatternId = null;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var STEP_MAIN_SECTION_ORDER = ['searchPattern'];
 var STEP_SECTION_LABELS = {
@@ -339,13 +338,17 @@ function unlockVoiceOutput() {
     var el = getVoiceAudioElement();
     if (el.paused) { // never clobber an announcement that is already playing
       try {
+        setAnnouncementAudioSession('ambient'); // the silent clip must mix in, not interrupt the user's music
         el.src = VOICE_SILENT_WAV;
         var playing = el.play();
         if (playing && typeof playing.then === 'function') {
           playing.then(function() {
             _voiceAudioUnlocked = true;
             el.pause();
-          }).catch(function() { /* not a usable gesture — the next tap retries */ });
+            setAnnouncementAudioSession('auto');
+          }).catch(function() {
+            setAnnouncementAudioSession('auto'); // not a usable gesture — the next tap retries
+          });
         } else {
           _voiceAudioUnlocked = true;
         }
@@ -374,8 +377,22 @@ function bindVoiceUnlockOnGesture() {
   });
 }
 
+// Sharing the phone's audio with a music app. Each announcement should take over from the music for its
+// couple of seconds and then hand back, rather than just ducking it. Safari's Audio Session API lets a
+// page ask for that ('transient-solo': interrupt other audio, let it resume when we finish); 'auto' hands
+// control back. Browsers without the API keep their own default behavior, which the page can't change.
+function setAnnouncementAudioSession(type) {
+  if (!isTouchPrimaryDevice()) return;
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = type;
+  } catch (err) {
+    // Unsupported value on this browser — default audio behavior applies.
+  }
+}
+
 function stopStepAnnouncementAudio() {
   _stepAnnouncementSpeechToken += 1; // invalidate any announcement request currently in flight
+  setAnnouncementAudioSession('auto');
   if (_voiceAudioEl) {
     try { _voiceAudioEl.pause(); } catch (err) { /* already stopped */ }
     _voiceAudioEl.onended = null;
@@ -393,8 +410,14 @@ function speakActiveStepWithBrowserTts(text, token) {
   utterance.pitch = 1;
   utterance.volume = Math.min(1, _voiceVolume); // browser TTS has no boost path — capped at 100%
   // Mobile Chrome/Safari drop an utterance queued in the same tick as cancel(), so give it a beat.
+  var finished = function() {
+    if (token === undefined || token === _stepAnnouncementSpeechToken) setAnnouncementAudioSession('auto');
+  };
+  utterance.onend = finished;
+  utterance.onerror = finished;
   setTimeout(function() {
     if (token !== undefined && token !== _stepAnnouncementSpeechToken) return;
+    setAnnouncementAudioSession('transient-solo');
     window.speechSynthesis.speak(utterance);
   }, 60);
 }
@@ -473,9 +496,13 @@ async function speakActiveStep(step, stepIndex) {
     audio.volume = _voiceGainNode ? 1 : Math.min(1, _voiceVolume);
     applyVoiceVolumeToPlayback();
 
+    audio.onended = function() {
+      if (myToken === _stepAnnouncementSpeechToken) setAnnouncementAudioSession('auto'); // hand back to the music
+    };
     audio.onerror = function() {
       if (myToken === _stepAnnouncementSpeechToken) speakActiveStepWithBrowserTts(text, myToken);
     };
+    setAnnouncementAudioSession('transient-solo');
     await audio.play();
     if (myToken !== _stepAnnouncementSpeechToken) {
       try { audio.pause(); } catch (err) { /* already stopped */ }
@@ -483,6 +510,7 @@ async function speakActiveStep(step, stepIndex) {
     }
     prefetchNextStepAnnouncement(stepIndex);
   } catch (err) {
+    setAnnouncementAudioSession('auto');
     if (err && err.name === 'NotAllowedError') {
       notifyVoiceBlockedOnce();
     } else {
@@ -636,6 +664,9 @@ function initPatterns(userId) {
   bindVoiceUnlockOnGesture();
   initTimedFullscreen();
 
+  // Folders load alongside the patterns; each re-renders the list when it arrives.
+  initPatternFolders(_pUid);
+
   // Subscribe to Firestore patterns
   _unsubscribePatterns = subscribePatterns(_pUid, patterns => {
     allPatterns = patterns;
@@ -656,21 +687,8 @@ function initPatterns(userId) {
     });
   });
 
-  // Pattern selection
-  const patternSelect = document.getElementById('pattern-select');
-  patternSelect.addEventListener('change', e => {
-    const id = e.target.value;
-    loadPattern(id);
-  });
-  patternSelect.addEventListener('contextmenu', handlePatternListContextMenu);
-  patternSelect.addEventListener('mousedown', function(e) {
-    if (e.button !== 2) return;
-    const target = e.target;
-    if (target && target.tagName === 'OPTION') {
-      patternSelect.value = target.value;
-      loadPattern(target.value);
-    }
-  });
+  document.getElementById('btn-new-folder').addEventListener('click', () => createPatternFolder());
+
   initPatternListContextMenu();
 
   // Timer controls
@@ -1086,7 +1104,7 @@ function initMobilePatternPicker() {
   const picker = document.getElementById('btn-pattern-picker');
   const closeBtn = document.getElementById('btn-close-pattern-sheet');
   const backdrop = document.getElementById('pattern-sheet-backdrop');
-  const list = document.getElementById('pattern-list-mobile');
+  const list = document.getElementById('pattern-tree');
   if (!picker || !list) return;
 
   picker.addEventListener('click', () => setPatternSheetOpen(true));
@@ -1096,6 +1114,8 @@ function initMobilePatternPicker() {
     if (e.key === 'Escape') setPatternSheetOpen(false);
   });
 
+  // Pattern rows are shared by the desktop sidebar and the phone sheet. Folder headers are handled in
+  // pattern-folders.js.
   list.addEventListener('click', e => {
     const item = e.target.closest('.pattern-list-item');
     if (!item) return;
@@ -1110,11 +1130,10 @@ function initMobilePatternPicker() {
     }
 
     if (_voiceModeEnabled) unlockVoiceOutput(); // picking a pattern starts its timer (and first announcement)
-    const select = document.getElementById('pattern-select');
-    if (select) select.value = id;
     loadPattern(id);
-    setPatternSheetOpen(false);
+    setPatternSheetOpen(false); // no-op on desktop, where the sidebar is not a sheet
   });
+  list.addEventListener('contextmenu', handlePatternListContextMenu);
 
   // Crossing the phone/desktop breakpoint (rotation, window resize) should not strand the sheet open
   // or leave the findings drawer in the wrong default state.
@@ -1134,52 +1153,8 @@ function initMobilePatternPicker() {
   }
 }
 
-function renderMobilePatternList() {
-  const list = document.getElementById('pattern-list-mobile');
-  if (!list) return;
-  list.innerHTML = '';
-
-  if (!filteredPatterns.length) {
-    const empty = document.createElement('li');
-    empty.className = 'pattern-list-empty';
-    empty.textContent = allPatterns.length ? 'No patterns match your filter.' : 'No patterns yet.';
-    list.appendChild(empty);
-    return;
-  }
-
-  filteredPatterns.forEach(p => {
-    const item = document.createElement('li');
-    item.className = 'pattern-list-item';
-    item.dataset.patternId = p.id;
-
-    const main = document.createElement('button');
-    main.type = 'button';
-    main.className = 'pattern-list-item-main';
-    const name = document.createElement('span');
-    name.className = 'pattern-list-item-name';
-    name.textContent = p.name;
-    main.appendChild(name);
-    if (p.modality) {
-      const mod = document.createElement('span');
-      mod.className = 'pattern-list-item-mod';
-      mod.textContent = p.modality;
-      main.appendChild(mod);
-    }
-
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'pattern-list-item-more';
-    more.setAttribute('aria-label', 'Pattern actions for ' + p.name);
-    more.textContent = '⋯';
-
-    item.appendChild(main);
-    item.appendChild(more);
-    list.appendChild(item);
-  });
-}
-
-function updateMobilePatternSelection() {
-  const list = document.getElementById('pattern-list-mobile');
+function updatePatternListSelection() {
+  const list = document.getElementById('pattern-tree');
   if (list) {
     Array.prototype.forEach.call(list.querySelectorAll('.pattern-list-item'), item => {
       const selected = item.dataset.patternId === selectedPatternId;
@@ -1210,33 +1185,25 @@ function applyFilters() {
 }
 
 function renderPatternList() {
-  const sel = document.getElementById('pattern-select');
   const prevId = selectedPatternId;
   const stepToRestore = _preferredStepIndex !== null ? _preferredStepIndex : currentStepIndex;
   _preferredStepIndex = null;
-  sel.innerHTML = '';
 
-  filteredPatterns.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name;
-    sel.appendChild(opt);
-  });
-  renderMobilePatternList();
+  renderPatternTree();
 
-  // Restore selection if still present, otherwise auto-load first pattern
-  if (prevId && filteredPatterns.find(p => p.id === prevId)) {
-    sel.value = prevId;
+  // Restore selection if still present, otherwise auto-load the first pattern in the order shown
+  // (folders first, so that is not necessarily the first alphabetically).
+  const displayed = getDisplayedPatterns();
+  if (prevId && displayed.find(p => p.id === prevId)) {
     loadPattern(prevId, stepToRestore);
-  } else if (filteredPatterns.length) {
-    sel.value = filteredPatterns[0].id;
-    loadPattern(filteredPatterns[0].id);
+  } else if (displayed.length) {
+    loadPattern(displayed[0].id);
   } else {
     selectedPatternId = null;
     clearStepView();
     updateSidebarButtons(false);
   }
-  updateMobilePatternSelection();
+  updatePatternListSelection();
 }
 
 // ── Load pattern ─────────────────────────────────────────────
@@ -1246,7 +1213,7 @@ function loadPattern(id, preferredStepIndex) {
 
   const wasSamePattern = selectedPatternId === id;
   selectedPatternId = id;
-  updateMobilePatternSelection();
+  updatePatternListSelection();
   const steps = pattern.steps || [];
   if (typeof preferredStepIndex === 'number' && steps.length) {
     currentStepIndex = Math.max(0, Math.min(preferredStepIndex, steps.length - 1));
@@ -1317,11 +1284,10 @@ function openPatternAtStepFromSearch(patternId, stepIndex) {
     btn.classList.toggle('active', btn.dataset.mod === 'All');
   });
 
+  revealPatternInTree(patternId); // unfold its folder before the list renders
   applyFilters();
   loadPattern(patternId, typeof stepIndex === 'number' ? stepIndex : 0);
-
-  const select = document.getElementById('pattern-select');
-  if (select) select.value = patternId;
+  scrollSelectedPatternIntoView();
 }
 
 function getSelectedPattern() {
@@ -4046,94 +4012,6 @@ function releaseScreenWakeLock() {
   if (sentinel) sentinel.release().catch(function() { /* already released */ });
 }
 
-// Holding the phone's audio focus. A short spoken clip only makes other apps duck their music for a
-// second before it returns to full volume. Playing a continuous silent loop for the whole read keeps
-// this page as the "current" audio, which pauses other apps' music (iOS, Android) until the read ends.
-// Only when Voice is on (the music would clash with the announcements) and only on touch devices.
-var _audioFocusEl = null;
-
-function buildSilentWavUrl(seconds) {
-  var rate = 8000;
-  var samples = rate * seconds;
-  var buffer = new ArrayBuffer(44 + samples);
-  var view = new DataView(buffer);
-  var writeText = function(offset, text) {
-    for (var i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
-  };
-  writeText(0, 'RIFF'); view.setUint32(4, 36 + samples, true); writeText(8, 'WAVE');
-  writeText(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-  view.setUint32(24, rate, true); view.setUint32(28, rate, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true);
-  writeText(36, 'data'); view.setUint32(40, samples, true);
-  new Uint8Array(buffer, 44).fill(128); // 8-bit PCM silence
-  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
-}
-
-// With audio focus held, the lock-screen / notification / headset controls belong to this page, so
-// route them to something sensible: play/pause toggles the read, next/previous change step.
-function bindMediaSessionControls() {
-  if (!('mediaSession' in navigator)) return;
-  try {
-    var pattern = getSelectedPattern();
-    if (typeof MediaMetadata === 'function') {
-      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Timed read', artist: (pattern && pattern.name) || 'Searches' });
-    }
-    navigator.mediaSession.setActionHandler('play', toggleTimerClockPause);
-    navigator.mediaSession.setActionHandler('pause', toggleTimerClockPause);
-    navigator.mediaSession.setActionHandler('nexttrack', function() { navigateStep(1); });
-    navigator.mediaSession.setActionHandler('previoustrack', function() { navigateStep(-1); });
-  } catch (err) {
-    // Unsupported action on this browser — the silent loop still does its job.
-  }
-}
-
-function clearMediaSessionControls() {
-  if (!('mediaSession' in navigator)) return;
-  try {
-    navigator.mediaSession.metadata = null;
-    ['play', 'pause', 'nexttrack', 'previoustrack'].forEach(function(action) {
-      navigator.mediaSession.setActionHandler(action, null);
-    });
-  } catch (err) {
-    // Nothing to clear.
-  }
-}
-
-function acquirePhoneAudioFocus() {
-  if (!_voiceModeEnabled || !isTouchPrimaryDevice()) return;
-
-  try {
-    if (navigator.audioSession) navigator.audioSession.type = 'playback'; // Safari: interrupt, don't mix with, other audio
-  } catch (err) {
-    // Older browser — the playing element alone is enough there.
-  }
-
-  if (!_audioFocusEl) {
-    var el = new Audio();
-    el.loop = true;
-    el.preload = 'auto';
-    el.setAttribute('playsinline', '');
-    el.src = buildSilentWavUrl(1);
-    _audioFocusEl = el;
-  }
-  var playing = _audioFocusEl.play();
-  if (playing && typeof playing.catch === 'function') {
-    playing.catch(function() { /* blocked — music keeps ducking around announcements, as before */ });
-  }
-  bindMediaSessionControls();
-}
-
-function releasePhoneAudioFocus() {
-  if (_audioFocusEl) {
-    try { _audioFocusEl.pause(); } catch (err) { /* already stopped */ }
-  }
-  try {
-    if (navigator.audioSession) navigator.audioSession.type = 'auto';
-  } catch (err) {
-    // Nothing to restore.
-  }
-  clearMediaSessionControls();
-}
-
 function openTimedFullscreen() {
   var overlay = document.getElementById('timed-fs');
   if (!overlay) return;
@@ -4143,7 +4021,6 @@ function openTimedFullscreen() {
   document.documentElement.classList.add('timed-fs-open');
   renderTimedFullscreen();
   requestScreenWakeLock();
-  acquirePhoneAudioFocus();
 
   try {
     var requestNative = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
@@ -4167,7 +4044,6 @@ function exitTimedFullscreen() {
   if (overlay) overlay.style.display = 'none';
   document.documentElement.classList.remove('timed-fs-open');
   releaseScreenWakeLock();
-  releasePhoneAudioFocus();
 
   if (_timedFsNativeFullscreen) {
     _timedFsNativeFullscreen = false;
@@ -4349,7 +4225,6 @@ function initTimedFullscreen() {
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && _timedFsOpen) {
       requestScreenWakeLock(); // the browser drops the wake lock whenever the page is hidden
-      if (_audioFocusEl && _audioFocusEl.paused) acquirePhoneAudioFocus();
       renderTimedFullscreen();
     }
   });
@@ -4504,6 +4379,7 @@ function updateSidebarButtons(hasSelection) {
   updatePatternStepAddButton();
 }
 
+// One floating menu serves both pattern rows and folder headers; whoever opens it supplies the items.
 function initPatternListContextMenu() {
   if (_patternListContextMenu) return;
 
@@ -4511,43 +4387,6 @@ function initPatternListContextMenu() {
   menu.className = 'pattern-list-context-menu';
   menu.id = 'pattern-list-context-menu';
   menu.style.display = 'none';
-
-  const renameBtn = document.createElement('button');
-  renameBtn.type = 'button';
-  renameBtn.className = 'pattern-list-context-menu-item';
-  renameBtn.textContent = 'Edit Pattern Name';
-  renameBtn.addEventListener('click', async function() {
-    const targetId = _patternListContextPatternId;
-    hidePatternListContextMenu();
-    if (!targetId) return;
-    await handleRenamePattern(targetId);
-  });
-
-  const duplicateBtn = document.createElement('button');
-  duplicateBtn.type = 'button';
-  duplicateBtn.className = 'pattern-list-context-menu-item';
-  duplicateBtn.textContent = 'Duplicate Pattern';
-  duplicateBtn.addEventListener('click', async function() {
-    const targetId = _patternListContextPatternId;
-    hidePatternListContextMenu();
-    if (!targetId) return;
-    await handleDuplicatePattern(targetId);
-  });
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.type = 'button';
-  deleteBtn.className = 'pattern-list-context-menu-item is-danger';
-  deleteBtn.textContent = 'Delete Pattern';
-  deleteBtn.addEventListener('click', async function() {
-    const targetId = _patternListContextPatternId;
-    hidePatternListContextMenu();
-    if (!targetId) return;
-    await handleDeletePattern(targetId);
-  });
-
-  menu.appendChild(renameBtn);
-  menu.appendChild(duplicateBtn);
-  menu.appendChild(deleteBtn);
   document.body.appendChild(menu);
   _patternListContextMenu = menu;
 
@@ -4560,46 +4399,79 @@ function initPatternListContextMenu() {
   window.addEventListener('resize', hidePatternListContextMenu);
 }
 
-function showPatternListContextMenu(clientX, clientY, patternId) {
+// items: { label, onSelect, danger?, choice?, checked? } | { heading } | { divider: true }
+function openPatternListMenu(clientX, clientY, items) {
   if (!_patternListContextMenu) return;
-  _patternListContextPatternId = patternId;
+  const menu = _patternListContextMenu;
+  menu.innerHTML = '';
 
-  _patternListContextMenu.style.display = 'block';
-  _patternListContextMenu.style.visibility = 'hidden';
-  _patternListContextMenu.style.left = '0px';
-  _patternListContextMenu.style.top = '0px';
+  items.forEach(function(item) {
+    if (item.divider) {
+      const divider = document.createElement('div');
+      divider.className = 'pattern-list-context-menu-divider';
+      divider.setAttribute('role', 'separator');
+      menu.appendChild(divider);
+      return;
+    }
+    if (item.heading) {
+      const heading = document.createElement('div');
+      heading.className = 'pattern-list-context-menu-heading';
+      heading.textContent = item.heading;
+      menu.appendChild(heading);
+      return;
+    }
 
-  const rect = _patternListContextMenu.getBoundingClientRect();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pattern-list-context-menu-item'
+      + (item.danger ? ' is-danger' : '')
+      + (item.choice ? ' is-choice' : '')
+      + (item.checked ? ' is-checked' : '');
+    btn.textContent = item.label;
+    btn.addEventListener('click', function() {
+      hidePatternListContextMenu();
+      item.onSelect();
+    });
+    menu.appendChild(btn);
+  });
+
+  menu.style.display = 'block';
+  menu.style.visibility = 'hidden';
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+
+  const rect = menu.getBoundingClientRect();
   const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
   const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
-  const left = Math.min(Math.max(8, clientX), maxLeft);
-  const top = Math.min(Math.max(8, clientY), maxTop);
+  menu.style.left = Math.min(Math.max(8, clientX), maxLeft) + 'px';
+  menu.style.top = Math.min(Math.max(8, clientY), maxTop) + 'px';
+  menu.style.visibility = 'visible';
+}
 
-  _patternListContextMenu.style.left = left + 'px';
-  _patternListContextMenu.style.top = top + 'px';
-  _patternListContextMenu.style.visibility = 'visible';
+function showPatternListContextMenu(clientX, clientY, patternId) {
+  openPatternListMenu(clientX, clientY, [
+    { label: 'Edit Pattern Name', onSelect: function() { return handleRenamePattern(patternId); } },
+    { label: 'Duplicate Pattern', onSelect: function() { return handleDuplicatePattern(patternId); } }
+  ].concat(buildPatternFolderMenuItems(patternId), [
+    { label: 'Delete Pattern', danger: true, onSelect: function() { return handleDeletePattern(patternId); } }
+  ]));
 }
 
 function hidePatternListContextMenu() {
-  _patternListContextPatternId = null;
   if (!_patternListContextMenu) return;
   _patternListContextMenu.style.display = 'none';
 }
 
 function handlePatternListContextMenu(e) {
-  const select = document.getElementById('pattern-select');
-  if (!select) return;
-
-  const target = e.target;
-  const targetId = target && target.tagName === 'OPTION' ? target.value : select.value;
+  const item = e.target.closest('.pattern-list-item');
+  const targetId = item && item.dataset.patternId;
   if (!targetId) return;
 
   e.preventDefault();
 
-  if (select.value !== targetId) {
-    select.value = targetId;
-    loadPattern(targetId);
-  }
+  // A mouse right-click also opens the pattern, as it always has. On a touch screen the same event is a
+  // long-press, and opening a pattern starts its timer — so there it only opens the menu.
+  if (!isTouchPrimaryDevice() && selectedPatternId !== targetId) loadPattern(targetId);
 
   showPatternListContextMenu(e.clientX, e.clientY, targetId);
 }
@@ -4654,6 +4526,8 @@ async function handleDuplicatePattern(patternId) {
       steps: clonedSteps
     });
     selectedPatternId = newPatternId;
+    const folderId = getPatternFolderId(pattern.id);
+    if (folderId) await movePatternToFolder(newPatternId, folderId, true); // the copy stays in the original's folder
     showToast('Pattern duplicated.');
   } catch (err) {
     console.error(err);
@@ -4809,6 +4683,9 @@ function handleKeydown(e) {
   const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
                     e.target.isContentEditable;
   if (isEditing) return;
+
+  // The pattern list keeps its own arrow/Tab/Space behavior (it used to be a <select>, exempt above).
+  if (e.target.closest && e.target.closest('#pattern-tree')) return;
 
   // Only when patterns panel is active
   const panel = document.getElementById('panel-patterns');
