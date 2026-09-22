@@ -357,9 +357,20 @@ body {
   background: #eef5f1;
 }
 
-.pattern-list-context-menu-item.is-choice { position: relative; padding-left: 28px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pattern-list-context-menu-item.is-checked::before {
-  content: '✓'; position: absolute; left: 10px; color: var(--accent); font-weight: 800;
+/* A folder in a pattern's ⋯ menu is a checkbox, not a radio — a pattern can be filed in several. */
+.pattern-list-context-menu-item.is-choice { position: relative; padding-left: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pattern-list-context-menu-item.is-choice::before {
+  content: ''; position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+  width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid var(--ink-muted);
+  transition: background var(--transition), border-color var(--transition);
+}
+.pattern-list-context-menu-item.is-choice.is-checked::before {
+  background: var(--accent); border-color: var(--accent);
+}
+.pattern-list-context-menu-item.is-choice.is-checked::after {
+  content: ''; position: absolute; left: 13.5px; top: 50%;
+  width: 4px; height: 8px; transform: translateY(-65%) rotate(45deg);
+  border: solid #fff; border-width: 0 2px 2px 0;
 }
 .pattern-list-context-menu-heading {
   padding: 6px 10px 3px; font-size: 0.68rem; font-weight: 700;
@@ -1562,6 +1573,7 @@ body {
 
 .calc-form { display: flex; flex-direction: column; gap: 14px; }
 .calc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.calc-subheading { font-size: 0.82rem; font-weight: 600; color: var(--ink-muted); margin: 0 0 -4px; }
 .calc-actions { margin: 10px 0 14px; display: flex; flex-wrap: wrap; gap: 10px; }
 .calc-actions .btn { min-width: 120px; }
 .calc-result {

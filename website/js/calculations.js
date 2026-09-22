@@ -108,22 +108,51 @@ function vdtHtml() {
   return `
   <div class="calc-card">
     <h2>Volume Doubling Time</h2>
-    <p class="calc-description">Estimates nodule growth rate between two scans from either diameter or volume measurements. Diameter is converted to volume assuming a sphere.</p>
+    <p class="calc-description">Estimates nodule growth rate between two scans from either three-axis diameter measurements (ellipsoid approximation) or directly entered volumes.</p>
     <div class="calc-form">
       <label class="form-label">Measurement type
         <select id="vdt-mode" class="form-input">
-          <option value="diameter" selected>Diameter (mm)</option>
+          <option value="diameter" selected>Diameter — 3 axes (mm)</option>
           <option value="volume">Volume (mm³)</option>
         </select>
       </label>
-      <div class="calc-row">
-        <label class="form-label" id="vdt-v1-label"><span class="vdt-label-text">Initial diameter (mm)</span>
-          <input id="vdt-v1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 8.0">
+
+      <div id="vdt-diameter-fields">
+        <p class="calc-subheading">Initial scan (mm)</p>
+        <div class="calc-row">
+          <label class="form-label">Height
+            <input id="vdt-h1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 8.0">
+          </label>
+          <label class="form-label">Width
+            <input id="vdt-w1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 7.5">
+          </label>
+          <label class="form-label">Length
+            <input id="vdt-l1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 8.2">
+          </label>
+        </div>
+        <p class="calc-subheading">Follow-up scan (mm)</p>
+        <div class="calc-row">
+          <label class="form-label">Height
+            <input id="vdt-h2" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 10.0">
+          </label>
+          <label class="form-label">Width
+            <input id="vdt-w2" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 9.4">
+          </label>
+          <label class="form-label">Length
+            <input id="vdt-l2" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 10.3">
+          </label>
+        </div>
+      </div>
+
+      <div id="vdt-volume-fields" class="calc-row" style="display:none">
+        <label class="form-label">Initial volume (mm³)
+          <input id="vdt-v1" type="number" class="form-input" min="0" step="any" placeholder="e.g. 270">
         </label>
-        <label class="form-label" id="vdt-v2-label"><span class="vdt-label-text">Follow-up diameter (mm)</span>
-          <input id="vdt-v2" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 10.0">
+        <label class="form-label">Follow-up volume (mm³)
+          <input id="vdt-v2" type="number" class="form-input" min="0" step="any" placeholder="e.g. 520">
         </label>
       </div>
+
       <label class="form-label">Days between scans
         <input id="vdt-days" type="number" class="form-input" min="1" step="1" placeholder="e.g. 180">
       </label>
@@ -136,41 +165,52 @@ function vdtHtml() {
       <div class="calc-result-label">days (volume doubling time)</div>
       <div class="calc-result-detail" id="vdt-detail"></div>
     </div>
-    <div class="calc-formula">VDT = t × ln(2) ÷ ln(V₂ ÷ V₁)</div>
+    <div class="calc-formula">V = 0.523 × H × W × L &nbsp;|&nbsp; VDT = t × ln(2) ÷ ln(V₂ ÷ V₁)</div>
   </div>`;
 }
+
+const VDT_DIAMETER_IDS = ['vdt-h1', 'vdt-w1', 'vdt-l1', 'vdt-h2', 'vdt-w2', 'vdt-l2'];
+const VDT_VOLUME_IDS = ['vdt-v1', 'vdt-v2'];
 
 function bindVdt() {
   const mode = document.getElementById('vdt-mode');
   mode.addEventListener('change', () => {
     const isDiameter = mode.value === 'diameter';
-    document.querySelector('#vdt-v1-label .vdt-label-text').textContent = isDiameter ? 'Initial diameter (mm)' : 'Initial volume (mm³)';
-    document.querySelector('#vdt-v2-label .vdt-label-text').textContent = isDiameter ? 'Follow-up diameter (mm)' : 'Follow-up volume (mm³)';
+    document.getElementById('vdt-diameter-fields').style.display = isDiameter ? '' : 'none';
+    document.getElementById('vdt-volume-fields').style.display = isDiameter ? 'none' : '';
     calcVdt();
   });
-  ['vdt-v1', 'vdt-v2', 'vdt-days'].forEach(id => {
+  [...VDT_DIAMETER_IDS, ...VDT_VOLUME_IDS, 'vdt-days'].forEach(id => {
     document.getElementById(id).addEventListener('input', calcVdt);
   });
   document.getElementById('vdt-calc').addEventListener('click', calcVdt);
-  bindEnterToCalculate(['vdt-v1', 'vdt-v2', 'vdt-days'], calcVdt);
+  bindEnterToCalculate([...VDT_DIAMETER_IDS, ...VDT_VOLUME_IDS, 'vdt-days'], calcVdt);
 }
 
 function calcVdt() {
   const mode = document.getElementById('vdt-mode').value;
-  const v1raw = parseFloat(document.getElementById('vdt-v1').value);
-  const v2raw = parseFloat(document.getElementById('vdt-v2').value);
   const days = parseFloat(document.getElementById('vdt-days').value);
   const result = document.getElementById('vdt-result');
 
-  if (isNaN(v1raw) || isNaN(v2raw) || isNaN(days) || v1raw <= 0 || v2raw <= 0 || days <= 0) {
-    result.hidden = true;
-    return;
+  let vol1, vol2;
+
+  if (mode === 'diameter') {
+    const [h1, w1, l1, h2, w2, l2] = VDT_DIAMETER_IDS.map(id => parseFloat(document.getElementById(id).value));
+    if ([h1, w1, l1, h2, w2, l2].some(v => isNaN(v) || v <= 0)) { result.hidden = true; return; }
+    vol1 = 0.523 * h1 * w1 * l1;
+    vol2 = 0.523 * h2 * w2 * l2;
+  } else {
+    const v1raw = parseFloat(document.getElementById('vdt-v1').value);
+    const v2raw = parseFloat(document.getElementById('vdt-v2').value);
+    if (isNaN(v1raw) || isNaN(v2raw) || v1raw <= 0 || v2raw <= 0) { result.hidden = true; return; }
+    vol1 = v1raw;
+    vol2 = v2raw;
   }
 
-  const vol1 = mode === 'diameter' ? (Math.PI / 6) * Math.pow(v1raw, 3) : v1raw;
-  const vol2 = mode === 'diameter' ? (Math.PI / 6) * Math.pow(v2raw, 3) : v2raw;
+  if (isNaN(days) || days <= 0) { result.hidden = true; return; }
+
   const pctChange = ((vol2 - vol1) / vol1) * 100;
-  const volNote = mode === 'diameter' ? ', assuming sphere' : '';
+  const volNote = mode === 'diameter' ? ', ellipsoid approximation' : '';
 
   let cls = 'calc-result';
   let valueText;
