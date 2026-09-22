@@ -27,9 +27,10 @@ async function clearAiApiKey(uid, provider) {
 }
 
 // ── Pattern folders ──────────────────────────────────────────
-// One settings doc per user: { folders: [{id, name}], assignments: { patternId: folderId } }.
-// Kept off the pattern docs so filing a pattern never rewrites (or re-syncs) the pattern itself, and so a
-// move from one device only touches that one assignment key.
+// One settings doc per user: { folders: [{id, name}], assignments: { patternId: [folderId, ...] } }.
+// A pattern can be filed in any number of folders at once. Kept off the pattern docs so filing a pattern
+// never rewrites (or re-syncs) the pattern itself, and so a move from one device only touches that one
+// assignment key.
 function _patternFoldersRef(uid) { return _userRef(uid).collection('settings').doc('patternFolders'); }
 
 function _normalisePatternFolders(data) {
@@ -46,8 +47,15 @@ function _normalisePatternFolders(data) {
   var assignments = {};
   var rawAssignments = (data && data.assignments && typeof data.assignments === 'object') ? data.assignments : {};
   Object.keys(rawAssignments).forEach(function(patternId) {
-    var folderId = String(rawAssignments[patternId] || '').trim();
-    if (knownIds[folderId]) assignments[patternId] = folderId; // a deleted folder leaves nothing dangling
+    var raw = rawAssignments[patternId];
+    var rawList = Array.isArray(raw) ? raw : (raw ? [raw] : []); // a lone string is a pre-multi-folder value
+    var seen = {};
+    var ids = [];
+    rawList.forEach(function(folderId) {
+      var id = String(folderId || '').trim();
+      if (id && knownIds[id] && !seen[id]) { seen[id] = true; ids.push(id); } // a deleted folder leaves nothing dangling
+    });
+    if (ids.length) assignments[patternId] = ids;
   });
 
   return { folders: folders, assignments: assignments };
@@ -59,12 +67,12 @@ function subscribePatternFolders(uid, callback) {
   }, function(err) { console.error('subscribePatternFolders error:', err); });
 }
 
-// changes: { patternId: folderId | null } — null puts the pattern back in "Unfiled".
+// changes: { patternId: [folderId, ...] } — an empty array puts the pattern back in "Unfiled".
 function _assignmentChangesToUpdate(changes) {
   var assignments = {};
   Object.keys(changes || {}).forEach(function(patternId) {
-    var folderId = changes[patternId];
-    assignments[patternId] = folderId ? folderId : firebase.firestore.FieldValue.delete();
+    var ids = changes[patternId];
+    assignments[patternId] = (Array.isArray(ids) && ids.length) ? ids.slice() : firebase.firestore.FieldValue.delete();
   });
   return assignments;
 }

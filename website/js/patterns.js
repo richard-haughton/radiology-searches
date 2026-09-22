@@ -47,6 +47,7 @@ var _openFindingPanels = new Set();
 var _draggingPatternFinding = null;
 var _accordionMode = false;
 var _patternListContextMenu = null;
+var _patternListMenuState = null;
 var STEP_SECTION_ORDER = ['searchPattern', 'dontMissPathology'];
 var STEP_MAIN_SECTION_ORDER = ['searchPattern'];
 var STEP_SECTION_LABELS = {
@@ -4399,10 +4400,27 @@ function initPatternListContextMenu() {
   window.addEventListener('resize', hidePatternListContextMenu);
 }
 
-// items: { label, onSelect, danger?, choice?, checked? } | { heading } | { divider: true }
-function openPatternListMenu(clientX, clientY, items) {
+// items: { label, onSelect, danger?, choice?, checked?, keepOpen? } | { heading } | { divider: true }
+// itemsOrBuilder may be that array directly, or a function returning a fresh one — a builder is what lets
+// a `keepOpen` item (a folder checkbox) redraw the menu with up-to-date checked state after it runs,
+// without losing its place on screen.
+function openPatternListMenu(clientX, clientY, itemsOrBuilder) {
   if (!_patternListContextMenu) return;
+  _patternListMenuState = {
+    x: clientX,
+    y: clientY,
+    build: typeof itemsOrBuilder === 'function' ? itemsOrBuilder : function() { return itemsOrBuilder; }
+  };
+  renderPatternListMenu();
+}
+
+// Redraws the currently open menu in place from its builder; a no-op when no menu is open. Also called
+// whenever the folders a pattern belongs to change underneath an open menu (e.g. the Firestore round trip
+// after a checkbox click, or a folder edited from another device).
+function renderPatternListMenu() {
+  if (!_patternListMenuState || !_patternListContextMenu) return;
   const menu = _patternListContextMenu;
+  const items = _patternListMenuState.build();
   menu.innerHTML = '';
 
   items.forEach(function(item) {
@@ -4428,9 +4446,14 @@ function openPatternListMenu(clientX, clientY, items) {
       + (item.choice ? ' is-choice' : '')
       + (item.checked ? ' is-checked' : '');
     btn.textContent = item.label;
-    btn.addEventListener('click', function() {
-      hidePatternListContextMenu();
-      item.onSelect();
+    btn.addEventListener('click', function(e) {
+      if (item.keepOpen) {
+        e.stopPropagation(); // keep the document-level click-away handler from closing the menu on this click
+        Promise.resolve(item.onSelect()).then(renderPatternListMenu);
+      } else {
+        hidePatternListContextMenu();
+        item.onSelect();
+      }
     });
     menu.appendChild(btn);
   });
@@ -4443,21 +4466,24 @@ function openPatternListMenu(clientX, clientY, items) {
   const rect = menu.getBoundingClientRect();
   const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
   const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
-  menu.style.left = Math.min(Math.max(8, clientX), maxLeft) + 'px';
-  menu.style.top = Math.min(Math.max(8, clientY), maxTop) + 'px';
+  menu.style.left = Math.min(Math.max(8, _patternListMenuState.x), maxLeft) + 'px';
+  menu.style.top = Math.min(Math.max(8, _patternListMenuState.y), maxTop) + 'px';
   menu.style.visibility = 'visible';
 }
 
 function showPatternListContextMenu(clientX, clientY, patternId) {
-  openPatternListMenu(clientX, clientY, [
-    { label: 'Edit Pattern Name', onSelect: function() { return handleRenamePattern(patternId); } },
-    { label: 'Duplicate Pattern', onSelect: function() { return handleDuplicatePattern(patternId); } }
-  ].concat(buildPatternFolderMenuItems(patternId), [
-    { label: 'Delete Pattern', danger: true, onSelect: function() { return handleDeletePattern(patternId); } }
-  ]));
+  openPatternListMenu(clientX, clientY, function() {
+    return [
+      { label: 'Edit Pattern Name', onSelect: function() { return handleRenamePattern(patternId); } },
+      { label: 'Duplicate Pattern', onSelect: function() { return handleDuplicatePattern(patternId); } }
+    ].concat(buildPatternFolderMenuItems(patternId), [
+      { label: 'Delete Pattern', danger: true, onSelect: function() { return handleDeletePattern(patternId); } }
+    ]);
+  });
 }
 
 function hidePatternListContextMenu() {
+  _patternListMenuState = null;
   if (!_patternListContextMenu) return;
   _patternListContextMenu.style.display = 'none';
 }
@@ -4526,8 +4552,8 @@ async function handleDuplicatePattern(patternId) {
       steps: clonedSteps
     });
     selectedPatternId = newPatternId;
-    const folderId = getPatternFolderId(pattern.id);
-    if (folderId) await movePatternToFolder(newPatternId, folderId, true); // the copy stays in the original's folder
+    const folderIds = getPatternFolderIds(pattern.id);
+    if (folderIds.length) await setPatternFolders(newPatternId, folderIds); // the copy keeps the original's folders
     showToast('Pattern duplicated.');
   } catch (err) {
     console.error(err);

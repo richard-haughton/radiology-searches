@@ -21,6 +21,7 @@ function renderCalc(key) {
   const main = document.getElementById('calc-main');
   switch (key) {
     case 'volume':   main.innerHTML = volumeHtml();   bindVolume();   break;
+    case 'vdt':      main.innerHTML = vdtHtml();      bindVdt();      break;
     case 'stenosis': main.innerHTML = stenosisHtml(); bindStenosis(); break;
     case 'lft':      main.innerHTML = lftHtml();      bindLft();      break;
     case 'dlp':      main.innerHTML = dlpHtml();      bindDlp();      break;
@@ -100,6 +101,107 @@ function calcVolume() {
   document.getElementById('v-value').textContent = vol.toFixed(2);
   result.hidden = false;
   result.className = 'calc-result';
+}
+
+// ── 1b. Volume Doubling Time ─────────────────────────────────
+function vdtHtml() {
+  return `
+  <div class="calc-card">
+    <h2>Volume Doubling Time</h2>
+    <p class="calc-description">Estimates nodule growth rate between two scans from either diameter or volume measurements. Diameter is converted to volume assuming a sphere.</p>
+    <div class="calc-form">
+      <label class="form-label">Measurement type
+        <select id="vdt-mode" class="form-input">
+          <option value="diameter" selected>Diameter (mm)</option>
+          <option value="volume">Volume (mm³)</option>
+        </select>
+      </label>
+      <div class="calc-row">
+        <label class="form-label" id="vdt-v1-label"><span class="vdt-label-text">Initial diameter (mm)</span>
+          <input id="vdt-v1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 8.0">
+        </label>
+        <label class="form-label" id="vdt-v2-label"><span class="vdt-label-text">Follow-up diameter (mm)</span>
+          <input id="vdt-v2" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 10.0">
+        </label>
+      </div>
+      <label class="form-label">Days between scans
+        <input id="vdt-days" type="number" class="form-input" min="1" step="1" placeholder="e.g. 180">
+      </label>
+    </div>
+    <div class="calc-actions">
+      <button id="vdt-calc" type="button" class="btn btn-accent">Calculate</button>
+    </div>
+    <div id="vdt-result" class="calc-result" hidden>
+      <div class="calc-result-value" id="vdt-value"></div>
+      <div class="calc-result-label">days (volume doubling time)</div>
+      <div class="calc-result-detail" id="vdt-detail"></div>
+    </div>
+    <div class="calc-formula">VDT = t × ln(2) ÷ ln(V₂ ÷ V₁)</div>
+  </div>`;
+}
+
+function bindVdt() {
+  const mode = document.getElementById('vdt-mode');
+  mode.addEventListener('change', () => {
+    const isDiameter = mode.value === 'diameter';
+    document.querySelector('#vdt-v1-label .vdt-label-text').textContent = isDiameter ? 'Initial diameter (mm)' : 'Initial volume (mm³)';
+    document.querySelector('#vdt-v2-label .vdt-label-text').textContent = isDiameter ? 'Follow-up diameter (mm)' : 'Follow-up volume (mm³)';
+    calcVdt();
+  });
+  ['vdt-v1', 'vdt-v2', 'vdt-days'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calcVdt);
+  });
+  document.getElementById('vdt-calc').addEventListener('click', calcVdt);
+  bindEnterToCalculate(['vdt-v1', 'vdt-v2', 'vdt-days'], calcVdt);
+}
+
+function calcVdt() {
+  const mode = document.getElementById('vdt-mode').value;
+  const v1raw = parseFloat(document.getElementById('vdt-v1').value);
+  const v2raw = parseFloat(document.getElementById('vdt-v2').value);
+  const days = parseFloat(document.getElementById('vdt-days').value);
+  const result = document.getElementById('vdt-result');
+
+  if (isNaN(v1raw) || isNaN(v2raw) || isNaN(days) || v1raw <= 0 || v2raw <= 0 || days <= 0) {
+    result.hidden = true;
+    return;
+  }
+
+  const vol1 = mode === 'diameter' ? (Math.PI / 6) * Math.pow(v1raw, 3) : v1raw;
+  const vol2 = mode === 'diameter' ? (Math.PI / 6) * Math.pow(v2raw, 3) : v2raw;
+  const pctChange = ((vol2 - vol1) / vol1) * 100;
+  const volNote = mode === 'diameter' ? ', assuming sphere' : '';
+
+  let cls = 'calc-result';
+  let valueText;
+  const detailLines = [`Volume change: ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}% over ${days} days (V₁ ${vol1.toFixed(0)} mm³ → V₂ ${vol2.toFixed(0)} mm³${volNote}).`];
+
+  if (vol2 === vol1) {
+    valueText = '∞';
+    detailLines.push('No volume change detected between scans — growth rate cannot be defined (stable).');
+  } else {
+    const vdt = (days * Math.LN2) / Math.log(vol2 / vol1);
+    if (vdt < 0) {
+      valueText = 'N/A';
+      detailLines.push(`Volume decreased over ${days} days — interval regression, doubling time not applicable.`);
+    } else {
+      valueText = vdt.toFixed(0);
+      if (vdt < 400) {
+        cls += ' is-danger';
+        detailLines.push('VDT < 400 days: rapid growth, higher suspicion for malignancy.');
+      } else if (vdt <= 600) {
+        cls += ' is-warning';
+        detailLines.push('VDT 400–600 days: indeterminate growth rate.');
+      } else {
+        detailLines.push('VDT > 600 days: slow growth, more typical of a benign process.');
+      }
+    }
+  }
+
+  document.getElementById('vdt-value').textContent = valueText;
+  document.getElementById('vdt-detail').innerHTML = detailLines.join('<br>');
+  result.className = cls;
+  result.hidden = false;
 }
 
 // ── 2. Percent Narrowing ─────────────────────────────────────

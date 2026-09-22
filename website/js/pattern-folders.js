@@ -4,10 +4,11 @@
 //
 // A folder is just a label the user files patterns under, so it lives in its own settings doc rather than
 // on the patterns: filing a pattern never rewrites it, and shared/exported patterns are unaffected.
-// A pattern is in at most one folder; everything else shows under "Unfiled" (once any folder exists).
+// A pattern can be filed in any number of folders at once (it shows once per folder it's in); a pattern
+// in none of them shows under "Unfiled" (once any folder exists).
 
 var _patternFolders = [];               // [{ id, name }] in creation order
-var _patternFolderAssignments = {};     // patternId -> folderId
+var _patternFolderAssignments = {};     // patternId -> [folderId, ...]
 var _foldersCollapsed = {};             // folderId | UNFILED_GROUP_KEY -> true; per device, not synced
 var _unsubscribePatternFolders = null;
 var _patternTreeEventsBound = false;
@@ -27,6 +28,7 @@ function initPatternFolders(uid) {
     _patternFolders = state.folders;
     _patternFolderAssignments = state.assignments;
     renderPatternTree(); // tree only — a folder change must not reload the open pattern
+    renderPatternListMenu(); // keeps an open pattern's folder checkboxes live as they're checked/unchecked
   });
 }
 
@@ -50,8 +52,12 @@ function setFolderCollapsed(key, collapsed) {
   }
 }
 
-function getPatternFolderId(patternId) {
-  return _patternFolderAssignments[patternId] || null;
+function getPatternFolderIds(patternId) {
+  return _patternFolderAssignments[patternId] || [];
+}
+
+function patternHasFolder(patternId, folderId) {
+  return getPatternFolderIds(patternId).indexOf(folderId) !== -1;
 }
 
 function getPatternFolderById(folderId) {
@@ -76,9 +82,12 @@ function getPatternTreeGroups() {
   const byFolder = {};
   const unfiled = [];
   filteredPatterns.forEach(function(pattern) {
-    const folderId = getPatternFolderId(pattern.id);
-    if (folderId) (byFolder[folderId] = byFolder[folderId] || []).push(pattern);
-    else unfiled.push(pattern);
+    const folderIds = getPatternFolderIds(pattern.id);
+    if (folderIds.length) {
+      folderIds.forEach(function(folderId) { (byFolder[folderId] = byFolder[folderId] || []).push(pattern); });
+    } else {
+      unfiled.push(pattern);
+    }
   });
 
   const groups = [];
@@ -92,9 +101,19 @@ function getPatternTreeGroups() {
   return groups;
 }
 
-// Patterns in the order the list shows them — what "the first pattern" means once folders reorder things.
+// Patterns in the order the list shows them, once each — what "the first pattern" means once folders
+// reorder things, even though a pattern filed in several folders occupies a row in each of them.
 function getDisplayedPatterns() {
-  return getPatternTreeGroups().reduce(function(all, group) { return all.concat(group.patterns); }, []);
+  const seen = new Set();
+  const out = [];
+  getPatternTreeGroups().forEach(function(group) {
+    group.patterns.forEach(function(pattern) {
+      if (seen.has(pattern.id)) return;
+      seen.add(pattern.id);
+      out.push(pattern);
+    });
+  });
+  return out;
 }
 
 // ── Rendering ────────────────────────────────────────────────
@@ -232,11 +251,13 @@ function canDragPatterns() {
   return Boolean(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
 }
 
-// When something outside the list opens a pattern (a Findings search result), make sure the row is on
-// screen: unfold the folder it sits in, then scroll to it.
+// When something outside the list opens a pattern (a Findings search result), make sure a row for it is
+// on screen: unfold every folder it sits in (it may be filed in several), then scroll to the first.
 function revealPatternInTree(patternId) {
-  const key = getPatternFolderId(patternId) || UNFILED_GROUP_KEY;
-  if (_foldersCollapsed[key]) setFolderCollapsed(key, false);
+  const keys = getPatternFolderIds(patternId);
+  (keys.length ? keys : [UNFILED_GROUP_KEY]).forEach(function(key) {
+    if (_foldersCollapsed[key]) setFolderCollapsed(key, false);
+  });
 }
 
 function scrollSelectedPatternIntoView() {
@@ -326,7 +347,10 @@ function bindPatternTreeEvents() {
     e.preventDefault();
     const patternId = _draggingPatternId;
     endPatternDrag();
-    movePatternToFolder(patternId, groupKey === UNFILED_GROUP_KEY ? null : groupKey);
+    // Dropping onto a folder adds it to that folder alongside any others it's already in; dropping onto
+    // Unfiled is the one drag gesture that means "take it out of everything" (checkboxes handle the rest).
+    if (groupKey === UNFILED_GROUP_KEY) clearPatternFolders(patternId);
+    else addPatternToFolder(patternId, groupKey);
   });
 
   tree.addEventListener('dragend', endPatternDrag);
@@ -355,22 +379,24 @@ function showFolderContextMenu(clientX, clientY, folderId) {
   ]);
 }
 
-// The "move to folder" block of a pattern's ⋯ menu, ready to splice between its other actions.
+// The folders block of a pattern's ⋯ menu, ready to splice between its other actions. Each folder is a
+// checkbox (keepOpen) so several can be picked in one visit to the menu.
 function buildPatternFolderMenuItems(patternId) {
-  const currentFolderId = getPatternFolderId(patternId);
-  const items = [{ divider: true }, { heading: 'Move to folder' }];
+  const currentFolderIds = getPatternFolderIds(patternId);
+  const items = [{ divider: true }, { heading: 'Folders' }];
 
   _patternFolders.forEach(function(folder) {
     items.push({
       label: folder.name,
       choice: true,
-      checked: folder.id === currentFolderId,
-      onSelect: function() { return movePatternToFolder(patternId, folder.id); }
+      checked: currentFolderIds.indexOf(folder.id) !== -1,
+      keepOpen: true,
+      onSelect: function() { return togglePatternFolder(patternId, folder.id); }
     });
   });
   items.push({ label: '+ New Folder…', onSelect: function() { return createPatternFolder(patternId); } });
-  if (currentFolderId) {
-    items.push({ label: 'Remove from Folder', onSelect: function() { return movePatternToFolder(patternId, null); } });
+  if (currentFolderIds.length) {
+    items.push({ label: 'Remove from All Folders', keepOpen: true, onSelect: function() { return clearPatternFolders(patternId); } });
   }
   items.push({ divider: true });
   return items;
@@ -413,12 +439,12 @@ async function createPatternFolder(patternId) {
 
   const folder = { id: makePatternFolderId(), name: name };
   const changes = {};
-  if (patternId) changes[patternId] = folder.id;
+  if (patternId) changes[patternId] = getPatternFolderIds(patternId).concat([folder.id]);
 
   try {
     setFolderCollapsed(folder.id, false);
     await savePatternFolders(_pUid, _patternFolders.concat([folder]), changes);
-    showToast(patternId ? 'Moved to "' + name + '".' : 'Folder "' + name + '" created.');
+    showToast(patternId ? 'Added to "' + name + '".' : 'Folder "' + name + '" created.');
   } catch (err) {
     console.error(err);
     showToast('Failed to create folder.', true);
@@ -447,15 +473,18 @@ async function deletePatternFolder(folderId) {
   const folder = getPatternFolderById(folderId);
   if (!_pUid || !folder) return;
 
-  // Every assignment into this folder, including any for patterns no longer loaded, is released.
+  // Every pattern filed in this folder, including any not currently loaded, loses just this one
+  // membership — a pattern filed in this folder and another stays filed in the other.
   const released = {};
   Object.keys(_patternFolderAssignments).forEach(function(patternId) {
-    if (_patternFolderAssignments[patternId] === folderId) released[patternId] = null;
+    const ids = _patternFolderAssignments[patternId];
+    if (ids.indexOf(folderId) === -1) return;
+    released[patternId] = ids.filter(function(id) { return id !== folderId; });
   });
   const count = allPatterns.filter(function(pattern) { return pattern.id in released; }).length;
 
   const detail = count
-    ? 'The ' + (count === 1 ? 'pattern' : count + ' patterns') + ' inside will stay in your library and move to Unfiled.'
+    ? 'The ' + (count === 1 ? 'pattern' : count + ' patterns') + ' inside will stay in your library.'
     : 'It is empty.';
   const ok = await showConfirm('Delete Folder', 'Delete the folder "' + folder.name + '"? ' + detail);
   if (!ok) return;
@@ -470,22 +499,65 @@ async function deletePatternFolder(folderId) {
   }
 }
 
-// folderId null = back to Unfiled. quiet skips the toast for callers that report their own outcome.
-async function movePatternToFolder(patternId, folderId, quiet) {
-  if (!_pUid || !patternId) return;
-  const target = folderId || null;
-  if (getPatternFolderId(patternId) === target) return;
-  const folder = target ? getPatternFolderById(target) : null;
-  if (target && !folder) return;
+// Adds one folder membership without disturbing any others the pattern already has.
+async function addPatternToFolder(patternId, folderId) {
+  if (!_pUid || !patternId || patternHasFolder(patternId, folderId)) return;
+  const folder = getPatternFolderById(folderId);
+  if (!folder) return;
 
   const changes = {};
-  changes[patternId] = target;
+  changes[patternId] = getPatternFolderIds(patternId).concat([folderId]);
   try {
-    if (target) setFolderCollapsed(target, false); // so the pattern is visible where it landed
+    setFolderCollapsed(folderId, false); // so the pattern is visible where it landed
     await savePatternFolderAssignments(_pUid, changes);
-    if (!quiet) showToast(folder ? 'Moved to "' + folder.name + '".' : 'Removed from folder.');
+    showToast('Added to "' + folder.name + '".');
   } catch (err) {
     console.error(err);
-    showToast('Failed to move pattern.', true);
+    showToast('Failed to add pattern to folder.', true);
+  }
+}
+
+// The folder checkbox in a pattern's ⋯ menu: adds or removes just that one membership.
+async function togglePatternFolder(patternId, folderId) {
+  if (!_pUid || !patternId) return;
+  const folder = getPatternFolderById(folderId);
+  if (!folder) return;
+
+  const current = getPatternFolderIds(patternId);
+  const adding = current.indexOf(folderId) === -1;
+  const next = adding ? current.concat([folderId]) : current.filter(function(id) { return id !== folderId; });
+  if (adding) setFolderCollapsed(folderId, false);
+
+  const changes = {};
+  changes[patternId] = next;
+  try {
+    await savePatternFolderAssignments(_pUid, changes);
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to update folder.', true);
+  }
+}
+
+async function clearPatternFolders(patternId) {
+  if (!_pUid || !patternId || !getPatternFolderIds(patternId).length) return;
+  const changes = {};
+  changes[patternId] = [];
+  try {
+    await savePatternFolderAssignments(_pUid, changes);
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to update folder.', true);
+  }
+}
+
+// Used by pattern duplication to give the copy the same folder memberships as the original.
+async function setPatternFolders(patternId, folderIds) {
+  if (!_pUid || !patternId) return;
+  const changes = {};
+  changes[patternId] = folderIds.slice();
+  try {
+    await savePatternFolderAssignments(_pUid, changes);
+  } catch (err) {
+    console.error(err);
   }
 }
