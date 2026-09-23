@@ -94,6 +94,29 @@ function savePatternFolders(uid, folders, assignmentChanges) {
   return _patternFoldersRef(uid).set(update, { merge: true });
 }
 
+// ── Pinned findings ──────────────────────────────────────────
+// One settings doc per user: { pins: { findingId: pinnedAtMillis } }. Kept off the finding docs because
+// those are rebuilt whenever a pattern is saved and replaced by a main-dataset resync.
+function _pinnedFindingsRef(uid) { return _userRef(uid).collection('settings').doc('pinnedFindings'); }
+
+function subscribePinnedFindings(uid, callback) {
+  return _pinnedFindingsRef(uid).onSnapshot(function(snap) {
+    var raw = (snap.exists && snap.data() && typeof snap.data().pins === 'object') ? snap.data().pins : {};
+    var pins = {};
+    Object.keys(raw || {}).forEach(function(findingId) {
+      var at = Number(raw[findingId]);
+      if (findingId && isFinite(at)) pins[findingId] = at;
+    });
+    callback(pins);
+  }, function(err) { console.error('subscribePinnedFindings error:', err); });
+}
+
+function setFindingPinned(uid, findingId, pinned) {
+  var pins = {};
+  pins[findingId] = pinned ? Date.now() : firebase.firestore.FieldValue.delete();
+  return _pinnedFindingsRef(uid).set({ pins: pins, updatedAt: _now() }, { merge: true });
+}
+
 function stripStepTitleNumbering(title) {
   var raw = String(title || '').trim();
   if (!raw) return '';

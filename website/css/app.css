@@ -1330,6 +1330,53 @@ body {
   color: #9d2b2b;
   background: #fde2e2;
 }
+.notes-result-head-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.notes-result-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.notes-result-pin svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.notes-result-pin:hover:not(:disabled),
+.notes-result-pin:focus-visible {
+  border-color: var(--line);
+  color: var(--ink);
+}
+.notes-result-pin.is-pinned {
+  color: #0f5e47;
+  background: #dff2ea;
+}
+.notes-result-pin.is-pinned svg {
+  fill: currentColor;
+}
+.notes-result-pin:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.notes-result-card.is-pinned {
+  box-shadow: inset 3px 0 0 #1f8a66;
+}
 .notes-result-meta {
   color: var(--ink-muted);
   font-size: 0.8rem;
@@ -2785,6 +2832,8 @@ html.dark .step-content a,
 html.dark .rich-editor a            { color: #7db4ff; }
 html.dark .notes-result-card        { background: rgba(25,43,30,0.72); }
 html.dark .notes-result-badge       { background: #274034; color: #8fd6b3; }
+html.dark .notes-result-pin.is-pinned { background: #274034; color: #8fd6b3; }
+html.dark .notes-result-card.is-pinned { box-shadow: inset 3px 0 0 #5fbf98; }
 html.dark .notes-result-snippet mark { background: #5e4b1e; color: #ffe49f; }
 html.dark .subsection-row {
   background: #1e3328 !important; /* Ensure green background for dark mode */

@@ -623,7 +623,8 @@ function renderStepTimeStats(step) {
   var entry = step && step.stepId ? _stepTimingsCache[step.stepId] : null;
   var avgText = entry && entry.count > 0 ? ('Avg ' + formatTimerClock(Math.round(entry.totalSeconds / entry.count))) : '';
 
-  if (!timerRunning) {
+  // Walkthrough mode shows no running clock (see updateTimerDisplay) — only the historical average.
+  if (!timerRunning || _timerMode === 'walkthrough') {
     el.textContent = avgText;
     return;
   }

@@ -10,6 +10,9 @@ var _findingsCreateContext = null;
 var _findingsEditingFindingId = '';
 var _notesSearchActiveModality = 'All';
 var _notesSearchRedOnly = false;
+var _notesSearchPinnedOnly = false;
+var _notesSearchPins = {};
+var _notesSearchPinsUnsubscribe = null;
 
 var NOTES_SEARCH_SECTION_LABELS = {
   searchPattern: 'Search Pattern',
@@ -77,6 +80,7 @@ function bindNotesSearchUi() {
   var input = document.getElementById('notes-search-input');
   var createBtn = document.getElementById('btn-notes-search-create');
   var redOnly = document.getElementById('notes-search-red-only');
+  var pinnedOnly = document.getElementById('notes-search-pinned-only');
   if (!input) return;
 
   input.removeEventListener('input', handleNotesSearchInput);
@@ -91,6 +95,12 @@ function bindNotesSearchUi() {
     redOnly.checked = false;
     redOnly.removeEventListener('change', handleNotesSearchFiltersChange);
     redOnly.addEventListener('change', handleNotesSearchFiltersChange);
+  }
+
+  if (pinnedOnly) {
+    pinnedOnly.checked = false;
+    pinnedOnly.removeEventListener('change', handleNotesSearchFiltersChange);
+    pinnedOnly.addEventListener('change', handleNotesSearchFiltersChange);
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.notes-mod-btn'), function(btn) {
@@ -123,6 +133,42 @@ function startNotesSearchSubscription() {
     _notesSearchIndexReady = true;
     applyNotesSearchFilters();
   });
+
+  if (_notesSearchPinsUnsubscribe) {
+    _notesSearchPinsUnsubscribe();
+    _notesSearchPinsUnsubscribe = null;
+  }
+
+  _notesSearchPinsUnsubscribe = subscribePinnedFindings(_notesSearchUid, function(pins) {
+    _notesSearchPins = pins || {};
+    applyNotesSearchFilters();
+  });
+}
+
+function isFindingPinned(findingId) {
+  return Boolean(findingId && _notesSearchPins[findingId]);
+}
+
+async function toggleFindingPinned(result) {
+  if (!_notesSearchUid || !result || !result.findingId) return;
+  var pin = !isFindingPinned(result.findingId);
+  try {
+    await setFindingPinned(_notesSearchUid, result.findingId, pin);
+    showToast(pin ? 'Finding pinned.' : 'Finding unpinned.');
+  } catch (err) {
+    console.error(err);
+    showToast(String((err && err.message) || err || 'Failed to update pin.'), true);
+  }
+}
+
+// Pinned findings float to the top (most recently pinned first); everything else keeps its order.
+function sortPinnedFirst(results) {
+  return (results || []).map(function(record, index) {
+    return { record: record, index: index, pinnedAt: _notesSearchPins[record.findingId] || 0 };
+  }).sort(function(a, b) {
+    if (a.pinnedAt !== b.pinnedAt) return b.pinnedAt - a.pinnedAt;
+    return a.index - b.index;
+  }).map(function(item) { return item.record; });
 }
 
 function getNotesSearchQuery() {
@@ -137,6 +183,8 @@ function handleNotesSearchInput() {
 function handleNotesSearchFiltersChange() {
   var redOnly = document.getElementById('notes-search-red-only');
   _notesSearchRedOnly = Boolean(redOnly && redOnly.checked);
+  var pinnedOnly = document.getElementById('notes-search-pinned-only');
+  _notesSearchPinnedOnly = Boolean(pinnedOnly && pinnedOnly.checked);
   applyNotesSearchFilters();
 }
 
@@ -146,6 +194,9 @@ function clearNotesSearch() {
   var redOnly = document.getElementById('notes-search-red-only');
   if (redOnly) redOnly.checked = false;
   _notesSearchRedOnly = false;
+  var pinnedOnly = document.getElementById('notes-search-pinned-only');
+  if (pinnedOnly) pinnedOnly.checked = false;
+  _notesSearchPinnedOnly = false;
   _notesSearchActiveModality = 'All';
   Array.prototype.forEach.call(document.querySelectorAll('.notes-mod-btn'), function(btn) {
     btn.classList.toggle('active', String(btn.dataset.mod || '') === 'All');
@@ -163,7 +214,7 @@ function applyNotesSearchFilters() {
   }
 
   var results = q ? searchNotesRecords(q, _notesSearchRecords) : _notesSearchRecords.slice();
-  results = filterNotesSearchResults(results);
+  results = sortPinnedFirst(filterNotesSearchResults(results));
   _notesSearchLastResults = results;
 
   setNotesSearchStatus(buildNotesSearchStatus(results.length, _notesSearchRecords.length, q));
@@ -175,7 +226,8 @@ function filterNotesSearchResults(results) {
     var modalities = Array.isArray(record.modalities) ? record.modalities : [record.modality || 'Other'];
     var matchModality = _notesSearchActiveModality === 'All' || modalities.indexOf(String(_notesSearchActiveModality)) !== -1;
     var matchRed = !_notesSearchRedOnly || Boolean(record.isRedFinding);
-    return matchModality && matchRed;
+    var matchPinned = !_notesSearchPinnedOnly || isFindingPinned(record.findingId);
+    return matchModality && matchRed && matchPinned;
   });
 }
 
@@ -192,6 +244,7 @@ function buildNotesSearchStatus(visibleCount, totalCount, query) {
   var activeFilters = [];
   if (_notesSearchActiveModality !== 'All') activeFilters.push(_notesSearchActiveModality);
   if (_notesSearchRedOnly) activeFilters.push('red flagged only');
+  if (_notesSearchPinnedOnly) activeFilters.push('pinned only');
   if (activeFilters.length) {
     parts.push('with filters: ' + activeFilters.join(', '));
   }
@@ -643,14 +696,17 @@ function renderNotesSearchResults(results, query) {
   if (!results || !results.length) {
     var empty = document.createElement('p');
     empty.className = 'notes-search-empty';
-    empty.textContent = query ? 'No matching findings yet.' : 'No findings available yet.';
+    empty.textContent = _notesSearchPinnedOnly && !query
+      ? 'No pinned findings yet. Use the pin button on a finding to keep it here.'
+      : (query ? 'No matching findings yet.' : 'No findings available yet.');
     wrap.appendChild(empty);
     return;
   }
 
   results.forEach(function(result) {
     var row = document.createElement('article');
-    row.className = 'notes-result-card' + (result.isRedFinding ? ' finding-red' : '');
+    var pinned = isFindingPinned(result.findingId);
+    row.className = 'notes-result-card' + (result.isRedFinding ? ' finding-red' : '') + (pinned ? ' is-pinned' : '');
 
     var header = document.createElement('div');
     header.className = 'notes-result-head';
@@ -663,8 +719,25 @@ function renderNotesSearchResults(results, query) {
     badge.className = 'notes-result-badge' + (result.isRedFinding ? ' finding-red' : '');
     badge.textContent = result.isRedFinding ? 'Red finding' : 'Finding';
 
+    var pinBtn = document.createElement('button');
+    pinBtn.type = 'button';
+    pinBtn.className = 'notes-result-pin' + (pinned ? ' is-pinned' : '');
+    pinBtn.disabled = !result.findingId;
+    pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    pinBtn.setAttribute('aria-label', (pinned ? 'Unpin ' : 'Pin ') + (title.textContent || 'finding'));
+    pinBtn.title = pinned ? 'Unpin finding' : 'Pin finding to the top';
+    pinBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+    pinBtn.addEventListener('click', function() {
+      toggleFindingPinned(result);
+    });
+
+    var headSide = document.createElement('div');
+    headSide.className = 'notes-result-head-side';
+    headSide.appendChild(badge);
+    headSide.appendChild(pinBtn);
+
     header.appendChild(title);
-    header.appendChild(badge);
+    header.appendChild(headSide);
 
     var metaWrap = document.createElement('div');
     metaWrap.className = 'notes-result-meta-wrap';
@@ -1554,6 +1627,9 @@ async function handleDeleteFinding(result) {
 
   try {
     await deleteFinding(_notesSearchUid, result.findingId);
+    if (isFindingPinned(result.findingId)) {
+      setFindingPinned(_notesSearchUid, result.findingId, false).catch(function(err) { console.error(err); });
+    }
     showToast('Finding deleted.');
   } catch (err) {
     console.error(err);
