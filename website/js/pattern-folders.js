@@ -189,17 +189,13 @@ function buildPatternListItem(pattern) {
   const main = document.createElement('button');
   main.type = 'button';
   main.className = 'pattern-list-item-main';
-  main.title = pattern.name;
+  // The modality is what the CT/MRI/… buttons above the list filter by, so the row doesn't repeat it; it
+  // stays in the tooltip.
+  main.title = pattern.modality ? pattern.name + ' (' + pattern.modality + ')' : pattern.name;
   const name = document.createElement('span');
   name.className = 'pattern-list-item-name';
   name.textContent = pattern.name;
   main.appendChild(name);
-  if (pattern.modality) {
-    const mod = document.createElement('span');
-    mod.className = 'pattern-list-item-mod';
-    mod.textContent = pattern.modality;
-    main.appendChild(mod);
-  }
 
   const more = document.createElement('button');
   more.type = 'button';

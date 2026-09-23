@@ -294,11 +294,6 @@ body {
 }
 .pattern-list-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pattern-list-item.is-selected .pattern-list-item-name { font-weight: 800; color: var(--accent); }
-.pattern-list-item-mod {
-  flex-shrink: 0; font-size: 0.68rem; font-weight: 700; color: var(--accent);
-  background: #e8f5ef; border-radius: 999px; padding: 2px 8px;
-}
-.pattern-list-item.is-selected .pattern-list-item-mod { background: #d3ebdf; }
 .pattern-list-item-more {
   width: 30px; flex-shrink: 0; border: none; background: none;
   font-size: 1.15rem; line-height: 1; color: var(--ink-muted); cursor: pointer;
@@ -3327,8 +3322,6 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
 }
 
 html.dark .pattern-list-item.is-selected { background: #1a2e22; }
-html.dark .pattern-list-item-mod { background: #274034; color: #8fd6b3; }
-html.dark .pattern-list-item.is-selected .pattern-list-item-mod { background: #2f4d3e; }
 html.dark .pattern-picker { background: var(--card); }
 html.dark .btn-folder-tool:hover { background: #192b1e; }
 html.dark .pattern-list-context-menu-item:hover { background: #192b1e; }
