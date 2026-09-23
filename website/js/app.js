@@ -96,9 +96,39 @@ function initTabs() {
 // ── Auth ──────────────────────────────────────────────────────
 var _modulesInitialised = false;
 
-function showAuthScreen() {
+function showAuthScreen(mode) {
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-sign-in').style.display = mode ? 'none' : '';
+  document.getElementById('auth-access').style.display = mode ? '' : 'none';
+}
+
+// Signed in but not (yet) approved by the owner: show where their request stands.
+var _unsubscribeAccessRequest = null;
+function showAccessScreen(user) {
+  showAuthScreen('access');
+  document.getElementById('auth-access-email').textContent = user.email || '';
+  var msg = document.getElementById('auth-access-message');
+  var btn = document.getElementById('btn-request-access');
+  if (_unsubscribeAccessRequest) _unsubscribeAccessRequest();
+  _unsubscribeAccessRequest = watchAccessRequest(user.uid, function(req) {
+    btn.style.display = req ? 'none' : '';
+    if (!req)                         msg.textContent = 'This site is invite-only. Request access and the owner will review it.';
+    else if (req.status === 'denied') msg.textContent = 'Your access request was declined.';
+    else                              msg.textContent = 'Request sent. You will be let in automatically once the owner approves it.';
+  });
+  btn.onclick = function() {
+    btn.disabled = true;
+    requestAccess(user).catch(function(err) {
+      msg.textContent = 'Could not send request: ' + (err.message || err);
+    }).finally(function() { btn.disabled = false; });
+  };
+}
+
+function showSeedingScreen(text) {
+  showAuthScreen('access');
+  document.getElementById('btn-request-access').style.display = 'none';
+  document.getElementById('auth-access-message').textContent = text;
 }
 
 function showApp(user) {
@@ -114,6 +144,7 @@ function showApp(user) {
     _modulesInitialised = true;
     initTabs();
     initSettings(user.uid);
+    initMainDatasetSettings(user.uid);
     initEditor();
     initPatterns(user.uid);
     initSharePatterns(user.uid);
@@ -149,10 +180,36 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-sign-out').addEventListener('click', function() {
     appAuth.signOut();
   });
+  document.getElementById('btn-access-sign-out').addEventListener('click', function() {
+    appAuth.signOut();
+  });
 
+  var unsubscribeAccess = null;
   appAuth.onAuthStateChanged(function(user) {
-    if (user) { showApp(user); }
-    else      { showAuthScreen(); }
+    if (unsubscribeAccess) { unsubscribeAccess(); unsubscribeAccess = null; }
+    if (_unsubscribeAccessRequest) { _unsubscribeAccessRequest(); _unsubscribeAccessRequest = null; }
+    if (!user) { showAuthScreen(); return; }
+
+    var hadAccess = false;
+    unsubscribeAccess = watchAccess(user, function(allowed) {
+      if (!allowed) {
+        // Revoked while using the app: drop all live listeners by reloading into the request screen.
+        if (hadAccess) { window.location.reload(); return; }
+        showAccessScreen(user);
+        return;
+      }
+      if (hadAccess) return;
+      hadAccess = true;
+      if (_unsubscribeAccessRequest) { _unsubscribeAccessRequest(); _unsubscribeAccessRequest = null; }
+
+      showSeedingScreen('Loading…');
+      seedFromMainDatasetIfNew(user.uid, function(done, total) {
+        showSeedingScreen('Copying the main dataset into your account… ' + done + ' / ' + total);
+      }).catch(function(err) {
+        console.error('Initial copy of the main dataset failed:', err);
+        showToast('Could not copy the main dataset. You can retry from Settings.', true);
+      }).finally(function() { showApp(user); });
+    });
   });
 });
 

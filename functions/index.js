@@ -97,6 +97,15 @@ async function getUserAiSettings(uid) {
   }
 }
 
+// Owner of the main dataset; everyone else needs an allowedUsers/{uid} doc (see firestore.rules).
+const MAIN_DATASET_UID = 'ZxtdD0jaGfUv5ni5k1B5XNMGlvG2';
+
+async function isApprovedUser(uid) {
+  if (uid === MAIN_DATASET_UID) return true;
+  const snap = await admin.firestore().collection('allowedUsers').doc(uid).get();
+  return snap.exists;
+}
+
 async function verifyAuth(req) {
   const authHeader = String(req.get('Authorization') || '').trim();
   if (!authHeader.startsWith('Bearer ')) {
@@ -108,15 +117,23 @@ async function verifyAuth(req) {
     throw Object.assign(new Error('Authentication required.'), { code: 'unauthenticated', status: 401 });
   }
 
+  let decoded;
   try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    return { uid: decoded.uid };
+    decoded = await admin.auth().verifyIdToken(idToken);
   } catch (err) {
     throw Object.assign(new Error('Invalid or expired session. Please sign in again.'), {
       code: 'unauthenticated',
       status: 401
     });
   }
+
+  if (!(await isApprovedUser(decoded.uid))) {
+    throw Object.assign(new Error('Your account has not been approved to use this site.'), {
+      code: 'permission-denied',
+      status: 403
+    });
+  }
+  return { uid: decoded.uid };
 }
 
 function sanitizePrompt(input) {

@@ -12,6 +12,10 @@ const firebaseConfig = {
   aiProxyUrl: "https://us-central1-searches-app.cloudfunctions.net/aiProxy"
 };
 
+// The account that owns the main dataset and approves who may use the site.
+// Must match the uid hard-coded in firestore.rules and functions/index.js.
+var MAIN_DATASET_UID = 'ZxtdD0jaGfUv5ni5k1B5XNMGlvG2';
+
 firebase.initializeApp(firebaseConfig);
 
 var appAuth    = firebase.auth();

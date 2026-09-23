@@ -1,13 +1,75 @@
 rules_version = '2';
 
+// Access model
+// - The owner (MAIN_DATASET_UID in website/js/firebase-config.js) holds the main dataset and approves users.
+// - Nobody else can use the app until the owner creates allowedUsers/{uid} for them.
+// - Approved users can READ the owner's patterns, findings, report templates and folders (never the
+//   owner's AI settings, study log or step timings) so they can copy them into their own account.
+//   Their edits only ever land in users/{theirUid}, so the main dataset is never changed by them.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner()  { return signedIn() && request.auth.uid == 'ZxtdD0jaGfUv5ni5k1B5XNMGlvG2'; }
+    function isApproved() {
+      return isOwner() || (signedIn() && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.uid)));
+    }
+
+    // Each approved user's private copy.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isApproved() && request.auth.uid == uid;
 
       match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if isApproved() && request.auth.uid == uid;
       }
+    }
+
+    // The main dataset, read-only for approved users.
+    match /users/ZxtdD0jaGfUv5ni5k1B5XNMGlvG2/patterns/{patternId} {
+      allow read: if isApproved();
+    }
+    match /users/ZxtdD0jaGfUv5ni5k1B5XNMGlvG2/findings/{findingId} {
+      allow read: if isApproved();
+    }
+    match /users/ZxtdD0jaGfUv5ni5k1B5XNMGlvG2/reportTemplates/{templateId} {
+      allow read: if isApproved();
+    }
+    match /users/ZxtdD0jaGfUv5ni5k1B5XNMGlvG2/settings/patternFolders {
+      allow read: if isApproved();
+    }
+
+    // Who may use the site. Only the owner grants or revokes.
+    match /allowedUsers/{uid} {
+      allow read: if isOwner() || (signedIn() && request.auth.uid == uid);
+      allow write: if isOwner();
+    }
+
+    // A signed-in user asks for access once; the owner approves or denies it.
+    match /accessRequests/{uid} {
+      allow read: if isOwner() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['email', 'name', 'photoURL', 'status', 'requestedAt']);
+      allow update, delete: if isOwner();
+    }
+
+    match /sharedPatterns/{docId} {
+      allow read: if isApproved();
+
+      allow create: if isApproved()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.patternId is string
+        && request.resource.data.patternName is string
+        && request.resource.data.modality is string
+        && request.resource.data.sharedAt != null
+        && request.resource.data.importCount == 0;
+
+      allow update: if isApproved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['importCount'])
+        && request.resource.data.importCount is int
+        && request.resource.data.importCount == resource.data.importCount + 1;
+
+      allow delete: if isApproved() && resource.data.authorId == request.auth.uid;
     }
   }
 }

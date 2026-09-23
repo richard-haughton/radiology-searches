@@ -672,6 +672,7 @@ function initPatterns(userId) {
   _unsubscribePatterns = subscribePatterns(_pUid, patterns => {
     allPatterns = patterns;
     setAllPatternsRef(patterns);
+    renderPatternFolderSelect(); // the folder counts follow the patterns
     applyFilters();
   });
 
@@ -687,8 +688,6 @@ function initPatterns(userId) {
       applyFilters();
     });
   });
-
-  document.getElementById('btn-new-folder').addEventListener('click', () => createPatternFolder());
 
   initPatternListContextMenu();
 
@@ -1173,13 +1172,18 @@ function updatePatternListSelection() {
 }
 
 // ── Filter & Render list ─────────────────────────────────────
-function applyFilters() {
+// options.keepSelected: the open pattern stays in the list even when it no longer passes the filters. Used
+// when a folder edit (not the reader's own filter change) is what took it out. This is also registered as a
+// bare 'input' listener, so anything that isn't exactly { keepSelected: true } means "no options".
+function applyFilters(options) {
   const q = document.getElementById('pattern-filter').value.trim().toLowerCase();
+  const keepId = options && options.keepSelected === true ? selectedPatternId : null;
 
   filteredPatterns = allPatterns.filter(p => {
+    if (p.id === keepId) return true;
     const matchMod = activeModality === 'All' || (p.modality || '').includes(activeModality);
     const matchQ   = !q || p.name.toLowerCase().includes(q);
-    return matchMod && matchQ;
+    return matchMod && matchQ && patternMatchesFolderFilter(p.id);
   });
 
   renderPatternList();
@@ -1192,13 +1196,11 @@ function renderPatternList() {
 
   renderPatternTree();
 
-  // Restore selection if still present, otherwise auto-load the first pattern in the order shown
-  // (folders first, so that is not necessarily the first alphabetically).
-  const displayed = getDisplayedPatterns();
-  if (prevId && displayed.find(p => p.id === prevId)) {
+  // Restore selection if still present, otherwise auto-load the first pattern in the list.
+  if (prevId && filteredPatterns.find(p => p.id === prevId)) {
     loadPattern(prevId, stepToRestore);
-  } else if (displayed.length) {
-    loadPattern(displayed[0].id);
+  } else if (filteredPatterns.length) {
+    loadPattern(filteredPatterns[0].id);
   } else {
     selectedPatternId = null;
     clearStepView();
@@ -1285,7 +1287,7 @@ function openPatternAtStepFromSearch(patternId, stepIndex) {
     btn.classList.toggle('active', btn.dataset.mod === 'All');
   });
 
-  revealPatternInTree(patternId); // unfold its folder before the list renders
+  setActiveFolderFilter(FOLDER_FILTER_ALL); // the pattern may be outside the folder being viewed
   applyFilters();
   loadPattern(patternId, typeof stepIndex === 'number' ? stepIndex : 0);
   scrollSelectedPatternIntoView();
@@ -4710,8 +4712,9 @@ function handleKeydown(e) {
                     e.target.isContentEditable;
   if (isEditing) return;
 
-  // The pattern list keeps its own arrow/Tab/Space behavior (it used to be a <select>, exempt above).
-  if (e.target.closest && e.target.closest('#pattern-tree')) return;
+  // The pattern list and its folder controls keep their own arrow/Tab/Space behavior (the list used to be a
+  // <select>, exempt above).
+  if (e.target.closest && e.target.closest('#patterns-sidebar')) return;
 
   // Only when patterns panel is active
   const panel = document.getElementById('panel-patterns');
