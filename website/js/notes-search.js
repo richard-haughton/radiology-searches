@@ -132,6 +132,7 @@ function startNotesSearchSubscription() {
     _notesSearchRecords = buildNotesSearchRecords(findings || []);
     _notesSearchIndexReady = true;
     applyNotesSearchFilters();
+    refreshPinnedFindingsViews();
   });
 
   if (_notesSearchPinsUnsubscribe) {
@@ -142,7 +143,52 @@ function startNotesSearchSubscription() {
   _notesSearchPinsUnsubscribe = subscribePinnedFindings(_notesSearchUid, function(pins) {
     _notesSearchPins = pins || {};
     applyNotesSearchFilters();
+    refreshPinnedFindingsViews();
   });
+}
+
+// Keeps the search pattern findings window in step with pin changes (it lives in patterns.js).
+function refreshPinnedFindingsViews() {
+  syncFindingPinButtons();
+  if (typeof refreshPinnedFindingsInPatternView === 'function') refreshPinnedFindingsInPatternView();
+}
+
+// Pinned findings that still exist, most recently pinned first.
+function getPinnedFindingRecords() {
+  return sortPinnedFirst(_notesSearchRecords.filter(function(record) {
+    return isFindingPinned(record.findingId);
+  }));
+}
+
+var FINDING_PIN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+
+function applyFindingPinButtonState(btn) {
+  var pinned = isFindingPinned(btn.dataset.findingId);
+  var title = btn.dataset.findingTitle || 'finding';
+  btn.classList.toggle('is-pinned', pinned);
+  btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  btn.setAttribute('aria-label', (pinned ? 'Unpin ' : 'Pin ') + title);
+  btn.title = pinned ? 'Unpin finding' : 'Pin finding to the top';
+}
+
+function buildFindingPinButton(findingId, title) {
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'notes-result-pin finding-pin-btn';
+  btn.dataset.findingId = String(findingId || '').trim();
+  btn.dataset.findingTitle = String(title || '').trim();
+  btn.disabled = !btn.dataset.findingId;
+  btn.innerHTML = FINDING_PIN_ICON;
+  applyFindingPinButtonState(btn);
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleFindingPinned({ findingId: btn.dataset.findingId });
+  });
+  return btn;
+}
+
+function syncFindingPinButtons() {
+  Array.prototype.forEach.call(document.querySelectorAll('.finding-pin-btn'), applyFindingPinButtonState);
 }
 
 function isFindingPinned(findingId) {
@@ -719,17 +765,7 @@ function renderNotesSearchResults(results, query) {
     badge.className = 'notes-result-badge' + (result.isRedFinding ? ' finding-red' : '');
     badge.textContent = result.isRedFinding ? 'Red finding' : 'Finding';
 
-    var pinBtn = document.createElement('button');
-    pinBtn.type = 'button';
-    pinBtn.className = 'notes-result-pin' + (pinned ? ' is-pinned' : '');
-    pinBtn.disabled = !result.findingId;
-    pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-    pinBtn.setAttribute('aria-label', (pinned ? 'Unpin ' : 'Pin ') + (title.textContent || 'finding'));
-    pinBtn.title = pinned ? 'Unpin finding' : 'Pin finding to the top';
-    pinBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
-    pinBtn.addEventListener('click', function() {
-      toggleFindingPinned(result);
-    });
+    var pinBtn = buildFindingPinButton(result.findingId, title.textContent);
 
     var headSide = document.createElement('div');
     headSide.className = 'notes-result-head-side';

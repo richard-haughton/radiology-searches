@@ -1681,6 +1681,12 @@ function renderCurrentStepFindings(pattern, step, stepIndex, stepsLength) {
     return;
   }
 
+  const pinnedGroup = document.createElement('div');
+  pinnedGroup.id = 'pattern-pinned-findings';
+  pinnedGroup.className = 'pattern-pinned-findings';
+  contentEl.appendChild(pinnedGroup);
+  renderPinnedFindingsGroup(pinnedGroup);
+
   const sections = normaliseStepSectionsSafe(safeStep.sections, safeStep.richContent || []);
   const findings = sections.dontMissPathology || [];
   updateFindingsExpandAllButton(findings, displayStepIndex);
@@ -2689,6 +2695,9 @@ function normaliseSubsectionEntries(content) {
         title: (chunk.title || '').trim() || `Subsection ${entries.length + 1}`,
         isRedFinding: Boolean(chunk.isRedFinding),
         subsectionId: String(chunk.subsectionId || '').trim(),
+        // Same fallback db.js uses when indexing, so older chunks without a findingId still match their finding.
+        findingId: String(chunk.findingId || '').trim()
+          || (typeof _makeFindingId === 'function' ? _makeFindingId(chunk.title || '') : ''),
         linkMeta: normaliseSectionLinkForViewer(chunk.linkMeta || null),
         content: normaliseRichContent(chunk.content || [])
       });
@@ -3204,10 +3213,103 @@ function renderNestedSubsections(container, content, stepIndex, stepsLength) {
     });
 
     header.appendChild(btn);
+    if (entry.findingId && typeof buildFindingPinButton === 'function') {
+      header.appendChild(buildFindingPinButton(entry.findingId, entry.title));
+    }
     wrap.appendChild(header);
     wrap.appendChild(panel);
     container.appendChild(wrap);
   });
+}
+
+// ── Pinned findings in the findings window ──────────────────
+// Pinned findings (see notes-search.js) stay at the top of the findings window on every step.
+const _pinnedFindingsOpen = new Set();
+
+function renderPinnedFindingsGroup(group) {
+  group.innerHTML = '';
+  const records = typeof getPinnedFindingRecords === 'function' ? getPinnedFindingRecords() : [];
+  group.style.display = records.length ? '' : 'none';
+  if (!records.length) return;
+
+  const heading = document.createElement('p');
+  heading.className = 'pattern-findings-group-label';
+  heading.textContent = 'Pinned';
+  group.appendChild(heading);
+
+  records.forEach(record => {
+    const findingId = record.findingId;
+    const title = record.subsectionTitle || 'Finding';
+    const isExpanded = _pinnedFindingsOpen.has(findingId);
+
+    const wrap = document.createElement('section');
+    wrap.className = 'step-subsection step-subsection-pinned';
+    if (record.isRedFinding) wrap.classList.add('step-subsection-red');
+
+    const header = document.createElement('div');
+    header.className = 'step-subsection-header';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'step-subsection-toggle';
+    btn.setAttribute('aria-expanded', String(isExpanded));
+    const label = document.createElement('span');
+    label.textContent = title;
+    const chevron = document.createElement('span');
+    chevron.className = 'step-subsection-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.textContent = isExpanded ? '▾' : '▸';
+    btn.appendChild(label);
+    btn.appendChild(chevron);
+
+    const panel = document.createElement('div');
+    panel.className = 'step-subsection-panel';
+    panel.style.display = isExpanded ? '' : 'none';
+
+    const panelInner = document.createElement('div');
+    panelInner.className = 'step-subsection-content';
+    const displayContent = record.isRedFinding
+      ? stripFindingRedTextColor(record.content || [])
+      : (record.content || []);
+    if (displayContent.length) {
+      renderRichContent(panelInner, displayContent);
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'step-section-empty';
+      empty.textContent = 'No content yet.';
+      panelInner.appendChild(empty);
+    }
+    panel.appendChild(panelInner);
+
+    btn.addEventListener('click', () => {
+      const nextOpen = !_pinnedFindingsOpen.has(findingId);
+      if (nextOpen) _pinnedFindingsOpen.add(findingId);
+      else _pinnedFindingsOpen.delete(findingId);
+      btn.setAttribute('aria-expanded', String(nextOpen));
+      panel.style.display = nextOpen ? '' : 'none';
+      chevron.textContent = nextOpen ? '▾' : '▸';
+    });
+
+    header.appendChild(btn);
+    header.appendChild(buildFindingPinButton(findingId, title));
+    wrap.appendChild(header);
+    wrap.appendChild(panel);
+    group.appendChild(wrap);
+  });
+
+  const stepLabel = document.createElement('p');
+  stepLabel.className = 'pattern-findings-group-label';
+  stepLabel.textContent = 'This step';
+  group.appendChild(stepLabel);
+}
+
+// Called when pins or finding content change. Only the pinned group is redrawn so an inline edit
+// open in this step's findings is never thrown away.
+function refreshPinnedFindingsInPatternView() {
+  const contentEl = document.getElementById('pattern-findings-content');
+  if (!contentEl) return;
+  const group = document.getElementById('pattern-pinned-findings');
+  if (group) renderPinnedFindingsGroup(group);
 }
 
 async function handleDeletePatternFinding(stepIndex, findingId, findingTitle) {
