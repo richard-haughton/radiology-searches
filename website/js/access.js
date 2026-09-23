@@ -44,16 +44,22 @@ function requestAccess(user) {
 }
 
 // ── Owner: approve / deny / revoke ───────────────────────────
-function subscribeAccessRequests(callback) {
+function subscribeAccessRequests(callback, onError) {
   return appDb.collection('accessRequests').onSnapshot(function(snap) {
     callback(snap.docs.map(function(d) { return Object.assign({ uid: d.id }, d.data()); }));
-  }, function(err) { console.error('subscribeAccessRequests error:', err); });
+  }, function(err) {
+    console.error('subscribeAccessRequests error:', err);
+    if (onError) onError(err);
+  });
 }
 
-function subscribeAllowedUsers(callback) {
+function subscribeAllowedUsers(callback, onError) {
   return appDb.collection('allowedUsers').onSnapshot(function(snap) {
     callback(snap.docs.map(function(d) { return Object.assign({ uid: d.id }, d.data()); }));
-  }, function(err) { console.error('subscribeAllowedUsers error:', err); });
+  }, function(err) {
+    console.error('subscribeAllowedUsers error:', err);
+    if (onError) onError(err);
+  });
 }
 
 function approveAccess(req) {
@@ -254,6 +260,13 @@ function _initAccessAdmin() {
       '<span class="access-row-actions">' + actionsHtml + '</span></li>';
   }
 
+  function showError(el) {
+    return function(err) {
+      el.innerHTML = '<li class="access-empty access-error">Could not load: ' + _escapeAccessHtml(err.message || err) + '</li>';
+    };
+  }
+  pendingEl.innerHTML = allowedEl.innerHTML = '<li class="access-empty">Loading…</li>';
+
   var requestsById = {};
   subscribeAccessRequests(function(requests) {
     requestsById = {};
@@ -273,13 +286,13 @@ function _initAccessAdmin() {
         return row(r, '<span class="access-denied-tag">Denied</span>' +
                       '<button class="btn btn-ghost btn-sm" data-act="approve">Approve</button>');
       }).join('');
-  });
+  }, showError(pendingEl));
 
   subscribeAllowedUsers(function(users) {
     allowedEl.innerHTML = users.length
       ? users.map(function(u) { return row(u, '<button class="btn btn-danger btn-sm" data-act="revoke">Revoke</button>'); }).join('')
       : '<li class="access-empty">Nobody else has access yet.</li>';
-  });
+  }, showError(allowedEl));
 
   function onAction(e) {
     var btn = e.target.closest('button[data-act]');

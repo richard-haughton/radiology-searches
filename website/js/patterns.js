@@ -11,7 +11,7 @@ var timerSeconds = 0;
 var timerStartWallTime = null;
 var timerRunning = false;
 var timerGoalSeconds = null;
-var _timerMode = 'timed';
+var _timerMode = 'walkthrough';
 
 var _voiceModeEnabled = false;
 var _voiceSpeed = 1;
@@ -162,8 +162,9 @@ function normaliseTimerMode(value) {
 }
 
 function loadTimerPreferences() {
-  _timerMode = normaliseTimerMode(localStorage.getItem(TIMER_GOAL_MODE_STATE_KEY));
-  _voiceModeEnabled = localStorage.getItem(TIMER_VOICE_MODE_STATE_KEY) === '1';
+  // Every app open starts in Walkthrough with Voice off, regardless of last session's choice.
+  _timerMode = 'walkthrough';
+  _voiceModeEnabled = false;
   _voiceSpeed = normaliseVoiceSpeed(localStorage.getItem(TIMER_VOICE_SPEED_STATE_KEY));
   _voiceVolume = normaliseVoiceVolume(localStorage.getItem(TIMER_VOICE_VOLUME_STATE_KEY));
 }

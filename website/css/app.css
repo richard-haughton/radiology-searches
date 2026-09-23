@@ -1825,6 +1825,7 @@ body {
   color: var(--ink-muted);
   font-size: 0.88rem;
 }
+.access-error { color: var(--danger); }
 .auth-access-email {
   font-weight: 600;
   margin: 0 0 8px;
