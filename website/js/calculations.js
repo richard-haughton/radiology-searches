@@ -153,9 +153,17 @@ function vdtHtml() {
         </label>
       </div>
 
-      <label class="form-label">Days between scans
-        <input id="vdt-days" type="number" class="form-input" min="1" step="1" placeholder="e.g. 180">
-      </label>
+      <div class="calc-row">
+        <label class="form-label">Initial scan date
+          <input id="vdt-date1" type="date" class="form-input">
+        </label>
+        <label class="form-label">Follow-up scan date
+          <input id="vdt-date2" type="date" class="form-input">
+        </label>
+        <label class="form-label">Days between scans
+          <input id="vdt-days" type="number" class="form-input" min="1" step="1" placeholder="or enter days">
+        </label>
+      </div>
     </div>
     <div class="calc-actions">
       <button id="vdt-calc" type="button" class="btn btn-accent">Calculate</button>
@@ -183,8 +191,23 @@ function bindVdt() {
   [...VDT_DIAMETER_IDS, ...VDT_VOLUME_IDS, 'vdt-days'].forEach(id => {
     document.getElementById(id).addEventListener('input', calcVdt);
   });
+  ['vdt-date1', 'vdt-date2'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      syncVdtDays();
+      calcVdt();
+    });
+  });
   document.getElementById('vdt-calc').addEventListener('click', calcVdt);
   bindEnterToCalculate([...VDT_DIAMETER_IDS, ...VDT_VOLUME_IDS, 'vdt-days'], calcVdt);
+}
+
+function syncVdtDays() {
+  const d1 = document.getElementById('vdt-date1').value;
+  const d2 = document.getElementById('vdt-date2').value;
+  const daysInput = document.getElementById('vdt-days');
+  if (!d1 || !d2) return;
+  const diff = Math.round((Date.parse(d2 + 'T00:00:00Z') - Date.parse(d1 + 'T00:00:00Z')) / 86400000);
+  daysInput.value = diff > 0 ? diff : '';
 }
 
 function calcVdt() {
