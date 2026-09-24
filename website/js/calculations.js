@@ -110,15 +110,23 @@ function vdtHtml() {
     <h2>Volume Doubling Time</h2>
     <p class="calc-description">Estimates nodule growth rate between two scans from either three-axis diameter measurements (ellipsoid approximation) or directly entered volumes.</p>
     <div class="calc-form">
-      <label class="form-label">Measurement type
-        <select id="vdt-mode" class="form-input">
-          <option value="diameter" selected>Diameter — 3 axes (mm)</option>
-          <option value="volume">Volume (mm³)</option>
-        </select>
-      </label>
+      <div class="calc-row">
+        <label class="form-label">Measurement type
+          <select id="vdt-mode" class="form-input">
+            <option value="diameter" selected>Diameter — 3 axes</option>
+            <option value="volume">Volume</option>
+          </select>
+        </label>
+        <label class="form-label">Units
+          <select id="vdt-unit" class="form-input">
+            <option value="mm" selected>Millimetres (mm)</option>
+            <option value="cm">Centimetres (cm)</option>
+          </select>
+        </label>
+      </div>
 
       <div id="vdt-diameter-fields">
-        <p class="calc-subheading">Initial scan (mm)</p>
+        <p class="calc-subheading">Initial scan (<span class="vdt-unit-text">mm</span>)</p>
         <div class="calc-row">
           <label class="form-label">Height
             <input id="vdt-h1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 8.0">
@@ -130,7 +138,7 @@ function vdtHtml() {
             <input id="vdt-l1" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 8.2">
           </label>
         </div>
-        <p class="calc-subheading">Follow-up scan (mm)</p>
+        <p class="calc-subheading">Follow-up scan (<span class="vdt-unit-text">mm</span>)</p>
         <div class="calc-row">
           <label class="form-label">Height
             <input id="vdt-h2" type="number" class="form-input" min="0" step="0.1" placeholder="e.g. 10.0">
@@ -145,10 +153,10 @@ function vdtHtml() {
       </div>
 
       <div id="vdt-volume-fields" class="calc-row" style="display:none">
-        <label class="form-label">Initial volume (mm³)
+        <label class="form-label">Initial volume (<span class="vdt-unit-text">mm</span>³)
           <input id="vdt-v1" type="number" class="form-input" min="0" step="any" placeholder="e.g. 270">
         </label>
-        <label class="form-label">Follow-up volume (mm³)
+        <label class="form-label">Follow-up volume (<span class="vdt-unit-text">mm</span>³)
           <input id="vdt-v2" type="number" class="form-input" min="0" step="any" placeholder="e.g. 520">
         </label>
       </div>
@@ -186,6 +194,11 @@ function bindVdt() {
     const isDiameter = mode.value === 'diameter';
     document.getElementById('vdt-diameter-fields').style.display = isDiameter ? '' : 'none';
     document.getElementById('vdt-volume-fields').style.display = isDiameter ? 'none' : '';
+    calcVdt();
+  });
+  const unit = document.getElementById('vdt-unit');
+  unit.addEventListener('change', () => {
+    document.querySelectorAll('.vdt-unit-text').forEach(el => { el.textContent = unit.value; });
     calcVdt();
   });
   [...VDT_DIAMETER_IDS, ...VDT_VOLUME_IDS, 'vdt-days'].forEach(id => {
@@ -232,12 +245,14 @@ function calcVdt() {
 
   if (isNaN(days) || days <= 0) { result.hidden = true; return; }
 
+  const unit = document.getElementById('vdt-unit').value;
+  const volDecimals = unit === 'cm' ? 2 : 0;
   const pctChange = ((vol2 - vol1) / vol1) * 100;
   const volNote = mode === 'diameter' ? ', ellipsoid approximation' : '';
 
   let cls = 'calc-result';
   let valueText;
-  const detailLines = [`Volume change: ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}% over ${days} days (V₁ ${vol1.toFixed(0)} mm³ → V₂ ${vol2.toFixed(0)} mm³${volNote}).`];
+  const detailLines = [`Volume change: ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}% over ${days} days (V₁ ${vol1.toFixed(volDecimals)} ${unit}³ → V₂ ${vol2.toFixed(volDecimals)} ${unit}³${volNote}).`];
 
   if (vol2 === vol1) {
     valueText = '∞';
