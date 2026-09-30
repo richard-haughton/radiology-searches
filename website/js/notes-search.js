@@ -622,6 +622,8 @@ function searchNotesRecords(query, records) {
   var expandedQuery = expandSearchAliases(query || '');
   var normalQuery = normaliseSearchText(expandedQuery);
   if (!normalQuery) return [];
+  var typedQuery = normaliseSearchText(query || '');
+  var typedTokens = tokeniseForSearch(typedQuery);
 
   var queryTerms = getQueryTerms(expandedQuery);
   if (!queryTerms.length) {
@@ -630,7 +632,7 @@ function searchNotesRecords(query, records) {
 
   var scored = [];
   (records || []).forEach(function(record) {
-    var score = scoreRecordMatch(record, normalQuery, queryTerms);
+    var score = scoreRecordMatch(record, normalQuery, queryTerms) + scoreTitleMatch(record, typedQuery, typedTokens);
     if (score <= 0) return;
     scored.push({ record: record, score: score });
   });
@@ -641,6 +643,22 @@ function searchNotesRecords(query, records) {
   });
 
   return scored.slice(0, 120).map(function(item) { return item.record; });
+}
+
+// Matches the finding title against exactly what was typed (before alias expansion), so partial
+// words like "pneumo" or short ones like "pe" still find a finding by its title.
+function scoreTitleMatch(record, typedQuery, typedTokens) {
+  var title = record && record.titleNormal;
+  if (!title || !typedQuery) return 0;
+  if (title === typedQuery) return 80;
+  if (title.indexOf(typedQuery) === 0) return 60;
+  if (title.indexOf(typedQuery) !== -1) return 45;
+
+  var titleWords = title.split(' ');
+  var allWordsMatch = typedTokens.length > 0 && typedTokens.every(function(token) {
+    return titleWords.some(function(word) { return word.indexOf(token) === 0; });
+  });
+  return allWordsMatch ? 35 : 0;
 }
 
 function scoreRecordMatch(record, normalQuery, queryTerms) {

@@ -1677,7 +1677,7 @@ function renderCurrentStepFindings(pattern, step, stepIndex, stepsLength) {
     empty.className = 'step-section-empty';
     empty.textContent = safePattern ? 'Select a step to view findings.' : 'Select a pattern to see findings.';
     contentEl.appendChild(empty);
-    updateFindingsExpandAllButton([], -1);
+    updateFindingsExpandAllButton(null, -1);
     return;
   }
 
@@ -3792,11 +3792,21 @@ function initFindingsExpandAllButton() {
   });
 }
 
+// Count badge beside the findings window title; null hides it (no step selected).
+function updateFindingsCount(count) {
+  const badge = document.getElementById('pattern-findings-count');
+  if (!badge) return;
+  badge.hidden = count === null;
+  badge.textContent = count === null ? '' : String(count);
+  badge.title = count === 1 ? '1 finding in this step' : count + ' findings in this step';
+}
+
 function updateFindingsExpandAllButton(findings, stepIndex) {
   const btn = document.getElementById('btn-findings-expand-all');
   if (!btn) return;
 
   const entries = normaliseSubsectionEntries(findings || []).filter(entry => entry.subsectionId);
+  updateFindingsCount(findings ? entries.length : null);
   if (!entries.length) {
     btn.textContent = 'Expand All';
     btn.disabled = true;
