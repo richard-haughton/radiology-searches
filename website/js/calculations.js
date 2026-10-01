@@ -36,6 +36,10 @@ function renderCalc(key) {
       main.innerHTML = ratioHtml();
       bindRatio();
       break;
+    case 'kg-lbs':
+      main.innerHTML = kgLbsHtml();
+      bindKgLbs();
+      break;
   }
 }
 
@@ -1106,6 +1110,55 @@ function calcRatio() {
 
   document.getElementById('r-value').textContent = `${intA} : ${intB}`;
   document.getElementById('r-detail').textContent = `A ÷ B = ${(a / b).toFixed(3)}`;
+  result.className = 'calc-result';
+  result.hidden = false;
+}
+
+// ── Kilograms → Pounds ───────────────────────────────────────
+const LBS_PER_KG = 2.20462;
+
+function kgLbsHtml() {
+  return `
+  <div class="calc-card">
+    <h2>Kilograms → Pounds</h2>
+    <p class="calc-description">Converts body weight between kilograms and pounds. Enter a value in either field.</p>
+    <div class="calc-form">
+      <div class="calc-row">
+        <label class="form-label">Kilograms (kg)
+          <input id="kl-kg" type="number" class="form-input" min="0" step="any" placeholder="0.0">
+        </label>
+        <label class="form-label">Pounds (lbs)
+          <input id="kl-lbs" type="number" class="form-input" min="0" step="any" placeholder="0.0">
+        </label>
+      </div>
+    </div>
+    <div id="kl-result" class="calc-result" hidden>
+      <div class="calc-result-value" id="kl-value"></div>
+      <div class="calc-result-label" id="kl-label"></div>
+    </div>
+    <div class="calc-formula">lbs = kg × 2.20462</div>
+  </div>`;
+}
+
+function bindKgLbs() {
+  document.getElementById('kl-kg').addEventListener('input', () => calcKgLbs('kg'));
+  document.getElementById('kl-lbs').addEventListener('input', () => calcKgLbs('lbs'));
+}
+
+function calcKgLbs(from) {
+  const kgInput  = document.getElementById('kl-kg');
+  const lbsInput = document.getElementById('kl-lbs');
+  const result   = document.getElementById('kl-result');
+  const source   = from === 'kg' ? kgInput : lbsInput;
+  const target   = from === 'kg' ? lbsInput : kgInput;
+  const value    = parseFloat(source.value);
+
+  if (isNaN(value) || value < 0) { target.value = ''; result.hidden = true; return; }
+
+  const converted = from === 'kg' ? value * LBS_PER_KG : value / LBS_PER_KG;
+  target.value = converted.toFixed(1);
+  document.getElementById('kl-value').textContent = converted.toFixed(1);
+  document.getElementById('kl-label').textContent = from === 'kg' ? 'lbs' : 'kg';
   result.className = 'calc-result';
   result.hidden = false;
 }
