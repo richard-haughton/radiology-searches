@@ -437,8 +437,10 @@ body {
   gap: 8px;
 }
 .pattern-findings-panel.panel-collapsed .pattern-findings-header-text,
-.pattern-findings-panel.panel-collapsed .pattern-findings-body,
-.pattern-findings-panel.panel-collapsed .pattern-findings-count {
+.pattern-findings-panel.panel-collapsed .pattern-findings-body {
+  display: none;
+}
+.pattern-findings-count {
   display: inline-block;
   min-width: 1.6em;
   padding: 1px 7px;

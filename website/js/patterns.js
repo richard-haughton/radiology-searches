@@ -4069,7 +4069,7 @@ function renderTimedFullscreen() {
 
   var pattern = getSelectedPattern();
   var steps = pattern && Array.isArray(pattern.steps) ? pattern.steps : [];
-  if ((!timerRunning && !_timedFsRestarting) || !steps.length) {
+  if (!timerRunning || !steps.length) {
     exitTimedFullscreen(); // timer was stopped/changed elsewhere — nothing left to show
     return;
   }
@@ -4244,25 +4244,78 @@ function closeTimedFullscreenFindings() {
   if (handle) handle.setAttribute('aria-expanded', 'false');
 }
 
-// Finishing a study logs it (same as Space on desktop: RVU filled in from the pattern name when known)
-// and immediately starts the next read from step 1, without leaving full screen.
+// Finishing a study logs it (RVU filled in from the pattern name when known, same as the desktop
+// Space-bar auto-restart) and immediately starts the next read from step 1, without leaving full screen.
+//
+// This does NOT reuse autoRecordAndRestartPattern(): that one stops the timer before saving and leaves
+// it stopped on failure, which is right for its desktop keyboard shortcut but wrong here — a dropped
+// connection mid-read is the one time a reader is most likely to be away from a strong signal, and
+// getting bounced out of full screen with the step/timer reset would lose their place. Here the clock
+// is only paused (not reset) while saving, one quick retry absorbs a brief blip, and on failure the
+// read resumes exactly where it was so the same tap can be retried without losing anything.
 var _timedFsRestarting = false;
 
 async function finishAndRestartTimedFullscreen() {
-  if (_timedFsRestarting) return;
+  if (_timedFsRestarting || !timerRunning) return;
+  var pattern = getSelectedPattern();
+  if (!pattern) return;
+
   _timedFsRestarting = true;
   var button = document.getElementById('timed-fs-record');
-  if (button) button.disabled = true;
+  var buttonLabel = button ? button.textContent : '';
+  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+  pauseTimerClock(); // freeze the clock while saving — nothing is lost if the save fails
 
+  var patternName = pattern.name;
+  var recordedSeconds = timerSeconds;
+  var rvu = null;
   try {
-    await autoRecordAndRestartPattern();
-  } finally {
-    _timedFsRestarting = false;
-    if (button) button.disabled = false;
+    if (typeof RVUsData !== 'undefined' && RVUsData && typeof RVUsData.findIndex === 'function') {
+      var idx = RVUsData.findIndex(patternName);
+      if (idx !== -1) {
+        var entry = RVUsData.getEntry(idx);
+        if (entry) rvu = entry.rvu;
+      }
+    }
+  } catch (err) {
+    // Best-effort RVU auto-fill only — recording still proceeds without it.
   }
 
-  // The save failed, so the timer was left stopped: drop back to the normal view (its error toast is up).
-  if (_timedFsOpen && !timerRunning) exitTimedFullscreen();
+  var saved = false;
+  var lastErr = null;
+  for (var attempt = 0; attempt < 2 && !saved; attempt += 1) {
+    try {
+      await addStudyLogEntry(_pUid, {
+        study: patternName,
+        seconds: recordedSeconds,
+        duration: formatDuration(recordedSeconds),
+        rvu: rvu
+      });
+      saved = true;
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) await new Promise(function(resolve) { setTimeout(resolve, 1200); }); // one quick retry for a transient blip
+    }
+  }
+
+  _timedFsRestarting = false;
+  if (button) { button.disabled = false; button.textContent = buttonLabel || 'Finish & restart'; }
+
+  if (!saved) {
+    console.error(lastErr);
+    showToast('Could not save — check your connection and try again.', true);
+    if (_timedFsOpen) resumeTimerClock(); // pick the clock back up exactly where it paused; nothing was lost
+    return;
+  }
+
+  showToast(`Recorded "${patternName}" — ${formatDuration(recordedSeconds)} — restarted from step 1.`);
+  currentStepIndex = 0;
+  _openStepIndices = new Set([0]);
+  _autoAdvancePaused = false;
+  timerSeconds = 0;
+  clearYellowStepMarks();
+  startTimer(pattern);
+  renderCurrentStep(pattern);
 }
 
 function initTimedFullscreen() {
