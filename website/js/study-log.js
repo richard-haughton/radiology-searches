@@ -169,6 +169,13 @@ function getTodayStudyLogTotals() {
   };
 }
 
+// RVU of the most recent entry for `study` that has one (allEntries is newest-first), or null.
+function getLastLoggedRvu(study) {
+  if (!study) return null;
+  const entry = allEntries.find(e => e.study === study && e.rvu != null && Number.isFinite(Number(e.rvu)));
+  return entry ? Number(entry.rvu) : null;
+}
+
 function updateSortIcons() {
   document.querySelectorAll('.log-table th.sortable').forEach(th => {
     th.classList.remove('sort-asc', 'sort-desc');

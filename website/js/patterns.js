@@ -4432,12 +4432,16 @@ function switchTimedFullscreenPattern(patternId) {
 // read resumes exactly where it was so the same tap can be retried without losing anything.
 var _timedFsRestarting = false;
 
-// RVU to log for a pattern: its saved default RVU first, then a best-effort name match against the
-// RVU table — null when neither exists.
+// RVU to log for a pattern: its saved default RVU first, then the RVU most recently logged for a
+// study of the same name, then a best-effort name match against the RVU table — null when none exist.
 function getPatternRvu(patternName) {
   var pattern = allPatterns.find(function(p) { return p && p.name === patternName; });
   if (pattern && pattern.rvu !== null && pattern.rvu !== undefined && Number.isFinite(Number(pattern.rvu))) {
     return Number(pattern.rvu);
+  }
+  if (typeof getLastLoggedRvu === 'function') {
+    var loggedRvu = getLastLoggedRvu(patternName);
+    if (loggedRvu !== null) return loggedRvu;
   }
   try {
     if (typeof RVUsData !== 'undefined' && RVUsData && typeof RVUsData.findIndex === 'function') {
