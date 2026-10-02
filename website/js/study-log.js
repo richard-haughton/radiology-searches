@@ -8,10 +8,12 @@ var selectedLogId = null;
 var sortCol = 'timestamp';
 var sortDir = 'desc';
 var activeRange = 'all';
+var _editBlankSiblingIds = []; // other blank-RVU entries of the study being edited
 
 // ── Init ─────────────────────────────────────────────────────
 function initStudyLog(userId) {
   _slUid = userId;
+  RVUsData.load(); // warm the RVU table so name-matched auto-fill works on the first record
 
   subscribeStudyLog(_slUid, function(entries) {
     allEntries = entries;
@@ -48,6 +50,7 @@ function initStudyLog(userId) {
     document.getElementById('import-log-input').click();
   });
   document.getElementById('import-log-input').addEventListener('change', handleImportCsv);
+  document.getElementById('btn-fill-log-rvus').addEventListener('click', fillBlankRvusFromPatterns);
   document.getElementById('btn-edit-log-entry').addEventListener('click', handleEditEntry);
   document.getElementById('btn-delete-log-entry').addEventListener('click', handleDeleteEntry);
 }
@@ -137,10 +140,7 @@ function renderSummary() {
   const rvuSum = filteredEntries.reduce((s, e) => s + (e.rvu || 0), 0);
 
   // Update header RVU badge (today's RVU, always)
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayRvu = allEntries
-    .filter(e => e.date === todayStr)
-    .reduce((s, e) => s + (e.rvu || 0), 0);
+  const todayRvu = getTodayStudyLogTotals().rvu;
   const badge = document.getElementById('rvu-today-badge');
   if (todayRvu > 0) {
     badge.textContent = `${todayRvu.toFixed(1)} RVU today`;
@@ -149,12 +149,24 @@ function renderSummary() {
     badge.style.display = 'none';
   }
 
+  if (typeof renderTimedFullscreenStats === 'function') renderTimedFullscreenStats();
+
   const summaryEl = document.getElementById('log-summary');
   summaryEl.innerHTML = `
     <div class="log-stat"><span class="log-stat-value">${total}</span><span class="log-stat-label">Studies</span></div>
     <div class="log-stat"><span class="log-stat-value">${formatDuration(secs)}</span><span class="log-stat-label">Total Time</span></div>
     <div class="log-stat"><span class="log-stat-value">${rvuSum.toFixed(2)}</span><span class="log-stat-label">Total RVU</span></div>
   `;
+}
+
+// Today's studies and RVU regardless of the Log tab's range filter (header badge, full-screen read).
+function getTodayStudyLogTotals() {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todays = allEntries.filter(e => e.date === todayStr);
+  return {
+    count: todays.length,
+    rvu: todays.reduce((s, e) => s + (e.rvu || 0), 0)
+  };
 }
 
 function updateSortIcons() {
@@ -195,6 +207,16 @@ function handleEditEntry() {
   document.getElementById('edit-log-duration').value = entry.duration || '';
   document.getElementById('edit-log-seconds').value = entry.seconds || 0;
   document.getElementById('edit-log-rvu').value = entry.rvu != null ? entry.rvu : '';
+
+  // Offer to copy this RVU onto every other entry of the same study that has none.
+  _editBlankSiblingIds = allEntries
+    .filter(e => e.id !== entry.id && e.study === entry.study && e.rvu == null)
+    .map(e => e.id);
+  const n = _editBlankSiblingIds.length;
+  document.getElementById('edit-log-rvu-apply-all').checked = false;
+  document.getElementById('edit-log-rvu-apply-all-label').textContent =
+    `Also apply this RVU to ${n} other "${entry.study || ''}" ${n === 1 ? 'entry' : 'entries'} with no RVU`;
+  document.getElementById('edit-log-rvu-apply-all-wrap').style.display = n ? '' : 'none';
 
   // Populate RVU study dropdown and preselect if matching
   const studySelectOrig = document.getElementById('edit-log-rvu-study-select');
@@ -285,12 +307,72 @@ async function saveEditedEntry() {
       rvu: rvu ? parseFloat(rvu) : null
     });
 
+    const applyToSiblings = rvu && _editBlankSiblingIds.length &&
+      document.getElementById('edit-log-rvu-apply-all').checked;
+    if (applyToSiblings) {
+      await batchUpdateStudyLogRvu(_slUid, _editBlankSiblingIds.map(id => ({ id, rvu: parseFloat(rvu) })));
+    }
+
     selectedLogId = null;
     document.getElementById('btn-edit-log-entry').disabled = true;
-    showToast('Entry updated.');
+    showToast(applyToSiblings
+      ? `Entry updated; RVU also applied to ${_editBlankSiblingIds.length} more.`
+      : 'Entry updated.');
   } catch (err) {
     console.error(err);
     showToast('Failed to update entry: ' + (err.message || err), true);
+  }
+}
+
+// ── Fill blank RVUs ───────────────────────────────────────────
+// Backfills entries with no RVU from the default RVU saved on the pattern of the same name.
+// Studies whose pattern has no default are left alone (and listed) — no guessing from names.
+async function fillBlankRvusFromPatterns() {
+  const blanks = allEntries.filter(e => e.rvu == null);
+  if (!blanks.length) { showToast('Every entry already has an RVU.'); return; }
+
+  const defaults = {};
+  (typeof allPatterns !== 'undefined' ? allPatterns : []).forEach(p => {
+    if (p && p.name && p.rvu != null && !(p.name in defaults)) defaults[p.name] = Number(p.rvu);
+  });
+
+  const updates = [];
+  const filledStudies = new Set();
+  const missing = {};
+  blanks.forEach(e => {
+    const study = e.study || '';
+    if (study in defaults) {
+      updates.push({ id: e.id, rvu: defaults[study] });
+      filledStudies.add(study);
+    } else {
+      missing[study] = (missing[study] || 0) + 1;
+    }
+  });
+
+  const missingNames = Object.keys(missing).sort((a, b) => missing[b] - missing[a]);
+  const missingCount = blanks.length - updates.length;
+  const missingText = missingCount
+    ? `${missingCount} ${missingCount === 1 ? 'entry has' : 'entries have'} no pattern default (` +
+      missingNames.slice(0, 5).map(n => `${n || '(unnamed)'} ×${missing[n]}`).join(', ') +
+      (missingNames.length > 5 ? `, +${missingNames.length - 5} more` : '') +
+      '). Set a default RVU in the pattern editor, or use Edit Selected.'
+    : '';
+
+  if (!updates.length) { showToast('Nothing to fill. ' + missingText, true); return; }
+
+  const ok = await showConfirm('Fill Blank RVUs',
+    `Fill ${updates.length} ${updates.length === 1 ? 'entry' : 'entries'} across ${filledStudies.size} ` +
+    `${filledStudies.size === 1 ? 'study' : 'studies'} using each pattern's default RVU?` +
+    (missingText ? ' ' + missingText : ''),
+    'Fill RVUs');
+  if (!ok) return;
+
+  try {
+    await batchUpdateStudyLogRvu(_slUid, updates);
+    showToast(`Filled RVU on ${updates.length} ${updates.length === 1 ? 'entry' : 'entries'}.`);
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to fill RVUs: ' + (err.message || err), true);
   }
 }
 

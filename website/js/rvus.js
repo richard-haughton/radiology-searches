@@ -63,12 +63,26 @@ const RVUsData = (() => {
     entries.forEach((entry, idx) => {
       const opt = document.createElement('option');
       opt.value = idx;                           // index into _entries array
-      const modSuffix = entry.mod ? ` [Mod: ${entry.mod}]` : '';
-      const catSuffix = entry.category ? ` — ${entry.category}` : '';
-      opt.textContent = `${entry.description}${modSuffix}${catSuffix}`;
+      opt.textContent = labelFor(entry);
       opt.dataset.rvu = entry.rvu;
       selectEl.appendChild(opt);
     });
+  }
+
+  /** Display label for an entry; also stored on patterns as `rvuStudy`. */
+  function labelFor(entry) {
+    if (!entry) return '';
+    const modSuffix = entry.mod ? ` [Mod: ${entry.mod}]` : '';
+    const catSuffix = entry.category ? ` — ${entry.category}` : '';
+    return `${entry.description}${modSuffix}${catSuffix}`;
+  }
+
+  /** Index of the entry whose label equals `label`, or -1. Some labels repeat with different
+   *  RVUs (distinct CPT codes share a short description), so `rvu` picks the right one. */
+  function findIndexByLabel(label, rvu) {
+    if (!_entries || !label) return -1;
+    const exact = _entries.findIndex(e => labelFor(e) === label && Number(e.rvu) === Number(rvu));
+    return exact !== -1 ? exact : _entries.findIndex(e => labelFor(e) === label);
   }
 
   /** Return the entry at a given index (from option.value). */
@@ -92,5 +106,5 @@ const RVUsData = (() => {
     return i;
   }
 
-  return { load, populateSelect, getEntry, findIndex };
+  return { load, populateSelect, getEntry, findIndex, labelFor, findIndexByLabel };
 })();

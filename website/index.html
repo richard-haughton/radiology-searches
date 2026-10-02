@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#125f49" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20261001b" />
+  <link rel="stylesheet" href="css/app.css?v=20261002rvu" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -16,19 +16,19 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <!-- App scripts (plain, no modules) -->
   <script src="js/firebase-config.js?v=20260923a"></script>
-  <script src="js/db.js?v=20260923b"></script>
+  <script src="js/db.js?v=20261002rvu"></script>
   <script src="js/ai.js?v=20260816g"></script>
   <script src="js/access.js?v=20261001b"></script>
   <script src="js/settings.js?v=20260816a"></script>
-  <script src="js/editor.js?v=20260804b"></script>
+  <script src="js/editor.js?v=20261002rvu"></script>
   <script src="js/calculations.js?v=20261001b"></script>
-  <script src="js/study-log.js?v=20260605b"></script>
-  <script src="js/rvus.js?v=20260605b"></script>
+  <script src="js/study-log.js?v=20261002rvu"></script>
+  <script src="js/rvus.js?v=20261002rvu"></script>
   <script src="js/pattern-folders.js?v=20261001b"></script>
-  <script src="js/patterns.js?v=20261001b"></script>
+  <script src="js/patterns.js?v=20261002rvu"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20261001b"></script>
-  <script src="js/app.js?v=20260923a"></script>
+  <script src="js/app.js?v=20261002rvu"></script>
 </head>
 <body>
   <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
@@ -211,6 +211,9 @@
               <button id="btn-toggle-pattern-findings-panel" class="pattern-findings-toggle" type="button" aria-label="Minimize search pattern findings window" aria-expanded="true" title="Minimize findings window">&lt;</button>
             </div>
             <div class="pattern-findings-body">
+              <div class="pattern-findings-search">
+                <input id="pattern-findings-search-input" type="search" class="form-input" placeholder="Search findings…" aria-label="Search findings in this window" autocomplete="off" spellcheck="false">
+              </div>
               <div id="pattern-findings-content" class="pattern-findings-content step-content" aria-live="polite"></div>
             </div>
           </aside>
@@ -268,6 +271,7 @@
           <div class="log-actions">
             <button id="btn-export-log" class="btn btn-ghost btn-sm">Export CSV</button>
             <button id="btn-import-log" class="btn btn-ghost btn-sm">Import CSV</button>
+            <button id="btn-fill-log-rvus" class="btn btn-ghost btn-sm" title="Fill blank RVUs from each pattern's default RVU">Fill Blank RVUs</button>
             <button id="btn-edit-log-entry" class="btn btn-ghost btn-sm" disabled>Edit Selected</button>
             <button id="btn-delete-log-entry" class="btn btn-danger btn-sm" disabled>Delete Selected</button>
             <input id="import-log-input" type="file" accept=".csv" style="display:none">
@@ -558,6 +562,10 @@
       <label class="form-label">Assign RVU <span class="optional">(optional)</span>
         <input id="record-rvu-input" type="number" min="0" step="0.01" class="form-input" placeholder="e.g. 1.5">
       </label>
+      <label class="rvu-save-default">
+        <input id="record-rvu-save-default" type="checkbox">
+        Save as this pattern's default RVU <span class="optional">(auto-logged on future reads)</span>
+      </label>
       <div class="modal-actions">
         <button id="btn-record-confirm" class="btn btn-accent">Save</button>
         <button id="btn-record-cancel" class="btn btn-ghost">Cancel</button>
@@ -585,6 +593,12 @@
             <option>Nuclear Medicine</option>
             <option>Other</option>
           </select>
+        </label>
+        <label class="form-label editor-rvu-study">Default RVU Study <span class="optional">(auto-logged when recorded)</span>
+          <select id="editor-rvu-study-select" class="form-input"></select>
+        </label>
+        <label class="form-label editor-rvu-value">RVU
+          <input id="editor-rvu-input" type="number" min="0" step="0.01" class="form-input" placeholder="None">
         </label>
       </div>
       <div id="editor-ai-create-panel" class="editor-ai-create-panel" style="display:none"></div>
@@ -648,9 +662,17 @@
       <span id="timed-fs-total" class="timed-fs-total">0:00</span>
       <button id="timed-fs-close" class="timed-fs-close" type="button" aria-label="Exit full screen">&#x2715;</button>
     </div>
+    <p class="timed-fs-stats" aria-label="Today's study log totals">
+      <span><strong id="timed-fs-studies">0</strong> <span id="timed-fs-studies-label">studies</span></span>
+      <span><strong id="timed-fs-rvu">0.0</strong> RVU</span>
+      <span class="timed-fs-stats-when">today</span>
+    </p>
     <div class="timed-fs-progress" aria-hidden="true"><div id="timed-fs-progress-fill" class="timed-fs-progress-fill"></div></div>
     <div id="timed-fs-stage" class="timed-fs-stage">
-      <p id="timed-fs-pattern" class="timed-fs-pattern"></p>
+      <button id="timed-fs-pattern" class="timed-fs-pattern" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="timed-fs-patterns-sheet">
+        <span id="timed-fs-pattern-name" class="timed-fs-pattern-name"></span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
       <h2 id="timed-fs-title" class="timed-fs-title"></h2>
       <div id="timed-fs-clock" class="timed-fs-clock" aria-live="off">0:00</div>
       <div class="timed-fs-goal-track" aria-hidden="true"><div id="timed-fs-goal-fill" class="timed-fs-goal-fill"></div></div>
@@ -680,6 +702,16 @@
         <button id="timed-fs-findings-close" class="timed-fs-findings-close" type="button" aria-label="Close findings">&#x2715;</button>
       </div>
       <div id="timed-fs-findings-body" class="timed-fs-findings-body"></div>
+    </div>
+    <div id="timed-fs-patterns-sheet" class="timed-fs-findings-sheet timed-fs-patterns-sheet" role="dialog" aria-label="Switch search pattern">
+      <div class="timed-fs-findings-head timed-fs-patterns-head">
+        <div class="timed-fs-findings-titles">
+          <h3>Switch pattern</h3>
+          <span id="timed-fs-patterns-folder" class="timed-fs-findings-step"></span>
+        </div>
+        <button id="timed-fs-patterns-close" class="timed-fs-findings-close" type="button" aria-label="Close pattern list">&#x2715;</button>
+      </div>
+      <ul id="timed-fs-patterns-list" class="timed-fs-patterns-list"></ul>
     </div>
   </div>
 
@@ -716,6 +748,10 @@
       </label>
       <label class="form-label">RVU <span class="optional">(optional)</span>
         <input id="edit-log-rvu" type="number" min="0" step="0.01" class="form-input" placeholder="e.g. 1.5">
+      </label>
+      <label id="edit-log-rvu-apply-all-wrap" class="rvu-save-default" style="display:none">
+        <input id="edit-log-rvu-apply-all" type="checkbox">
+        <span id="edit-log-rvu-apply-all-label"></span>
       </label>
       <div class="modal-actions">
         <button id="btn-edit-log-confirm" class="btn btn-accent">Save Changes</button>

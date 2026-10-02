@@ -1081,8 +1081,17 @@ function _normalisePatternDoc(doc) {
     steps: steps,
     goalSeconds: _normaliseGoalSeconds(doc.goalSeconds, doc.goalMinutes),
     pathologyGoalSeconds: _normaliseGoalSeconds(doc.pathologyGoalSeconds, doc.pathologyGoalMinutes),
+    rvu: _normaliseRvu(doc.rvu),
+    rvuStudy: String(doc.rvuStudy || '').trim(),
     updatedAt: doc.updatedAt || null
   };
+}
+
+// Pattern default RVU: a non-negative finite number, or null when unset.
+function _normaliseRvu(value) {
+  if (value === null || value === undefined || value === '') return null;
+  var n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 // ── Patterns ─────────────────────────────────────────────────
@@ -1157,6 +1166,8 @@ function createPattern(uid, data) {
           reportConfig: data.reportConfig && typeof data.reportConfig === 'object' ? data.reportConfig : null,
           goalSeconds: goalSeconds,
           pathologyGoalSeconds: pathologyGoalSeconds,
+          rvu: _normaliseRvu(data.rvu),
+          rvuStudy: String(data.rvuStudy || '').trim(),
           updatedAt: _now()
         };
         payload = _sanitizeFirestoreValue(payload, false);
@@ -1194,6 +1205,10 @@ function updatePattern(uid, patternId, data) {
     }
     if (Object.prototype.hasOwnProperty.call(data, 'pathologyGoalSeconds') || Object.prototype.hasOwnProperty.call(data, 'pathologyGoalMinutes')) {
       payload.pathologyGoalSeconds = _normaliseGoalSeconds(data.pathologyGoalSeconds, data.pathologyGoalMinutes);
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'rvu')) {
+      payload.rvu = _normaliseRvu(data.rvu);
+      payload.rvuStudy = String(data.rvuStudy || '').trim();
     }
     return _sanitizeFirestoreValue(payload, false);
   }
@@ -1236,6 +1251,16 @@ function updatePattern(uid, patternId, data) {
     });
   }).then(function() {
     _replaceArrayContents(rawSteps, firestoreSteps);
+  });
+}
+
+function updatePatternRvu(uid, patternId, rvu, rvuStudy) {
+  return _runFirestoreWrite(function() {
+    return _patternsRef(uid).doc(patternId).update({
+      rvu: _normaliseRvu(rvu),
+      rvuStudy: String(rvuStudy || '').trim(),
+      updatedAt: _now()
+    });
   });
 }
 
@@ -1785,6 +1810,24 @@ function updateStudyLogEntry(uid, logId, data) {
   return _runFirestoreWrite(function() {
     return _studyLogRef(uid).doc(logId).update(updateData);
   });
+}
+
+// updates: [{ id, rvu }] — sets the RVU on many study log entries at once.
+function batchUpdateStudyLogRvu(uid, updates) {
+  var ref = _studyLogRef(uid);
+  var CHUNK = 400;
+
+  function nextChunk(i) {
+    if (i >= updates.length) return Promise.resolve();
+    var batch = appDb.batch();
+    updates.slice(i, i + CHUNK).forEach(function(u) {
+      batch.update(ref.doc(u.id), { rvu: _normaliseRvu(u.rvu) });
+    });
+    return _runFirestoreWrite(function() { return batch.commit(); }).then(function() {
+      return nextChunk(i + CHUNK);
+    });
+  }
+  return nextChunk(0);
 }
 
 // ── Batch imports ─────────────────────────────────────────────

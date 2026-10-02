@@ -281,6 +281,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
     titleEl.textContent = 'Edit Pattern';
     document.getElementById('editor-pattern-name').value = pattern.name || '';
     document.getElementById('editor-modality').value = pattern.modality || 'Other';
+    populateEditorRvuFields(pattern);
     editorSteps = JSON.parse(JSON.stringify(pattern.steps || []))
       .map(step => ({
         stepTitle: step.stepTitle || '',
@@ -303,6 +304,7 @@ function openEditor(uid, patternId, preferredStepIndex) {
     titleEl.textContent = 'New Pattern';
     document.getElementById('editor-pattern-name').value = '';
     document.getElementById('editor-modality').value = 'CT';
+    populateEditorRvuFields(null);
     editorSteps = [];
   }
 
@@ -315,6 +317,39 @@ function openEditor(uid, patternId, preferredStepIndex) {
 
   // Focus name field
   setTimeout(() => document.getElementById('editor-pattern-name').focus(), 50);
+}
+
+// Default RVU fields: the saved study (if any) is preselected; picking a study fills the RVU.
+function populateEditorRvuFields(pattern) {
+  const rvuInput = document.getElementById('editor-rvu-input');
+  const hasDefault = pattern && pattern.rvu !== null && pattern.rvu !== undefined;
+  rvuInput.value = hasDefault ? pattern.rvu : '';
+
+  // Clone to clear listeners from the previous open
+  const oldSelect = document.getElementById('editor-rvu-study-select');
+  const select = oldSelect.cloneNode(false);
+  oldSelect.parentNode.replaceChild(select, oldSelect);
+
+  RVUsData.populateSelect(select).then(() => {
+    if (hasDefault) {
+      const idx = RVUsData.findIndexByLabel(pattern.rvuStudy, pattern.rvu);
+      if (idx !== -1) select.value = idx;
+    }
+    select.addEventListener('change', () => {
+      const entry = RVUsData.getEntry(Number(select.value));
+      rvuInput.value = entry ? entry.rvu : '';
+    });
+  });
+}
+
+function readEditorRvuFields() {
+  const rvuRaw = document.getElementById('editor-rvu-input').value.trim();
+  const select = document.getElementById('editor-rvu-study-select');
+  const entry = select.value !== '' ? RVUsData.getEntry(Number(select.value)) : null;
+  return {
+    rvu: rvuRaw !== '' ? Number(rvuRaw) : null,
+    rvuStudy: rvuRaw !== '' && entry ? RVUsData.labelFor(entry) : ''
+  };
 }
 
 // ── Init (called once from app.js) ──────────────────────────
@@ -2625,6 +2660,7 @@ async function savePattern() {
 
   const name     = document.getElementById('editor-pattern-name').value.trim();
   const modality = document.getElementById('editor-modality').value;
+  const rvuFields = readEditorRvuFields();
 
   if (!name) {
     showToast('Please enter a pattern name.', true);
@@ -2647,6 +2683,8 @@ async function savePattern() {
         name: name,
         modality: modality,
         goalSeconds: existingPattern ? existingPattern.goalSeconds : null,
+        rvu: rvuFields.rvu,
+        rvuStudy: rvuFields.rvuStudy,
         steps: stepsForStorage
       });
       showToast('Pattern updated.');
@@ -2654,7 +2692,7 @@ async function savePattern() {
         rememberStepForPattern(editingPatternId, activeStepIndex);
       }
     } else {
-      const newPatternId = await createPattern(editorUid, { name, modality, steps: stepsForStorage });
+      const newPatternId = await createPattern(editorUid, { name, modality, rvu: rvuFields.rvu, rvuStudy: rvuFields.rvuStudy, steps: stepsForStorage });
       showToast('Pattern created.');
     }
     closeEditor();

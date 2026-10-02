@@ -511,6 +511,19 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pattern-findings-search {
+  padding: 12px 16px 0 18px;
+}
+.pattern-findings-search .form-input {
+  width: 100%;
+}
+.pattern-findings-body > .pattern-findings-content {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 .pattern-findings-content {
   height: 100%;
@@ -2151,6 +2164,12 @@ body {
   flex-shrink: 0;
 }
 .editor-meta .form-label { flex: 1; min-width: 200px; }
+.editor-meta .editor-rvu-study { flex: 2; min-width: 260px; }
+.editor-meta .editor-rvu-value { flex: 0 1 110px; min-width: 90px; }
+.rvu-save-default {
+  display: flex; align-items: center; gap: 8px;
+  margin: 4px 0 12px; font-size: 0.9rem; cursor: pointer;
+}
 .editor-body {
   flex: 1; display: flex; overflow: hidden; min-height: 0;
 }
@@ -2959,10 +2978,27 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
   cursor: pointer;
 }
 .timed-fs-pattern {
-  max-width: 100%; margin: 0;
-  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fs-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%; min-height: 40px; margin: 0; padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 999px;
+  background: rgba(255,255,255,0.06); color: var(--fs-muted);
+  font-family: var(--font); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer;
 }
+.timed-fs-pattern-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timed-fs-pattern svg { flex-shrink: 0; }
+.timed-fs-pattern[aria-expanded="true"] { color: var(--fs-ink); border-color: rgba(255,255,255,0.32); }
+
+/* Today's study log totals, under the top bar */
+.timed-fs-stats {
+  display: flex; align-items: baseline; gap: 14px; flex-shrink: 0;
+  margin: 0; padding: 0 18px 8px;
+  font-size: 0.85rem; color: var(--fs-muted);
+}
+.timed-fs-stats strong {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1rem; color: var(--fs-ink);
+}
+.timed-fs-stats-when { margin-left: auto; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .timed-fs-title {
   margin: 0; max-width: 100%;
   font-size: clamp(2rem, 10vw, 3.6rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.01em;
@@ -3021,7 +3057,8 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
   background: rgba(0,0,0,0.55);
   opacity: 0; pointer-events: none; transition: opacity 220ms ease;
 }
-.timed-fs.findings-open .timed-fs-findings-backdrop { opacity: 1; pointer-events: auto; }
+.timed-fs.findings-open .timed-fs-findings-backdrop,
+.timed-fs.patterns-open .timed-fs-findings-backdrop { opacity: 1; pointer-events: auto; }
 .timed-fs-findings-sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
   height: 74%; display: flex; flex-direction: column;
@@ -3031,7 +3068,8 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
   transform: translateY(102%); visibility: hidden;
   transition: transform 240ms ease, visibility 0s linear 240ms;
 }
-.timed-fs.findings-open .timed-fs-findings-sheet { transform: none; visibility: visible; transition: transform 240ms ease, visibility 0s; }
+.timed-fs.findings-open .timed-fs-findings-sheet:not(.timed-fs-patterns-sheet),
+.timed-fs.patterns-open .timed-fs-patterns-sheet { transform: none; visibility: visible; transition: transform 240ms ease, visibility 0s; }
 .timed-fs-findings-head {
   position: relative; flex-shrink: 0;
   display: flex; align-items: center; gap: 8px;
@@ -3052,6 +3090,23 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
   touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   user-select: text; -webkit-user-select: text;
 }
+/* Pattern switcher sheet (shares the findings sheet's frame) */
+.timed-fs-patterns-list {
+  flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 8px 10px 20px; list-style: none;
+  touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+}
+.timed-fs-pattern-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+  min-height: 56px; padding: 10px 12px; margin-bottom: 4px;
+  border: 1px solid transparent; border-radius: 12px;
+  background: none; color: var(--ink); text-align: left; font-family: var(--font); cursor: pointer;
+}
+.timed-fs-pattern-option:active { background: var(--surface-2, rgba(127,127,127,0.12)); }
+.timed-fs-pattern-option.is-current { border-color: var(--line); background: rgba(31, 138, 102, 0.12); }
+.timed-fs-pattern-option:disabled { opacity: 0.45; cursor: default; }
+.timed-fs-pattern-option-name { font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.timed-fs-pattern-option-meta { font-size: 0.8rem; color: var(--ink-muted); }
+.timed-fs-patterns-empty { padding: 16px 12px; color: var(--ink-muted); font-style: italic; }
 .timed-fs-hint { margin: 0; text-align: center; font-size: 0.85rem; color: var(--fs-muted); }
 .timed-fs-final { display: flex; gap: 12px; }
 .timed-fs-btn {

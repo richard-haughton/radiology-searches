@@ -29,11 +29,16 @@ function showToast(msg, isError) {
 }
 
 // ── Confirm dialog ────────────────────────────────────────────
-function showConfirm(title, body) {
+// okLabel: button text for a non-destructive confirm (default is a red "Delete").
+function showConfirm(title, body, okLabel) {
   return new Promise(function(resolve) {
     var overlay = document.getElementById('modal-confirm');
+    var okBtn = document.getElementById('btn-confirm-ok');
     document.getElementById('modal-confirm-title').textContent = title;
     document.getElementById('modal-confirm-body').textContent = body;
+    okBtn.textContent = okLabel || 'Delete';
+    okBtn.classList.toggle('btn-danger', !okLabel);
+    okBtn.classList.toggle('btn-accent', Boolean(okLabel));
     overlay.style.display = 'flex';
 
     function onOk()     { cleanup(); resolve(true); }

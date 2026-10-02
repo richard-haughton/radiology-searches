@@ -657,6 +657,7 @@ function initPatterns(userId) {
   initPatternSidebarToggle();
   initPatternFindingsPanelToggle();
   initFindingsExpandAllButton();
+  initPatternFindingsSearch();
   loadStepSectionsOpenState();
   loadAccordionModeState();
   loadInlineEditorFontSizePreference();
@@ -1722,6 +1723,8 @@ function renderCurrentStepFindings(pattern, step, stepIndex, stepsLength) {
     actions.appendChild(addFindingBtn);
     contentEl.appendChild(actions);
   }
+
+  applyPatternFindingsSearch();
 }
 
 function moveStepIndexOrder(length, fromIndex, toIndex) {
@@ -3310,6 +3313,59 @@ function refreshPinnedFindingsInPatternView() {
   if (!contentEl) return;
   const group = document.getElementById('pattern-pinned-findings');
   if (group) renderPinnedFindingsGroup(group);
+  applyPatternFindingsSearch();
+}
+
+// ── Findings window search ──────────────────────────────────
+// Filters the rendered findings (pinned + this step) by title and content text. The query
+// survives step changes and re-renders, so it is re-applied after every findings render.
+function initPatternFindingsSearch() {
+  const input = document.getElementById('pattern-findings-search-input');
+  if (!input) return;
+  input.addEventListener('input', applyPatternFindingsSearch);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && input.value) {
+      event.preventDefault();
+      event.stopPropagation();
+      input.value = '';
+      applyPatternFindingsSearch();
+    }
+  });
+}
+
+function applyPatternFindingsSearch() {
+  const contentEl = document.getElementById('pattern-findings-content');
+  const input = document.getElementById('pattern-findings-search-input');
+  if (!contentEl) return;
+  const terms = String(input ? input.value : '').toLowerCase().split(/\s+/).filter(Boolean);
+
+  let matches = 0;
+  let total = 0;
+  contentEl.querySelectorAll('.step-subsection').forEach(wrap => {
+    total += 1;
+    const text = (wrap.textContent || '').toLowerCase();
+    const visible = terms.every(term => text.includes(term));
+    wrap.hidden = !visible;
+    if (visible) matches += 1;
+  });
+
+  // Hide the "Pinned" / "This step" labels when nothing under them matches.
+  const pinnedGroup = document.getElementById('pattern-pinned-findings');
+  if (pinnedGroup) {
+    const hasPinnedMatch = Array.from(pinnedGroup.querySelectorAll('.step-subsection')).some(el => !el.hidden);
+    pinnedGroup.querySelectorAll('.pattern-findings-group-label').forEach((label, index) => {
+      label.hidden = terms.length > 0 && index === 0 && !hasPinnedMatch;
+    });
+  }
+
+  let empty = contentEl.querySelector('.pattern-findings-search-empty');
+  if (!empty) {
+    empty = document.createElement('p');
+    empty.className = 'step-section-empty pattern-findings-search-empty';
+    empty.textContent = 'No findings match your search.';
+    contentEl.insertBefore(empty, contentEl.firstChild);
+  }
+  empty.hidden = !(terms.length && total && !matches);
 }
 
 async function handleDeletePatternFinding(stepIndex, findingId, findingTitle) {
@@ -4087,7 +4143,7 @@ function renderTimedFullscreen() {
 
   document.getElementById('timed-fs-count').textContent = 'Step ' + (index + 1) + ' of ' + steps.length;
   document.getElementById('timed-fs-total').textContent = formatTimerClock(timerSeconds);
-  document.getElementById('timed-fs-pattern').textContent = pattern.name || '';
+  document.getElementById('timed-fs-pattern-name').textContent = pattern.name || '';
   var stepTitle = getTimedFullscreenStepTitle(steps, index);
   document.getElementById('timed-fs-title').textContent = stepTitle;
   document.getElementById('timed-fs-paused-step').textContent = stepTitle;
@@ -4101,6 +4157,16 @@ function renderTimedFullscreen() {
     : 'Next: ' + getTimedFullscreenStepTitle(steps, index + 1);
   document.getElementById('timed-fs-final').hidden = !isFinal;
   document.getElementById('timed-fs-hint').hidden = isFinal;
+  renderTimedFullscreenStats();
+}
+
+// Today's study count and RVU, kept live by the study log subscription (study-log.js calls this too).
+function renderTimedFullscreenStats() {
+  if (!_timedFsOpen || typeof getTodayStudyLogTotals !== 'function') return;
+  var totals = getTodayStudyLogTotals();
+  document.getElementById('timed-fs-studies').textContent = String(totals.count);
+  document.getElementById('timed-fs-studies-label').textContent = totals.count === 1 ? 'study' : 'studies';
+  document.getElementById('timed-fs-rvu').textContent = totals.rvu.toFixed(1);
 }
 
 // Screen sleeping mid-read would freeze the voice and hide the steps, so hold the screen awake while
@@ -4155,6 +4221,7 @@ function openTimedFullscreen() {
 function exitTimedFullscreen() {
   if (!_timedFsOpen) return;
   closeTimedFullscreenFindings(); // hand the findings list back to its normal panel first
+  closeTimedFullscreenPatterns();
   _timedFsOpen = false;
 
   var overlay = document.getElementById('timed-fs');
@@ -4244,6 +4311,116 @@ function closeTimedFullscreenFindings() {
   if (handle) handle.setAttribute('aria-expanded', 'false');
 }
 
+// Pattern switcher: a sheet listing the patterns in the folder being viewed, so the next study can be
+// started without leaving full screen. Picking one starts a fresh timed read of it from step 1.
+var _timedFsPatternsOpen = false;
+
+function getTimedFullscreenFolderPatterns() {
+  return allPatterns.filter(function(p) { return patternMatchesFolderFilter(p.id); });
+}
+
+function getTimedFullscreenFolderLabel() {
+  if (_activeFolderFilter === FOLDER_FILTER_ALL) return 'All patterns';
+  if (_activeFolderFilter === FOLDER_FILTER_UNFILED) return 'Unfiled';
+  var folder = getPatternFolderById(_activeFolderFilter);
+  return folder ? folder.name : 'Folder';
+}
+
+function renderTimedFullscreenPatterns() {
+  var list = document.getElementById('timed-fs-patterns-list');
+  if (!list) return;
+  var patterns = getTimedFullscreenFolderPatterns();
+  document.getElementById('timed-fs-patterns-folder').textContent =
+    getTimedFullscreenFolderLabel() + ' · ' + patterns.length + (patterns.length === 1 ? ' pattern' : ' patterns');
+
+  list.innerHTML = '';
+  patterns.forEach(function(p) {
+    var stepCount = Array.isArray(p.steps) ? p.steps.length : 0;
+    var rvu = getPatternRvu(p.name);
+    var isCurrent = p.id === selectedPatternId;
+
+    var item = document.createElement('li');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'timed-fs-pattern-option' + (isCurrent ? ' is-current' : '');
+    btn.dataset.patternId = p.id;
+    if (isCurrent) btn.setAttribute('aria-current', 'true');
+    btn.disabled = !stepCount;
+
+    var name = document.createElement('span');
+    name.className = 'timed-fs-pattern-option-name';
+    name.textContent = p.name || 'Untitled pattern';
+    var meta = document.createElement('span');
+    meta.className = 'timed-fs-pattern-option-meta';
+    var parts = [stepCount + (stepCount === 1 ? ' step' : ' steps')];
+    if (rvu !== null && Number.isFinite(rvu)) parts.push(rvu.toFixed(2) + ' RVU');
+    if (isCurrent) parts.push('Current');
+    meta.textContent = parts.join(' · ');
+
+    btn.appendChild(name);
+    btn.appendChild(meta);
+    item.appendChild(btn);
+    list.appendChild(item);
+  });
+
+  if (!patterns.length) {
+    var empty = document.createElement('li');
+    empty.className = 'timed-fs-patterns-empty';
+    empty.textContent = 'No patterns in this folder.';
+    list.appendChild(empty);
+  }
+}
+
+function openTimedFullscreenPatterns() {
+  var overlay = document.getElementById('timed-fs');
+  if (!_timedFsOpen || _timedFsPatternsOpen || !overlay) return;
+  closeTimedFullscreenFindings();
+  _timedFsPatternsOpen = true;
+  renderTimedFullscreenPatterns();
+  overlay.classList.add('patterns-open');
+  document.getElementById('timed-fs-pattern').setAttribute('aria-expanded', 'true');
+
+  var list = document.getElementById('timed-fs-patterns-list');
+  var current = list && list.querySelector('.is-current');
+  if (list) list.scrollTop = 0;
+  if (current) current.scrollIntoView({ block: 'center' });
+}
+
+function closeTimedFullscreenPatterns() {
+  if (!_timedFsPatternsOpen) return;
+  _timedFsPatternsOpen = false;
+  var overlay = document.getElementById('timed-fs');
+  if (overlay) overlay.classList.remove('patterns-open');
+  var trigger = document.getElementById('timed-fs-pattern');
+  if (trigger) trigger.setAttribute('aria-expanded', 'false');
+}
+
+function switchTimedFullscreenPattern(patternId) {
+  closeTimedFullscreenPatterns();
+  if (!patternId || patternId === selectedPatternId) return;
+  var pattern = allPatterns.find(function(p) { return p.id === patternId; });
+  if (!pattern || !Array.isArray(pattern.steps) || !pattern.steps.length) {
+    showToast('That pattern has no steps yet.', true);
+    return;
+  }
+
+  // A search or modality filter hiding the pattern would make the list re-select something else on the
+  // next background refresh, so clear those (the folder stays as chosen).
+  if (!filteredPatterns.some(function(p) { return p.id === patternId; })) {
+    var filterInput = document.getElementById('pattern-filter');
+    if (filterInput) filterInput.value = '';
+    activeModality = 'All';
+    document.querySelectorAll('.mod-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.mod === 'All');
+    });
+    applyFilters({ keepSelected: true });
+  }
+
+  if (_voiceModeEnabled) unlockVoiceOutput();
+  loadPattern(patternId, 0); // a different pattern: stops the old read, starts a fresh timer and re-renders
+  scrollSelectedPatternIntoView();
+}
+
 // Finishing a study logs it (RVU filled in from the pattern name when known, same as the desktop
 // Space-bar auto-restart) and immediately starts the next read from step 1, without leaving full screen.
 //
@@ -4254,6 +4431,27 @@ function closeTimedFullscreenFindings() {
 // is only paused (not reset) while saving, one quick retry absorbs a brief blip, and on failure the
 // read resumes exactly where it was so the same tap can be retried without losing anything.
 var _timedFsRestarting = false;
+
+// RVU to log for a pattern: its saved default RVU first, then a best-effort name match against the
+// RVU table — null when neither exists.
+function getPatternRvu(patternName) {
+  var pattern = allPatterns.find(function(p) { return p && p.name === patternName; });
+  if (pattern && pattern.rvu !== null && pattern.rvu !== undefined && Number.isFinite(Number(pattern.rvu))) {
+    return Number(pattern.rvu);
+  }
+  try {
+    if (typeof RVUsData !== 'undefined' && RVUsData && typeof RVUsData.findIndex === 'function') {
+      var idx = RVUsData.findIndex(patternName);
+      if (idx !== -1) {
+        var entry = RVUsData.getEntry(idx);
+        if (entry && entry.rvu !== null && entry.rvu !== undefined && entry.rvu !== '') return Number(entry.rvu);
+      }
+    }
+  } catch (err) {
+    // RVU table unavailable — callers carry on without it.
+  }
+  return null;
+}
 
 async function finishAndRestartTimedFullscreen() {
   if (_timedFsRestarting || !timerRunning) return;
@@ -4268,18 +4466,7 @@ async function finishAndRestartTimedFullscreen() {
 
   var patternName = pattern.name;
   var recordedSeconds = timerSeconds;
-  var rvu = null;
-  try {
-    if (typeof RVUsData !== 'undefined' && RVUsData && typeof RVUsData.findIndex === 'function') {
-      var idx = RVUsData.findIndex(patternName);
-      if (idx !== -1) {
-        var entry = RVUsData.getEntry(idx);
-        if (entry) rvu = entry.rvu;
-      }
-    }
-  } catch (err) {
-    // Best-effort RVU auto-fill only — recording still proceeds without it.
-  }
+  var rvu = getPatternRvu(patternName);
 
   var saved = false;
   var lastErr = null;
@@ -4336,14 +4523,31 @@ function initTimedFullscreen() {
     var source = document.getElementById('btn-findings-expand-all');
     if (source) source.click(); // re-renders the findings and refreshes this button's label via the sync hook
   });
-  document.querySelector('.timed-fs-findings-head').addEventListener('click', function(e) {
+  document.querySelector('#timed-fs-findings-sheet .timed-fs-findings-head').addEventListener('click', function(e) {
     if (!e.target.closest('button')) closeTimedFullscreenFindings();
+  });
+
+  document.getElementById('timed-fs-pattern').addEventListener('click', function() {
+    if (_timedFsPatternsOpen) closeTimedFullscreenPatterns();
+    else openTimedFullscreenPatterns();
+  });
+  document.getElementById('timed-fs-patterns-close').addEventListener('click', closeTimedFullscreenPatterns);
+  document.querySelector('.timed-fs-patterns-head').addEventListener('click', function(e) {
+    if (!e.target.closest('button')) closeTimedFullscreenPatterns();
+  });
+  document.getElementById('timed-fs-patterns-list').addEventListener('click', function(e) {
+    var option = e.target.closest('.timed-fs-pattern-option');
+    if (option && !option.disabled) switchTimedFullscreenPattern(option.dataset.patternId);
   });
 
   overlay.addEventListener('click', function(e) {
     if (e.target.closest('button')) return;
-    if (e.target.closest('.timed-fs-findings-sheet')) return; // reading/expanding findings, not pausing
+    if (e.target.closest('.timed-fs-findings-sheet')) return; // reading/expanding findings or the pattern list, not pausing
     if (Date.now() < _timedFsSuppressTapUntil) return; // the tail end of a swipe, not a tap
+    if (_timedFsPatternsOpen) {
+      closeTimedFullscreenPatterns(); // tap outside the sheet dismisses it
+      return;
+    }
     if (_timedFsFindingsOpen) {
       closeTimedFullscreenFindings(); // tap outside the sheet dismisses it
       return;
@@ -4370,6 +4574,15 @@ function initTimedFullscreen() {
     var dx = touch.clientX - start.x;
     var dy = touch.clientY - start.y;
     var isVerticalSwipe = Math.abs(dy) >= TIMED_FS_SWIPE_MIN_PX && Math.abs(dy) >= Math.abs(dx) * 1.5;
+
+    if (_timedFsPatternsOpen) {
+      // Same as the findings sheet: a downward swipe on its header closes it, the list just scrolls.
+      if (start.onSheetHead && isVerticalSwipe && dy > 0) {
+        _timedFsSuppressTapUntil = Date.now() + 400;
+        closeTimedFullscreenPatterns();
+      }
+      return;
+    }
 
     if (_timedFsFindingsOpen) {
       // Inside the sheet only its header is a swipe target (down closes); the list itself just scrolls.
@@ -4420,7 +4633,10 @@ function openRecordModal() {
   const dur = formatDuration(pendingRecordSeconds);
   document.getElementById('modal-record-body').textContent =
     `Record "${pendingRecordPatternName}" — ${dur}?`;
-  document.getElementById('record-rvu-input').value = '';
+  const hasDefaultRvu = pattern.rvu !== null && pattern.rvu !== undefined;
+  document.getElementById('record-rvu-input').value = hasDefaultRvu ? pattern.rvu : '';
+  // Patterns without a default RVU offer to remember this choice, so later reads log it automatically.
+  document.getElementById('record-rvu-save-default').checked = !hasDefaultRvu;
 
   // Attach change handler by cloning node to clear any previous listeners
   const studySelect = document.getElementById('record-rvu-study-select');
@@ -4428,11 +4644,16 @@ function openRecordModal() {
   studySelect.parentNode.replaceChild(freshSelect, studySelect);
 
   RVUsData.populateSelect(freshSelect).then(() => {
-    const idx = RVUsData.findIndex(pendingRecordPatternName);
-    if (idx !== -1) {
-      freshSelect.value = idx;
-      const entry = RVUsData.getEntry(idx);
-      if (entry) document.getElementById('record-rvu-input').value = entry.rvu;
+    if (hasDefaultRvu) {
+      const savedIdx = RVUsData.findIndexByLabel(pattern.rvuStudy, pattern.rvu);
+      if (savedIdx !== -1) freshSelect.value = savedIdx;
+    } else {
+      const idx = RVUsData.findIndex(pendingRecordPatternName);
+      if (idx !== -1) {
+        freshSelect.value = idx;
+        const entry = RVUsData.getEntry(idx);
+        if (entry) document.getElementById('record-rvu-input').value = entry.rvu;
+      }
     }
     freshSelect.addEventListener('change', () => {
       const entry = RVUsData.getEntry(Number(freshSelect.value));
@@ -4446,9 +4667,19 @@ function openRecordModal() {
 
 async function confirmRecord() {
   const rvu = document.getElementById('record-rvu-input').value;
+  const saveAsDefault = document.getElementById('record-rvu-save-default').checked;
+  const studySelect = document.getElementById('record-rvu-study-select');
+  const rvuStudy = studySelect.value !== '' ? RVUsData.labelFor(RVUsData.getEntry(Number(studySelect.value))) : '';
   document.getElementById('modal-record').style.display = 'none';
   const recordedSeconds = pendingRecordSeconds;
   const pattern = getSelectedPattern();
+
+  if (saveAsDefault && rvu !== '' && pattern && pattern.name === pendingRecordPatternName) {
+    updatePatternRvu(_pUid, pattern.id, rvu, rvuStudy).catch(err => {
+      console.error(err);
+      showToast('Recorded, but could not save the default RVU for this pattern.', true);
+    });
+  }
 
   try {
     await addStudyLogEntry(_pUid, {
@@ -4489,18 +4720,7 @@ async function autoRecordAndRestartPattern() {
   const recordedSeconds = timerSeconds;
   stopTimer();
 
-  let rvu = null;
-  try {
-    if (typeof RVUsData !== 'undefined' && RVUsData && typeof RVUsData.findIndex === 'function') {
-      const idx = RVUsData.findIndex(patternName);
-      if (idx !== -1) {
-        const entry = RVUsData.getEntry(idx);
-        if (entry) rvu = entry.rvu;
-      }
-    }
-  } catch (err) {
-    // Best-effort RVU auto-fill only — recording still proceeds without it.
-  }
+  const rvu = getPatternRvu(patternName);
 
   try {
     await addStudyLogEntry(_pUid, {
