@@ -1780,8 +1780,15 @@ function subscribeStudyLog(uid, callback) {
   }, function(err) { console.error('subscribeStudyLog error:', err); });
 }
 
+// YYYY-MM-DD in the user's local time zone (toISOString would give the UTC date, which rolls over
+// to tomorrow in the evening for anyone west of UTC).
+function localDateKey(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function addStudyLogEntry(uid, data) {
-  var today = new Date().toISOString().split('T')[0];
+  var today = localDateKey();
   return _runFirestoreWrite(function() {
     return _studyLogRef(uid).add({
       study: data.study,

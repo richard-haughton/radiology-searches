@@ -57,15 +57,15 @@ function initStudyLog(userId) {
 
 // ── Filter & sort ─────────────────────────────────────────────
 function applyRangeAndSort() {
-  const today = new Date().toISOString().split('T')[0];
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const today = localDateKey();
+  const sevenDaysAgo = localDateKey(new Date(Date.now() - 7 * 86400000));
 
   let filtered = [...allEntries];
 
   if (activeRange === 'today') {
-    filtered = filtered.filter(e => e.date === today);
+    filtered = filtered.filter(e => entryDateKey(e) === today);
   } else if (activeRange === '7d') {
-    filtered = filtered.filter(e => e.date >= sevenDaysAgo);
+    filtered = filtered.filter(e => entryDateKey(e) >= sevenDaysAgo);
   }
 
   // Sort
@@ -89,6 +89,14 @@ function applyRangeAndSort() {
   renderTable();
   renderSummary();
   updateSortIcons();
+}
+
+// Local calendar day of an entry, from its timestamp. The stored `date` field was written as a UTC
+// date on older entries, so it is only a fallback (e.g. a just-added entry whose server timestamp
+// hasn't come back yet).
+function entryDateKey(entry) {
+  const ts = entry.timestamp?.toDate?.();
+  return ts ? localDateKey(ts) : (entry.date || '');
 }
 
 // ── Table rendering ───────────────────────────────────────────
@@ -161,8 +169,8 @@ function renderSummary() {
 
 // Today's studies and RVU regardless of the Log tab's range filter (header badge, full-screen read).
 function getTodayStudyLogTotals() {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todays = allEntries.filter(e => e.date === todayStr);
+  const todayStr = localDateKey();
+  const todays = allEntries.filter(e => entryDateKey(e) === todayStr);
   return {
     count: todays.length,
     rvu: todays.reduce((s, e) => s + (e.rvu || 0), 0)
@@ -392,7 +400,7 @@ function exportCsv() {
     const ts = e.timestamp?.toDate?.()?.toISOString?.() || e.date || '';
     return [
       ts,
-      e.date || '',
+      entryDateKey(e),
       csvEsc(e.study || ''),
       e.seconds ?? '',
       csvEsc(e.duration || ''),
