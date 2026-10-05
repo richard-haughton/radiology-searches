@@ -4137,6 +4137,10 @@ function renderTimedFullscreen() {
   var goalSeconds = timerGoalSeconds;
 
   overlay.dataset.state = (_timerPaused || _autoAdvancePaused) ? 'paused' : 'running';
+  document.getElementById('timed-fs-paused-title').textContent = _timerPaused ? 'Timer paused' : 'Holding step';
+  document.getElementById('timed-fs-paused-note').textContent = _timerPaused
+    ? 'Tap or swipe down to resume'
+    : 'Study timer still running · tap to resume';
   overlay.dataset.goal = goalState === 'double' ? 'red' : (goalState || 'green');
   overlay.classList.toggle('is-double', goalState === 'double');
   overlay.classList.toggle('is-final', isFinal);
@@ -4247,6 +4251,18 @@ function exitTimedFullscreen() {
     _timerStepEnteredAtSeconds = timerSeconds;
     renderStepTimeStatsForCurrentStep();
   }
+}
+
+// A downward swipe in full screen is the full pause: the study timer, auto-advance and voice all stop.
+// Swiping down again (or a tap, via toggleTimedFullscreenHold) resumes. Any step hold is dropped so a
+// single gesture brings the read back to normal.
+function toggleTimedFullscreenFullPause() {
+  if (_timerPaused) {
+    resumeTimerClock();
+    return;
+  }
+  _autoAdvancePaused = false;
+  pauseTimerClock(); // also stops the voice and re-renders the overlay
 }
 
 // A tap in full screen holds the current step rather than stopping the clock: the study timer keeps
@@ -4620,6 +4636,12 @@ function initTimedFullscreen() {
     if (isVerticalSwipe && dy < 0) {
       _timedFsSuppressTapUntil = Date.now() + 400;
       openTimedFullscreenFindings();
+      return;
+    }
+
+    if (isVerticalSwipe && dy > 0) {
+      _timedFsSuppressTapUntil = Date.now() + 400;
+      toggleTimedFullscreenFullPause();
       return;
     }
 
