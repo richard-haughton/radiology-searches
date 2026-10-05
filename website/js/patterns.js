@@ -4136,7 +4136,7 @@ function renderTimedFullscreen() {
   var goalState = getStepGoalState();
   var goalSeconds = timerGoalSeconds;
 
-  overlay.dataset.state = _timerPaused ? 'paused' : 'running';
+  overlay.dataset.state = (_timerPaused || _autoAdvancePaused) ? 'paused' : 'running';
   overlay.dataset.goal = goalState === 'double' ? 'red' : (goalState || 'green');
   overlay.classList.toggle('is-double', goalState === 'double');
   overlay.classList.toggle('is-final', isFinal);
@@ -4240,8 +4240,28 @@ function exitTimedFullscreen() {
     }
   }
 
-  // Leaving while paused would strand a frozen clock in the normal view, so pick it back up.
+  // Leaving while paused would strand a frozen clock (or a held step) in the normal view, so pick it back up.
   if (_timerPaused) resumeTimerClock();
+  if (_autoAdvancePaused) {
+    _autoAdvancePaused = false;
+    _timerStepEnteredAtSeconds = timerSeconds;
+    renderStepTimeStatsForCurrentStep();
+  }
+}
+
+// A tap in full screen holds the current step rather than stopping the clock: the study timer keeps
+// running (it is the read's real duration), but auto-advance and the voice stop until the next tap,
+// which gives the step a fresh goal window. A clock frozen by an in-flight save just resumes.
+function toggleTimedFullscreenHold() {
+  if (_timerPaused) {
+    resumeTimerClock();
+    return;
+  }
+  _autoAdvancePaused = !_autoAdvancePaused;
+  if (_autoAdvancePaused) stopStepAnnouncementAudio();
+  else _timerStepEnteredAtSeconds = timerSeconds;
+  renderStepTimeStatsForCurrentStep();
+  renderTimedFullscreen();
 }
 
 // Starts a fresh timed read of the selected pattern from step 1 and shows it full screen. Runs from a
@@ -4556,7 +4576,7 @@ function initTimedFullscreen() {
       closeTimedFullscreenFindings(); // tap outside the sheet dismisses it
       return;
     }
-    toggleTimerClockPause();
+    toggleTimedFullscreenHold();
   });
 
   overlay.addEventListener('touchstart', function(e) {
