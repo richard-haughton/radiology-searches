@@ -1716,37 +1716,16 @@ function openSearchResultPreview(result) {
   if (!result) return;
 
   var resolved = resolveFindingPreviewLink(result);
-  if (!resolved || !resolved.patternId) return;
+  var linked = Boolean(resolved && resolved.patternId);
 
-  var modal = document.getElementById('modal-search-preview');
-  var titleEl = document.getElementById('modal-search-preview-title');
-  var metaEl = modal && modal.querySelector('.search-preview-step-meta');
-  var bodyEl = document.getElementById('search-preview-body');
-  if (!modal || !titleEl || !bodyEl) return;
-
-  // Populate header
-  titleEl.textContent = result.subsectionTitle || 'Finding';
-  if (metaEl) {
-    metaEl.textContent = (resolved.patternName || 'Pattern') + ' | Step ' + (resolved.stepIndex + 1) + ': ' + resolved.stepTitle;
-  }
-
-  // Render finding content for the selected search result.
-  bodyEl.innerHTML = '';
-  var findingContent = normaliseRichContent((result && result.content) || []);
-  if (findingContent.length && typeof renderRichContent === 'function') {
-    renderRichContent(bodyEl, findingContent);
-  } else {
-    var fallback = document.createElement('p');
-    fallback.style.color = 'var(--ink-soft)';
-    fallback.textContent = String(result.contentText || result.text || '').trim() || 'No finding content available.';
-    bodyEl.appendChild(fallback);
-  }
-
-  // Wire the "Open in Patterns Tab" button
-  var openTabBtn = document.getElementById('btn-search-preview-open-tab');
-  if (openTabBtn) {
-    openTabBtn.onclick = function() {
-      closeSearchResultPreview();
+  showFindingPreviewModal({
+    title: result.subsectionTitle || 'Finding',
+    meta: linked
+      ? (resolved.patternName || 'Pattern') + ' | Step ' + (resolved.stepIndex + 1) + ': ' + resolved.stepTitle
+      : 'Not linked to a search pattern',
+    content: (result && result.content) || [],
+    fallbackText: result.contentText || result.text,
+    onOpenInPatterns: !linked ? null : function() {
       if (typeof openPatternAtStepFromSearch === 'function') {
         openPatternAtStepFromSearch(resolved.patternId, resolved.stepIndex);
       } else if (typeof loadPattern === 'function') {
@@ -1754,6 +1733,40 @@ function openSearchResultPreview(result) {
       }
       var targetTab = document.querySelector('.tab-btn[data-tab="patterns"]');
       if (targetTab) targetTab.click();
+    }
+  });
+}
+
+// Shared finding preview window, used by the Findings tab and the Search Patterns findings window.
+// The "Open in Patterns Tab" button only shows when onOpenInPatterns is given.
+function showFindingPreviewModal(options) {
+  var opts = options || {};
+  var modal = document.getElementById('modal-search-preview');
+  var titleEl = document.getElementById('modal-search-preview-title');
+  var metaEl = modal && modal.querySelector('.search-preview-step-meta');
+  var bodyEl = document.getElementById('search-preview-body');
+  if (!modal || !titleEl || !bodyEl) return;
+
+  titleEl.textContent = opts.title || 'Finding';
+  if (metaEl) metaEl.textContent = opts.meta || '';
+
+  bodyEl.innerHTML = '';
+  var findingContent = normaliseRichContent(opts.content || []);
+  if (findingContent.length && typeof renderRichContent === 'function') {
+    renderRichContent(bodyEl, findingContent);
+  } else {
+    var fallback = document.createElement('p');
+    fallback.style.color = 'var(--ink-soft)';
+    fallback.textContent = String(opts.fallbackText || '').trim() || 'No finding content available.';
+    bodyEl.appendChild(fallback);
+  }
+
+  var openTabBtn = document.getElementById('btn-search-preview-open-tab');
+  if (openTabBtn) {
+    openTabBtn.style.display = typeof opts.onOpenInPatterns === 'function' ? '' : 'none';
+    openTabBtn.onclick = function() {
+      closeSearchResultPreview();
+      if (typeof opts.onOpenInPatterns === 'function') opts.onOpenInPatterns();
     };
   }
 

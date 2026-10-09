@@ -1222,6 +1222,15 @@ body {
 .step-subsection-chevron {
   color: var(--ink-muted);
 }
+/* In the findings window the chevron is its own target (expand inline); the title opens the preview. */
+.pattern-findings-content .step-subsection-chevron {
+  margin: -8px -10px -8px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+.pattern-findings-content .step-subsection-chevron:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
 .step-subsection-panel {
   padding: 8px 10px;
 }

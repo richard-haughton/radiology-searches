@@ -3198,7 +3198,21 @@ function renderNestedSubsections(container, content, stepIndex, stepsLength) {
 
     panel.appendChild(panelInner);
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      // Outside edit mode, clicking the title opens the finding in the same preview window as
+      // the Findings tab; the chevron still expands it inline.
+      if (!_patternViewerEditMode && !(e.target && e.target.closest('.step-subsection-chevron'))
+        && typeof showFindingPreviewModal === 'function') {
+        const pattern = getSelectedPattern();
+        const step = pattern && (pattern.steps || [])[safeStepIndex];
+        const stepTitle = step ? getCleanStepTitle(step.stepTitle) : '';
+        showFindingPreviewModal({
+          title: entry.title || `Subsection ${idx + 1}`,
+          meta: ((pattern && pattern.name) || 'Pattern') + ' | Step ' + (safeStepIndex + 1) + (stepTitle ? ': ' + stepTitle : ''),
+          content: displayContent
+        });
+        return;
+      }
       const isOpen = btn.getAttribute('aria-expanded') === 'true';
       const nextOpen = !isOpen;
       setFindingPanelOpen(entry.subsectionId || '', nextOpen, safeStepIndex);
@@ -3284,7 +3298,11 @@ function renderPinnedFindingsGroup(group) {
     }
     panel.appendChild(panelInner);
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      if (!e.target.closest('.step-subsection-chevron') && typeof openSearchResultPreview === 'function') {
+        openSearchResultPreview(record);
+        return;
+      }
       const nextOpen = !_pinnedFindingsOpen.has(findingId);
       if (nextOpen) _pinnedFindingsOpen.add(findingId);
       else _pinnedFindingsOpen.delete(findingId);
@@ -4671,6 +4689,13 @@ function initTimedFullscreen() {
 function openRecordModal() {
   const pattern = getSelectedPattern();
   if (!pattern) return;
+
+  // A pattern with a saved default RVU records straight away (same as Space on the final step and
+  // the mobile Finish & restart) — the modal is only needed to pick an RVU for patterns without one.
+  if (pattern.rvu !== null && pattern.rvu !== undefined && Number.isFinite(Number(pattern.rvu))) {
+    autoRecordAndRestartPattern();
+    return;
+  }
 
   pendingRecordPatternName = pattern.name;
   pendingRecordSeconds = timerSeconds;
