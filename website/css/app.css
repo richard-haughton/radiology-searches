@@ -1190,6 +1190,10 @@ body {
   gap: 8px;
   margin-bottom: 8px;
 }
+/* The group's gap already spaces the cards; drop the per-card margin so it isn't doubled. */
+.pattern-pinned-findings .step-subsection {
+  margin-bottom: 0;
+}
 .pattern-findings-group-label {
   margin: 0;
   font-size: 0.72rem;
