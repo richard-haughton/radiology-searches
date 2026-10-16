@@ -4845,6 +4845,7 @@ var _wheelNav = { accum: 0, lastEventAt: 0, lastFireAt: 0, firedInGesture: false
 
 function resetHoverNavTracking() {
   _hoverNavLeftAt = 0;
+  _hoverNavLastPointer = null;
 }
 
 function isLightboxOpen() {
@@ -4867,19 +4868,56 @@ function isHoverNavActive() {
   return _hoverNavEnabled && _timerMode === 'walkthrough' && canStepFromPointer();
 }
 
-// A pointer event with no relatedTarget is the mouse crossing the browser window's edge.
+// "The mouse came back to the app" is detected from several signals, because no single browser event is
+// reliable for it:
+//  - leaving: a pointerout with no relatedTarget (crossed the window edge), the document losing the
+//    mouse, or the window losing focus (clicked into PACS) / being hidden;
+//  - returning: the first pointerover/pointermove after any of those;
+//  - and when the other app's window sits on top of the browser, macOS often reports neither edge, so a
+//    pointer that reappears far from where it was last seen after a pause also counts — inside the
+//    page the cursor can't jump without sending moves along the way.
+var HOVER_NAV_JUMP_PX = 80;
+var HOVER_NAV_JUMP_GAP_MS = 350;
+var HOVER_NAV_COOLDOWN_MS = 600;
+var _hoverNavLastPointer = null;   // {x, y, t} of the last mouse event seen inside the page
+var _hoverNavLastAdvanceAt = 0;
+
+function markHoverNavAway() {
+  if (!_hoverNavLeftAt) _hoverNavLeftAt = Date.now();
+}
+
+function handleHoverNavPointer(e) {
+  if (e.pointerType !== 'mouse') return;
+  var now = Date.now();
+  var last = _hoverNavLastPointer;
+  _hoverNavLastPointer = { x: e.clientX, y: e.clientY, t: now };
+
+  var returned = false;
+  if (_hoverNavLeftAt) {
+    returned = now - _hoverNavLeftAt >= HOVER_NAV_MIN_AWAY_MS; // shorter trips are just grazing the edge
+    _hoverNavLeftAt = 0;
+  } else if (last && now - last.t >= HOVER_NAV_JUMP_GAP_MS) {
+    returned = Math.hypot(e.clientX - last.x, e.clientY - last.y) >= HOVER_NAV_JUMP_PX;
+  }
+  if (!returned || now - _hoverNavLastAdvanceAt < HOVER_NAV_COOLDOWN_MS) return;
+  if (!isHoverNavActive()) return;
+  _hoverNavLastAdvanceAt = now;
+  navigateStep(1);
+}
+
 function bindHoverNavWindowEdges() {
   document.addEventListener('pointerout', function(e) {
-    if (e.pointerType !== 'mouse' || e.relatedTarget) return;
-    _hoverNavLeftAt = Date.now();
+    if (e.pointerType === 'mouse' && !e.relatedTarget) markHoverNavAway();
+  });
+  document.documentElement.addEventListener('mouseleave', markHoverNavAway);
+  window.addEventListener('blur', markHoverNavAway);
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') markHoverNavAway();
   });
   document.addEventListener('pointerover', function(e) {
-    if (e.pointerType !== 'mouse' || e.relatedTarget) return;
-    var leftAt = _hoverNavLeftAt;
-    _hoverNavLeftAt = 0;
-    if (!leftAt || Date.now() - leftAt < HOVER_NAV_MIN_AWAY_MS) return;
-    if (isHoverNavActive()) navigateStep(1);
+    if (!e.relatedTarget) handleHoverNavPointer(e); // moves between elements inside the page aren't returns
   });
+  document.addEventListener('pointermove', handleHoverNavPointer, { passive: true });
 }
 
 function handleStepWheel(e, inFullscreen) {
