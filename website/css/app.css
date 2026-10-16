@@ -2981,6 +2981,40 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
   flex: 1; min-width: 0;
   font-size: 0.85rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fs-muted);
 }
+.timed-fs-times { display: flex; align-items: baseline; gap: 12px; flex-shrink: 0; }
+.timed-fs-time { white-space: nowrap; }
+.timed-fs-time-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fs-muted); }
+.timed-fs-time strong {
+  font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fs-ink);
+}
+/* Pace light: same green / yellow / red / flashing-red steps as the Timed mode timer bar */
+.timed-fs-light {
+  --light: #4ade80;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 34px; height: 34px; color: var(--light);
+  filter: drop-shadow(0 0 6px var(--light)) drop-shadow(0 0 2px var(--light));
+  transition: color 200ms ease;
+}
+.timed-fs-light[data-light="yellow"] { --light: #facc15; }
+.timed-fs-light[data-light="red"],
+.timed-fs-light[data-light="double"] { --light: #ff6b5e; }
+.timed-fs-light[data-light="double"] { animation: timed-fs-light-flash 0.85s steps(2, end) infinite; }
+.timed-fs-light[data-light="off"] { --light: #4b5d52; filter: none; }
+@media (max-width: 420px) {
+  .timed-fs-top { gap: 8px; }
+  .timed-fs-count { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.78rem; }
+  .timed-fs-times { gap: 8px; }
+  .timed-fs-time-label { font-size: 0.6rem; }
+  .timed-fs-time strong { font-size: 0.85rem; }
+  .timed-fs-light { width: 28px; height: 28px; }
+}
+@keyframes timed-fs-light-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timed-fs-light[data-light="double"] { animation: none; }
+}
 .timed-fs-total {
   font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fs-muted);
 }
@@ -3156,7 +3190,6 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
 .timed-fs[data-goal="red"] .timed-fs-btn-primary { color: #2a0703; }
 
 /* Walkthrough has no pacing goal: no clocks, goal bar or pause screen — just the step and what's next */
-.timed-fs.is-walkthrough .timed-fs-total,
 .timed-fs.is-walkthrough .timed-fs-clock,
 .timed-fs.is-walkthrough .timed-fs-goal-track,
 .timed-fs.is-walkthrough .timed-fs-goal-text,

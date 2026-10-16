@@ -660,7 +660,13 @@
   <div id="timed-fs" class="timed-fs" style="display:none" role="dialog" aria-modal="true" aria-label="Timed read" data-state="running" data-goal="green">
     <div class="timed-fs-top">
       <span id="timed-fs-count" class="timed-fs-count"></span>
-      <span id="timed-fs-total" class="timed-fs-total">0:00</span>
+      <span class="timed-fs-times" aria-label="Time on this step and total time">
+        <span class="timed-fs-time"><span class="timed-fs-time-label">Step</span> <strong id="timed-fs-step-time">0:00</strong></span>
+        <span class="timed-fs-time"><span class="timed-fs-time-label">Total</span> <strong id="timed-fs-total" class="timed-fs-total">0:00</strong></span>
+      </span>
+      <span id="timed-fs-light" class="timed-fs-light" data-light="green" role="img" aria-label="Step pace: on time">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-4.2 12.6c.7.5 1.2 1.3 1.2 2.2V18h6v-1.2c0-.9.5-1.7 1.2-2.2A7 7 0 0 0 12 2z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9.5 20.5h5M10.5 22.5h3"/></svg>
+      </span>
       <button id="timed-fs-close" class="timed-fs-close" type="button" aria-label="Exit full screen">&#x2715;</button>
     </div>
     <p class="timed-fs-stats" aria-label="Today's study log totals">

@@ -4194,6 +4194,8 @@ function renderTimedFullscreen() {
 
   document.getElementById('timed-fs-count').textContent = 'Step ' + (index + 1) + ' of ' + steps.length;
   document.getElementById('timed-fs-total').textContent = formatTimerClock(timerSeconds);
+  document.getElementById('timed-fs-step-time').textContent = formatTimerClock(elapsedOnStep);
+  renderTimedFullscreenLight(steps[index], elapsedOnStep);
   document.getElementById('timed-fs-pattern-name').textContent = pattern.name || '';
   var stepTitle = getTimedFullscreenStepTitle(steps, index);
   document.getElementById('timed-fs-title').textContent = stepTitle;
@@ -4212,6 +4214,31 @@ function renderTimedFullscreen() {
   hint.hidden = isFinal;
   hint.textContent = getTimedFullscreenHint(isWalkthrough);
   renderTimedFullscreenStats();
+}
+
+// Pace light in the corner. Timed mode shows exactly what the timer bar shows; Walkthrough has no
+// pacing of its own, so the light measures against the same per-step goal (default 1 minute) without
+// auto-advancing or recoloring anything else.
+var TIMED_FS_LIGHT_LABELS = {
+  green: 'on time', yellow: 'nearing step goal', red: 'over step goal', double: 'twice the step goal', off: 'paused'
+};
+
+function renderTimedFullscreenLight(step, elapsedOnStep) {
+  var light = document.getElementById('timed-fs-light');
+  if (!light) return;
+  var state;
+  if (_timerPaused || _autoAdvancePaused) {
+    state = 'off';
+  } else if (_timerMode === 'timed') {
+    state = getStepGoalState() || 'green';
+  } else {
+    var goal = getEffectiveStepGoalSeconds(step);
+    var progress = goal ? elapsedOnStep / goal : 0;
+    state = progress >= 2 ? 'double' : (progress <= 2 / 3 ? 'green' : (progress <= 1 ? 'yellow' : 'red'));
+  }
+  if (light.dataset.light === state) return; // re-setting it every tick would restart the flash animation
+  light.dataset.light = state;
+  light.setAttribute('aria-label', 'Step pace: ' + TIMED_FS_LIGHT_LABELS[state]);
 }
 
 // The step's search-pattern content (text, links, images) under its title. Only rebuilt when the step
