@@ -14,6 +14,7 @@ var timerGoalSeconds = null;
 var _timerMode = 'walkthrough';
 
 var _voiceModeEnabled = false;
+var _hoverNavEnabled = false;      // Walkthrough: pointer re-entering the steps = next step, wheel = step up/down
 var _voiceSpeed = 1;
 var _voiceVolume = 1;
 var _timerActiveStepKey = '';
@@ -60,6 +61,7 @@ var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
 var TIMER_GOAL_MODE_STATE_KEY = 'patternTimerGoalMode';
 var TIMER_VOICE_MODE_STATE_KEY = 'patternTimerVoiceMode';
+var TIMER_HOVER_NAV_STATE_KEY = 'patternTimerHoverNav';
 var TIMER_VOICE_SPEED_STATE_KEY = 'patternTimerVoiceSpeed';
 var TIMER_VOICE_SPEED_MIN = 0.5;
 var TIMER_VOICE_SPEED_MAX = 2;
@@ -165,6 +167,7 @@ function loadTimerPreferences() {
   // Every app open starts in Walkthrough with Voice off, regardless of last session's choice.
   _timerMode = 'walkthrough';
   _voiceModeEnabled = false;
+  _hoverNavEnabled = localStorage.getItem(TIMER_HOVER_NAV_STATE_KEY) === '1';
   _voiceSpeed = normaliseVoiceSpeed(localStorage.getItem(TIMER_VOICE_SPEED_STATE_KEY));
   _voiceVolume = normaliseVoiceVolume(localStorage.getItem(TIMER_VOICE_VOLUME_STATE_KEY));
 }
@@ -251,11 +254,23 @@ function syncTimerControlsFromState() {
     voiceVolumeValue.textContent = Math.round(_voiceVolume * 100) + '%';
   }
 
-  // The full-screen read is a Timed-mode feature (auto-advance + goal pacing); CSS decides whether the
-  // current screen size actually shows it.
+  // Hover/scroll stepping only makes sense without auto-advance, so it is a Walkthrough option.
+  var hoverToggle = document.getElementById('timer-hover-nav');
+  if (hoverToggle) {
+    hoverToggle.checked = _hoverNavEnabled;
+    var hoverLabel = hoverToggle.closest('label');
+    if (hoverLabel) hoverLabel.hidden = _timerMode !== 'walkthrough';
+  }
+
+  // Full screen works in both modes: Timed restarts the read from step 1 with pacing, Walkthrough
+  // just carries on from the current step.
   var fullscreenBtn = document.getElementById('btn-timer-fullscreen');
   if (fullscreenBtn) {
-    fullscreenBtn.hidden = _timerMode !== 'timed';
+    fullscreenBtn.hidden = false;
+    var fullscreenLabel = document.getElementById('btn-timer-fullscreen-label');
+    if (fullscreenLabel) {
+      fullscreenLabel.textContent = _timerMode === 'timed' ? 'Full-screen timed read' : 'Full-screen walkthrough';
+    }
   }
 }
 
@@ -667,6 +682,7 @@ function initPatterns(userId) {
   initMobilePatternPicker();
   bindVoiceUnlockOnGesture();
   initTimedFullscreen();
+  initHoverScrollNav();
 
   // Folders load alongside the patterns; each re-renders the list when it arrives.
   initPatternFolders(_pUid);
@@ -725,6 +741,12 @@ function initPatterns(userId) {
     renderStepTimeStatsForCurrentStep();
     renderTotalGoalDisplay(pattern);
     updateTimerDisplay();
+  });
+
+  document.getElementById('timer-hover-nav').addEventListener('change', e => {
+    _hoverNavEnabled = Boolean(e.target && e.target.checked);
+    localStorage.setItem(TIMER_HOVER_NAV_STATE_KEY, _hoverNavEnabled ? '1' : '0');
+    if (_hoverNavEnabled) showToast('Hover/scroll on: move the mouse back onto the steps for the next step; scroll to move between steps.');
   });
 
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
@@ -1148,7 +1170,6 @@ function initMobilePatternPicker() {
         applyPatternFindingsPanelState(true, false);
       } else {
         applyPatternFindingsPanelState(localStorage.getItem('patternFindingsPanelCollapsed') === '1', false);
-        if (isTimedFullscreenOpen()) exitTimedFullscreen();
       }
     };
     if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
@@ -4165,6 +4186,9 @@ function renderTimedFullscreen() {
   var goalState = getStepGoalState();
   var goalSeconds = timerGoalSeconds;
 
+  var isWalkthrough = _timerMode === 'walkthrough';
+  overlay.classList.toggle('is-walkthrough', isWalkthrough);
+  overlay.setAttribute('aria-label', isWalkthrough ? 'Walkthrough' : 'Timed read');
   overlay.dataset.state = (_timerPaused || _autoAdvancePaused) ? 'paused' : 'running';
   document.getElementById('timed-fs-paused-title').textContent = _timerPaused ? 'Timer paused' : 'Holding step';
   document.getElementById('timed-fs-paused-note').textContent = _timerPaused
@@ -4189,8 +4213,22 @@ function renderTimedFullscreen() {
     ? 'Final step'
     : 'Next: ' + getTimedFullscreenStepTitle(steps, index + 1);
   document.getElementById('timed-fs-final').hidden = !isFinal;
-  document.getElementById('timed-fs-hint').hidden = isFinal;
+  var hint = document.getElementById('timed-fs-hint');
+  hint.hidden = isFinal;
+  hint.textContent = getTimedFullscreenHint(isWalkthrough);
   renderTimedFullscreenStats();
+}
+
+function getTimedFullscreenHint(isWalkthrough) {
+  if (isTouchPrimaryDevice()) {
+    return isWalkthrough
+      ? 'Tap for next step \u00b7 \u2190 \u2192 steps \u00b7 \u2191 findings'
+      : 'Tap to hold \u00b7 \u2193 pause timer \u00b7 \u2190 \u2192 steps \u00b7 \u2191 findings';
+  }
+  if (!isWalkthrough) return 'Click or Space to hold \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit';
+  return _hoverNavEnabled
+    ? 'Move the mouse back here for the next step \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit'
+    : 'Click or Space for next step \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit';
 }
 
 // Today's study count and RVU, kept live by the study log subscription (study-log.js calls this too).
@@ -4237,7 +4275,11 @@ function openTimedFullscreen() {
   document.documentElement.classList.add('timed-fs-open');
   renderTimedFullscreen();
   requestScreenWakeLock();
+  resetHoverNavTracking();
 
+  // Phones get the native fullscreen bonus for a timed read; Walkthrough and desktop stay inside the
+  // browser window so the rest of the desktop (PACS, dictation) is still a mouse move away.
+  if (_timerMode !== 'timed' || !isTouchPrimaryDevice()) return;
   try {
     var requestNative = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
     if (requestNative) {
@@ -4261,6 +4303,7 @@ function exitTimedFullscreen() {
   if (overlay) overlay.style.display = 'none';
   document.documentElement.classList.remove('timed-fs-open');
   releaseScreenWakeLock();
+  resetHoverNavTracking(); // the pointer landing back on the steps is not a "returned to the window" move
 
   if (_timedFsNativeFullscreen) {
     _timedFsNativeFullscreen = false;
@@ -4323,11 +4366,19 @@ function startTimedFullscreen() {
     return;
   }
   if (_patternViewerEditMode) {
-    showToast('Finish editing before starting a timed read.', true);
+    showToast('Finish editing before going full screen.', true);
     return;
   }
 
   if (_voiceModeEnabled) unlockVoiceOutput();
+
+  if (_timerMode === 'walkthrough') {
+    // Pick up where the reader already is; the background study clock only starts if it isn't running.
+    if (!timerRunning) startTimer(pattern);
+    renderCurrentStep(pattern);
+    openTimedFullscreen();
+    return;
+  }
 
   currentStepIndex = 0;
   _openStepIndices = new Set([0]);
@@ -4621,7 +4672,8 @@ function initTimedFullscreen() {
       closeTimedFullscreenFindings(); // tap outside the sheet dismisses it
       return;
     }
-    toggleTimedFullscreenHold();
+    if (_timerMode === 'walkthrough') navigateStep(1); // nothing to hold without auto-advance — a tap moves on
+    else toggleTimedFullscreenHold();
   });
 
   overlay.addEventListener('touchstart', function(e) {
@@ -4670,7 +4722,7 @@ function initTimedFullscreen() {
 
     if (isVerticalSwipe && dy > 0) {
       _timedFsSuppressTapUntil = Date.now() + 400;
-      toggleTimedFullscreenFullPause();
+      if (_timerMode !== 'walkthrough') toggleTimedFullscreenFullPause(); // no timer to pause in Walkthrough
       return;
     }
 
@@ -4694,6 +4746,95 @@ function initTimedFullscreen() {
       exitTimedFullscreen();
     }
   });
+}
+
+// ── Hover / scroll stepping (Walkthrough) ────────────────────
+// For reading alongside another window (PACS): read the step, move the mouse off to work, and moving
+// it back onto the steps shows the next one. The pointer has to have been away for a moment so brushing
+// the edge doesn't skip a step. The scroll wheel moves one step per flick instead of scrolling.
+// In full screen the wheel always steps (the desktop stand-in for a swipe); hover still needs the option.
+var HOVER_NAV_MIN_AWAY_MS = 400;
+var WHEEL_STEP_THRESHOLD_PX = 50;
+var WHEEL_GESTURE_GAP_MS = 200;
+var WHEEL_REPEAT_MS = 600;
+var _hoverNavLeftAt = { steps: 0, fs: 0 };
+var _wheelNav = { accum: 0, lastEventAt: 0, lastFireAt: 0, firedInGesture: false };
+
+function resetHoverNavTracking() {
+  _hoverNavLeftAt.steps = 0;
+  _hoverNavLeftAt.fs = 0;
+}
+
+function canStepFromPointer() {
+  if (_patternViewerEditMode || _activeInlineEdit) return false;
+  if (isAnyModalOverlayOpen()) return false;
+  if (_timedFsFindingsOpen || _timedFsPatternsOpen) return false;
+  var panel = document.getElementById('panel-patterns');
+  if (!panel || !panel.classList.contains('active')) return false;
+  var pattern = getSelectedPattern();
+  return Boolean(pattern && Array.isArray(pattern.steps) && pattern.steps.length);
+}
+
+function isHoverNavActive() {
+  return _hoverNavEnabled && _timerMode === 'walkthrough' && canStepFromPointer();
+}
+
+function bindHoverNavTarget(el, key, isLive) {
+  el.addEventListener('pointerleave', function(e) {
+    if (e.pointerType !== 'mouse' || !isLive()) return;
+    _hoverNavLeftAt[key] = Date.now();
+  });
+  el.addEventListener('pointerenter', function(e) {
+    if (e.pointerType !== 'mouse' || !isLive()) return;
+    var leftAt = _hoverNavLeftAt[key];
+    _hoverNavLeftAt[key] = 0;
+    if (!leftAt || Date.now() - leftAt < HOVER_NAV_MIN_AWAY_MS) return;
+    if (isHoverNavActive()) navigateStep(1);
+  });
+}
+
+function handleStepWheel(e, inFullscreen) {
+  if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // pinch-zoom / sideways scroll
+  if (inFullscreen ? !canStepFromPointer() : !isHoverNavActive()) return;
+  if (e.target.closest('.timed-fs-findings-sheet, .timed-fs-findings-handle')) return;
+  e.preventDefault();
+
+  var now = Date.now();
+  if (now - _wheelNav.lastEventAt > WHEEL_GESTURE_GAP_MS) {
+    _wheelNav.accum = 0;
+    _wheelNav.firedInGesture = false;
+  }
+  _wheelNav.lastEventAt = now;
+
+  var unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? window.innerHeight : 1);
+  _wheelNav.accum += e.deltaY * unit;
+  if (Math.abs(_wheelNav.accum) < WHEEL_STEP_THRESHOLD_PX) return;
+
+  var direction = _wheelNav.accum > 0 ? 1 : -1;
+  _wheelNav.accum = 0;
+  // One step per flick; a long continuous scroll (or trackpad momentum) keeps stepping, but slowly.
+  if (_wheelNav.firedInGesture && now - _wheelNav.lastFireAt < WHEEL_REPEAT_MS) return;
+  _wheelNav.firedInGesture = true;
+  _wheelNav.lastFireAt = now;
+  navigateStep(direction);
+}
+
+function initHoverScrollNav() {
+  var stepViewer = document.getElementById('step-viewer');
+  var overlay = document.getElementById('timed-fs');
+
+  if (stepViewer) {
+    bindHoverNavTarget(stepViewer, 'steps', function() { return !_timedFsOpen; });
+    stepViewer.addEventListener('wheel', function(e) {
+      if (!_timedFsOpen) handleStepWheel(e, false);
+    }, { passive: false });
+  }
+  if (overlay) {
+    bindHoverNavTarget(overlay, 'fs', function() { return _timedFsOpen; });
+    overlay.addEventListener('wheel', function(e) {
+      if (_timedFsOpen) handleStepWheel(e, true);
+    }, { passive: false });
+  }
 }
 
 // ── Record modal ─────────────────────────────────────────────
@@ -5198,7 +5339,14 @@ function handleKeydown(e) {
     }
     if (e.key === ' ') {
       e.preventDefault();
-      toggleTimerClockPause();
+      if (_timerMode === 'walkthrough') {
+        var fsPattern = getSelectedPattern();
+        var fsSteps = fsPattern && Array.isArray(fsPattern.steps) ? fsPattern.steps : [];
+        if (currentStepIndex >= fsSteps.length - 1) finishAndRestartTimedFullscreen();
+        else navigateStep(1);
+      } else {
+        toggleTimerClockPause();
+      }
       return;
     }
   }

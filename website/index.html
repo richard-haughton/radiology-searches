@@ -152,6 +152,10 @@
                   <input id="timer-voice-mode" type="checkbox">
                   <span>Voice</span>
                 </label>
+                <label class="timer-voice-toggle timer-hover-toggle" for="timer-hover-nav" title="Moving the mouse back onto the steps goes to the next step; the scroll wheel moves between steps">
+                  <input id="timer-hover-nav" type="checkbox">
+                  <span>Hover/scroll</span>
+                </label>
                 <button id="btn-timer-options" class="timer-options-toggle" type="button" aria-label="Voice speed and volume" aria-expanded="false" aria-controls="timer-voice-tuning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></button>
                 <div id="timer-voice-tuning" class="timer-voice-tuning">
                   <div class="timer-voice-speed-control">
@@ -166,9 +170,9 @@
               </div>
             </div>
             <div class="timer-actions">
-              <button id="btn-timer-fullscreen" class="btn btn-accent timer-fullscreen-btn" type="button" hidden>
+              <button id="btn-timer-fullscreen" class="btn btn-accent btn-sm timer-fullscreen-btn" type="button" hidden>
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
-                Full-screen timed read
+                <span id="btn-timer-fullscreen-label">Full-screen timed read</span>
               </button>
               <button id="btn-start-timer" class="btn btn-ghost btn-sm" type="button">Start</button>
               <button id="btn-record-study" class="btn btn-accent btn-sm">Record Study</button>

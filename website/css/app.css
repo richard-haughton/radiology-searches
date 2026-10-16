@@ -2938,8 +2938,11 @@ html.dark .subsection-row-toggle {
 .pattern-picker,
 .pattern-sheet-header,
 .pattern-sheet-backdrop,
-.timer-options-toggle,
-.timer-fullscreen-btn { display: none; }
+.timer-options-toggle { display: none; }
+
+.timer-fullscreen-btn { display: inline-flex; align-items: center; gap: 6px; }
+.timer-fullscreen-btn[hidden],
+.timer-hover-toggle[hidden] { display: none; }
 
 .timer-voice-tuning { display: contents; }
 
@@ -3135,6 +3138,21 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
 .timed-fs-btn-primary { background: var(--fs-accent); border-color: var(--fs-accent); color: #06130a; }
 .timed-fs[data-goal="red"] .timed-fs-btn-primary { color: #2a0703; }
 
+/* Walkthrough has no pacing goal: no clocks, goal bar or pause screen — just the step and what's next */
+.timed-fs.is-walkthrough .timed-fs-total,
+.timed-fs.is-walkthrough .timed-fs-clock,
+.timed-fs.is-walkthrough .timed-fs-goal-track,
+.timed-fs.is-walkthrough .timed-fs-goal-text,
+.timed-fs.is-walkthrough[data-state="paused"] .timed-fs-paused { display: none; }
+
+/* Desktop browsers: the overlay fills the browser window (no native fullscreen); keep sheets readable */
+@media (min-width: 981px) {
+  .timed-fs-findings-sheet { max-width: 820px; margin: 0 auto; }
+  .timed-fs-findings-handle { align-self: center; width: min(820px, calc(100% - 36px)); }
+  .timed-fs-final { max-width: 620px; margin: 0 auto; }
+  .timed-fs-title { font-size: clamp(2.4rem, 5vw, 4.4rem); }
+}
+
 
 /* ============================================================
    PHONE LAYOUT
@@ -3312,6 +3330,7 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
     background: var(--timer-ghost-bg); font-size: 0.9rem;
   }
   .timer-voice-toggle input { width: 20px; height: 20px; }
+  .timer-hover-toggle { display: none; } /* mouse-only option; swipes cover this on a phone */
   .timer-options-toggle {
     order: 3; display: inline-flex; align-items: center; justify-content: center;
     width: 44px; height: 44px; padding: 0; flex-shrink: 0;
@@ -3329,8 +3348,7 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
 
   .timer-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .timer-actions .btn { min-height: 44px; padding: 8px 6px; font-size: 0.88rem; }
-  .timer-fullscreen-btn { display: inline-flex; grid-column: 1 / -1; min-height: 52px; font-size: 1.02rem; }
-  .timer-fullscreen-btn[hidden] { display: none; }
+  .timer-fullscreen-btn { grid-column: 1 / -1; justify-content: center; min-height: 52px; font-size: 1.02rem; }
 
   /* Steps */
   .patterns-workspace { flex-direction: column; gap: 0; }
