@@ -337,6 +337,9 @@ body {
   background: #eef5f1;
 }
 
+/* The folder dropdown's current choice. */
+.pattern-list-context-menu-item.is-current { font-weight: 700; color: var(--accent); }
+
 /* A folder in a pattern's ⋯ menu is a checkbox, not a radio — a pattern can be filed in several. */
 .pattern-list-context-menu-item.is-choice { position: relative; padding-left: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pattern-list-context-menu-item.is-choice::before {

@@ -5064,18 +5064,27 @@ function initPatternListContextMenu() {
   window.addEventListener('resize', hidePatternListContextMenu);
 }
 
-// items: { label, onSelect, danger?, choice?, checked?, keepOpen? } | { heading } | { divider: true }
+// items: { label, onSelect, danger?, choice?, checked?, current?, keepOpen?, onContextMenu? } | { heading } | { divider: true }
 // itemsOrBuilder may be that array directly, or a function returning a fresh one — a builder is what lets
 // a `keepOpen` item (a folder checkbox) redraw the menu with up-to-date checked state after it runs,
 // without losing its place on screen.
-function openPatternListMenu(clientX, clientY, itemsOrBuilder) {
+// options: { owner?, minWidth? } — owner tags who opened the menu (see isPatternListMenuOpenFor); minWidth
+// lets a dropdown-style menu match the width of the control it drops from.
+function openPatternListMenu(clientX, clientY, itemsOrBuilder, options) {
   if (!_patternListContextMenu) return;
+  options = options || {};
   _patternListMenuState = {
     x: clientX,
     y: clientY,
+    owner: options.owner || null,
     build: typeof itemsOrBuilder === 'function' ? itemsOrBuilder : function() { return itemsOrBuilder; }
   };
+  _patternListContextMenu.style.minWidth = options.minWidth ? options.minWidth + 'px' : '';
   renderPatternListMenu();
+}
+
+function isPatternListMenuOpenFor(owner) {
+  return Boolean(_patternListMenuState && owner && _patternListMenuState.owner === owner);
 }
 
 // Redraws the currently open menu in place from its builder; a no-op when no menu is open. Also called
@@ -5108,8 +5117,16 @@ function renderPatternListMenu() {
     btn.className = 'pattern-list-context-menu-item'
       + (item.danger ? ' is-danger' : '')
       + (item.choice ? ' is-choice' : '')
-      + (item.checked ? ' is-checked' : '');
+      + (item.checked ? ' is-checked' : '')
+      + (item.current ? ' is-current' : '');
     btn.textContent = item.label;
+    if (item.onContextMenu) {
+      btn.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        item.onContextMenu(e);
+      });
+    }
     btn.addEventListener('click', function(e) {
       if (item.keepOpen) {
         e.stopPropagation(); // keep the document-level click-away handler from closing the menu on this click

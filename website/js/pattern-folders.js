@@ -105,10 +105,8 @@ function patternMatchesFolderFilter(patternId) {
     : folderIds.indexOf(_activeFolderFilter) !== -1;
 }
 
-function renderPatternFolderSelect() {
-  const select = document.getElementById('pattern-folder-select');
-  if (!select) return;
-
+// The dropdown's choices, with each folder's pattern count: [{ value, label, folderId? }].
+function getFolderFilterChoices() {
   const counts = {};
   let unfiled = 0;
   allPatterns.forEach(function(pattern) {
@@ -117,6 +115,18 @@ function renderPatternFolderSelect() {
     folderIds.forEach(function(folderId) { counts[folderId] = (counts[folderId] || 0) + 1; });
   });
 
+  const choices = [{ value: FOLDER_FILTER_ALL, label: 'All patterns' }];
+  _patternFolders.forEach(function(folder) {
+    choices.push({ value: folder.id, label: folder.name + ' (' + (counts[folder.id] || 0) + ')', folderId: folder.id });
+  });
+  if (_patternFolders.length) choices.push({ value: FOLDER_FILTER_UNFILED, label: 'Unfiled (' + unfiled + ')' });
+  return choices;
+}
+
+function renderPatternFolderSelect() {
+  const select = document.getElementById('pattern-folder-select');
+  if (!select) return;
+
   select.innerHTML = '';
   const addOption = function(value, label) {
     const option = document.createElement('option');
@@ -124,11 +134,7 @@ function renderPatternFolderSelect() {
     option.textContent = label;
     select.appendChild(option);
   };
-  addOption(FOLDER_FILTER_ALL, 'All patterns');
-  _patternFolders.forEach(function(folder) {
-    addOption(folder.id, folder.name + ' (' + (counts[folder.id] || 0) + ')');
-  });
-  if (_patternFolders.length) addOption(FOLDER_FILTER_UNFILED, 'Unfiled (' + unfiled + ')');
+  getFolderFilterChoices().forEach(function(choice) { addOption(choice.value, choice.label); });
   if (!_patternFoldersLoaded && _activeFolderFilter !== FOLDER_FILTER_ALL) {
     addOption(_activeFolderFilter, 'Loading folders…'); // the saved choice, until its folder arrives
   }
@@ -229,6 +235,30 @@ function bindPatternFolderEvents() {
     applyFilters();
   });
 
+  // A native <select>'s options can't be right-clicked, so with a mouse the dropdown opens as the app's own
+  // menu instead, where right-clicking a folder offers Rename/Delete. Touch keeps the native picker, and the
+  // keyboard still drives the <select> directly.
+  select.addEventListener('mousedown', function(e) {
+    if (e.button !== 0 || select.disabled || isTouchPrimaryDevice()) return;
+    e.preventDefault(); // suppress the native popup
+    select.focus();
+    if (isPatternListMenuOpenFor('folder-select')) {
+      hidePatternListContextMenu();
+    } else {
+      showFolderSelectMenu();
+    }
+  });
+  select.addEventListener('click', function(e) {
+    // The menu opened on mousedown; keep the document-level click-away handler from closing it again.
+    if (!isTouchPrimaryDevice()) e.stopPropagation();
+  });
+  // Right-clicking the closed dropdown acts on the folder it's showing.
+  select.addEventListener('contextmenu', function(e) {
+    if (!getPatternFolderById(_activeFolderFilter)) return;
+    e.preventDefault();
+    showFolderContextMenu(e.clientX, e.clientY, _activeFolderFilter);
+  });
+
   document.getElementById('btn-new-folder').addEventListener('click', function() { createPatternFolder(); });
 
   document.getElementById('btn-folder-actions').addEventListener('click', function(e) {
@@ -258,6 +288,30 @@ function showFolderContextMenu(clientX, clientY, folderId) {
     { label: 'Rename Folder', onSelect: function() { return renamePatternFolder(folderId); } },
     { label: 'Delete Folder', danger: true, onSelect: function() { return deletePatternFolder(folderId); } }
   ]);
+}
+
+function showFolderSelectMenu() {
+  const select = document.getElementById('pattern-folder-select');
+  if (!select) return;
+  const rect = select.getBoundingClientRect();
+  openPatternListMenu(rect.left, rect.bottom + 4, function() {
+    return getFolderFilterChoices().map(function(choice) {
+      const item = {
+        label: choice.label,
+        current: choice.value === _activeFolderFilter,
+        onSelect: function() {
+          if (choice.value === _activeFolderFilter) return;
+          select.value = choice.value;
+          setActiveFolderFilter(choice.value);
+          applyFilters();
+        }
+      };
+      if (choice.folderId) {
+        item.onContextMenu = function(e) { showFolderContextMenu(e.clientX, e.clientY, choice.folderId); };
+      }
+      return item;
+    });
+  }, { owner: 'folder-select', minWidth: rect.width });
 }
 
 // The folders block of a pattern's ⋯ menu, ready to splice between its other actions. Each folder is a
