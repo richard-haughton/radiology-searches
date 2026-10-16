@@ -14,7 +14,7 @@ var timerGoalSeconds = null;
 var _timerMode = 'walkthrough';
 
 var _voiceModeEnabled = false;
-var _hoverNavEnabled = false;      // Walkthrough: pointer re-entering the steps = next step, wheel = step up/down
+var _hoverNavEnabled = false;      // "Hover/scroll" mode: Walkthrough where re-entering the steps = next step, wheel = step up/down
 var _voiceSpeed = 1;
 var _voiceVolume = 1;
 var _timerActiveStepKey = '';
@@ -61,7 +61,6 @@ var STEP_SECTIONS_STATE_KEY = 'patternStepSectionsState';
 var INLINE_EDITOR_FONT_SIZE_KEY = 'patternInlineEditorFontSize';
 var TIMER_GOAL_MODE_STATE_KEY = 'patternTimerGoalMode';
 var TIMER_VOICE_MODE_STATE_KEY = 'patternTimerVoiceMode';
-var TIMER_HOVER_NAV_STATE_KEY = 'patternTimerHoverNav';
 var TIMER_VOICE_SPEED_STATE_KEY = 'patternTimerVoiceSpeed';
 var TIMER_VOICE_SPEED_MIN = 0.5;
 var TIMER_VOICE_SPEED_MAX = 2;
@@ -163,11 +162,17 @@ function normaliseTimerMode(value) {
   return 'timed';
 }
 
+// "Hover/scroll" in the Mode dropdown is Walkthrough plus pointer stepping (no pacing, no auto-advance),
+// so internally it stays _timerMode 'walkthrough' with _hoverNavEnabled set.
+function getTimerModeSelectValue() {
+  return _timerMode === 'walkthrough' && _hoverNavEnabled ? 'hover' : _timerMode;
+}
+
 function loadTimerPreferences() {
   // Every app open starts in Walkthrough with Voice off, regardless of last session's choice.
   _timerMode = 'walkthrough';
   _voiceModeEnabled = false;
-  _hoverNavEnabled = localStorage.getItem(TIMER_HOVER_NAV_STATE_KEY) === '1';
+  _hoverNavEnabled = false;
   _voiceSpeed = normaliseVoiceSpeed(localStorage.getItem(TIMER_VOICE_SPEED_STATE_KEY));
   _voiceVolume = normaliseVoiceVolume(localStorage.getItem(TIMER_VOICE_VOLUME_STATE_KEY));
 }
@@ -236,7 +241,7 @@ function syncTimerControlsFromState() {
   var voiceVolumeValue = document.getElementById('timer-voice-volume-value');
 
   if (modeSelect) {
-    modeSelect.value = _timerMode;
+    modeSelect.value = getTimerModeSelectValue();
   }
   if (voiceToggle) {
     voiceToggle.checked = _voiceModeEnabled;
@@ -252,14 +257,6 @@ function syncTimerControlsFromState() {
   }
   if (voiceVolumeValue) {
     voiceVolumeValue.textContent = Math.round(_voiceVolume * 100) + '%';
-  }
-
-  // Hover/scroll stepping only makes sense without auto-advance, so it is a Walkthrough option.
-  var hoverToggle = document.getElementById('timer-hover-nav');
-  if (hoverToggle) {
-    hoverToggle.checked = _hoverNavEnabled;
-    var hoverLabel = hoverToggle.closest('label');
-    if (hoverLabel) hoverLabel.hidden = _timerMode !== 'walkthrough';
   }
 
   // Full screen works in both modes: Timed restarts the read from step 1 with pacing, Walkthrough
@@ -730,7 +727,9 @@ function initPatterns(userId) {
   });
   document.getElementById('timer-mode-select').addEventListener('change', e => {
     const previousMode = _timerMode;
-    _timerMode = normaliseTimerMode(e.target && e.target.value);
+    const selected = e.target && e.target.value;
+    _hoverNavEnabled = selected === 'hover';
+    _timerMode = _hoverNavEnabled ? 'walkthrough' : normaliseTimerMode(selected);
     localStorage.setItem(TIMER_GOAL_MODE_STATE_KEY, _timerMode);
     if (previousMode === 'timed' && _timerMode !== 'timed') {
       _autoAdvancePaused = false;
@@ -741,12 +740,7 @@ function initPatterns(userId) {
     renderStepTimeStatsForCurrentStep();
     renderTotalGoalDisplay(pattern);
     updateTimerDisplay();
-  });
-
-  document.getElementById('timer-hover-nav').addEventListener('change', e => {
-    _hoverNavEnabled = Boolean(e.target && e.target.checked);
-    localStorage.setItem(TIMER_HOVER_NAV_STATE_KEY, _hoverNavEnabled ? '1' : '0');
-    if (_hoverNavEnabled) showToast('Hover/scroll on: move the mouse back onto the steps for the next step; scroll to move between steps.');
+    if (_hoverNavEnabled) showToast('Hover/scroll: move the mouse back onto the steps for the next step; scroll to move between steps.');
   });
 
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
@@ -4203,6 +4197,7 @@ function renderTimedFullscreen() {
   document.getElementById('timed-fs-pattern-name').textContent = pattern.name || '';
   var stepTitle = getTimedFullscreenStepTitle(steps, index);
   document.getElementById('timed-fs-title').textContent = stepTitle;
+  renderTimedFullscreenContent(steps, index);
   document.getElementById('timed-fs-paused-step').textContent = stepTitle;
   document.getElementById('timed-fs-findings-step').textContent = 'Step ' + (index + 1) + ' · ' + stepTitle;
   document.getElementById('timed-fs-clock').textContent = formatTimerClock(elapsedOnStep);
@@ -4217,6 +4212,31 @@ function renderTimedFullscreen() {
   hint.hidden = isFinal;
   hint.textContent = getTimedFullscreenHint(isWalkthrough);
   renderTimedFullscreenStats();
+}
+
+// The step's search-pattern content (text, links, images) under its title. Only rebuilt when the step
+// or its content changes — the overlay re-renders every second, which would otherwise reset the
+// scroll position and reload images.
+var _timedFsContentKey = '';
+
+function renderTimedFullscreenContent(steps, index) {
+  var container = document.getElementById('timed-fs-content');
+  if (!container) return;
+  var raw = steps[index];
+  var step = (raw && typeof resolveLinkedStep === 'function' && resolveLinkedStep(raw)) || raw;
+  var chunks = step
+    ? normaliseRichContent(normaliseStepSectionsSafe(step.sections, step.richContent || step.rich_content || []).searchPattern || [])
+    : [];
+  var hasContent = richContentToPlainText(chunks).trim() !== ''; // images count as "[image]" here
+
+  var key = selectedPatternId + '|' + index + '|' + JSON.stringify(chunks);
+  if (key === _timedFsContentKey) return;
+  _timedFsContentKey = key;
+
+  container.innerHTML = '';
+  container.scrollTop = 0;
+  container.hidden = !hasContent;
+  if (hasContent) renderRichContent(container, chunks);
 }
 
 function getTimedFullscreenHint(isWalkthrough) {
@@ -4303,6 +4323,7 @@ function exitTimedFullscreen() {
   if (overlay) overlay.style.display = 'none';
   document.documentElement.classList.remove('timed-fs-open');
   releaseScreenWakeLock();
+  _timedFsContentKey = ''; // re-render fresh next time (step content may have been edited meanwhile)
   resetHoverNavTracking(); // the pointer landing back on the steps is not a "returned to the window" move
 
   if (_timedFsNativeFullscreen) {
@@ -4625,6 +4646,11 @@ async function finishAndRestartTimedFullscreen() {
   renderCurrentStep(pattern);
 }
 
+function isScrollableTimedFsContent(target) {
+  var content = target && target.closest ? target.closest('.timed-fs-content') : null;
+  return Boolean(content && content.scrollHeight > content.clientHeight + 1);
+}
+
 function initTimedFullscreen() {
   var overlay = document.getElementById('timed-fs');
   if (!overlay) return;
@@ -4662,6 +4688,7 @@ function initTimedFullscreen() {
 
   overlay.addEventListener('click', function(e) {
     if (e.target.closest('button')) return;
+    if (e.target.closest('.timed-fs-content')) return; // images open the lightbox, links open, text is selectable
     if (e.target.closest('.timed-fs-findings-sheet')) return; // reading/expanding findings or the pattern list, not pausing
     if (Date.now() < _timedFsSuppressTapUntil) return; // the tail end of a swipe, not a tap
     if (_timedFsPatternsOpen) {
@@ -4682,6 +4709,7 @@ function initTimedFullscreen() {
       x: touch.clientX,
       y: touch.clientY,
       inSheet: Boolean(e.target.closest('.timed-fs-findings-sheet')),
+      inScrollableContent: isScrollableTimedFsContent(e.target),
       onSheetHead: Boolean(e.target.closest('.timed-fs-findings-head'))
     } : null;
   }, { passive: true });
@@ -4713,6 +4741,8 @@ function initTimedFullscreen() {
       }
       return;
     }
+
+    if (isVerticalSwipe && start.inScrollableContent) return; // that was scrolling the step content
 
     if (isVerticalSwipe && dy < 0) {
       _timedFsSuppressTapUntil = Date.now() + 400;
@@ -4758,15 +4788,21 @@ var WHEEL_STEP_THRESHOLD_PX = 50;
 var WHEEL_GESTURE_GAP_MS = 200;
 var WHEEL_REPEAT_MS = 600;
 var _hoverNavLeftAt = { steps: 0, fs: 0 };
-var _wheelNav = { accum: 0, lastEventAt: 0, lastFireAt: 0, firedInGesture: false };
+var _wheelNav = { accum: 0, lastEventAt: 0, lastFireAt: 0, firedInGesture: false, scrolledInGesture: false };
 
 function resetHoverNavTracking() {
   _hoverNavLeftAt.steps = 0;
   _hoverNavLeftAt.fs = 0;
 }
 
+function isLightboxOpen() {
+  var lightbox = document.getElementById('lightbox');
+  return Boolean(lightbox && lightbox.style.display !== 'none' && lightbox.style.display !== '');
+}
+
 function canStepFromPointer() {
   if (_patternViewerEditMode || _activeInlineEdit) return false;
+  if (isLightboxOpen()) return false;
   if (isAnyModalOverlayOpen()) return false;
   if (_timedFsFindingsOpen || _timedFsPatternsOpen) return false;
   var panel = document.getElementById('panel-patterns');
@@ -4782,6 +4818,7 @@ function isHoverNavActive() {
 function bindHoverNavTarget(el, key, isLive) {
   el.addEventListener('pointerleave', function(e) {
     if (e.pointerType !== 'mouse' || !isLive()) return;
+    if (isLightboxOpen()) return; // covered by an enlarged image, not a trip to another window
     _hoverNavLeftAt[key] = Date.now();
   });
   el.addEventListener('pointerenter', function(e) {
@@ -4797,14 +4834,29 @@ function handleStepWheel(e, inFullscreen) {
   if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // pinch-zoom / sideways scroll
   if (inFullscreen ? !canStepFromPointer() : !isHoverNavActive()) return;
   if (e.target.closest('.timed-fs-findings-sheet, .timed-fs-findings-handle')) return;
-  e.preventDefault();
 
   var now = Date.now();
   if (now - _wheelNav.lastEventAt > WHEEL_GESTURE_GAP_MS) {
     _wheelNav.accum = 0;
     _wheelNav.firedInGesture = false;
+    _wheelNav.scrolledInGesture = false;
   }
   _wheelNav.lastEventAt = now;
+
+  // Long step content (full screen) scrolls first; the step only changes on a fresh scroll once it is
+  // at the end, so momentum from reading to the bottom doesn't also skip the step.
+  var content = e.target.closest('.timed-fs-content');
+  if (content) {
+    var canScroll = e.deltaY > 0
+      ? content.scrollTop + content.clientHeight < content.scrollHeight - 1
+      : content.scrollTop > 0;
+    if (canScroll) {
+      _wheelNav.scrolledInGesture = true;
+      return;
+    }
+  }
+  e.preventDefault();
+  if (_wheelNav.scrolledInGesture) return;
 
   var unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? window.innerHeight : 1);
   _wheelNav.accum += e.deltaY * unit;
@@ -5333,7 +5385,8 @@ function handleKeydown(e) {
   if (_timedFsOpen) {
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (_timedFsFindingsOpen) closeTimedFullscreenFindings();
+      if (isLightboxOpen()) document.getElementById('lightbox').style.display = 'none';
+      else if (_timedFsFindingsOpen) closeTimedFullscreenFindings();
       else exitTimedFullscreen();
       return;
     }

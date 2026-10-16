@@ -2941,8 +2941,7 @@ html.dark .subsection-row-toggle {
 .timer-options-toggle { display: none; }
 
 .timer-fullscreen-btn { display: inline-flex; align-items: center; gap: 6px; }
-.timer-fullscreen-btn[hidden],
-.timer-hover-toggle[hidden] { display: none; }
+.timer-fullscreen-btn[hidden] { display: none; }
 
 .timer-voice-tuning { display: contents; }
 
@@ -3024,6 +3023,21 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
   font-size: clamp(2rem, 10vw, 3.6rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
+/* The step's own search-pattern text and images; scrolls on its own when it is long */
+.timed-fs-content {
+  flex: 0 1 auto; min-height: 0; width: min(900px, 100%);
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y; text-align: left; cursor: default;
+  user-select: text; -webkit-user-select: text;
+}
+.timed-fs-content[hidden] { display: none; }
+.timed-fs-content .rich-editor.rich-editor-readonly {
+  background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.14);
+  color: var(--fs-ink); font-size: 1.05rem;
+}
+.timed-fs-content .rich-editor a { color: #8ab8ff; }
+.timed-fs-content .rich-editor img { max-height: 55vh; width: auto; margin: 8px auto; }
+html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the full-screen overlay */
 .timed-fs-clock {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1;
   font-size: clamp(3.4rem, 19vw, 6.4rem); color: var(--fs-accent);
@@ -3330,7 +3344,6 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
     background: var(--timer-ghost-bg); font-size: 0.9rem;
   }
   .timer-voice-toggle input { width: 20px; height: 20px; }
-  .timer-hover-toggle { display: none; } /* mouse-only option; swipes cover this on a phone */
   .timer-options-toggle {
     order: 3; display: inline-flex; align-items: center; justify-content: center;
     width: 44px; height: 44px; padding: 0; flex-shrink: 0;

@@ -146,15 +146,12 @@
                 <label for="timer-mode-select" class="timer-goal-label">Mode</label>
                 <select id="timer-mode-select" class="timer-goal-input timer-goal-mode-input">
                   <option value="walkthrough">Walkthrough</option>
+                  <option value="hover" title="Walkthrough where moving the mouse back onto the steps shows the next step and the scroll wheel moves between steps">Hover/scroll</option>
                   <option value="timed">Timed</option>
                 </select>
                 <label class="timer-voice-toggle" for="timer-voice-mode">
                   <input id="timer-voice-mode" type="checkbox">
                   <span>Voice</span>
-                </label>
-                <label class="timer-voice-toggle timer-hover-toggle" for="timer-hover-nav" title="Moving the mouse back onto the steps goes to the next step; the scroll wheel moves between steps">
-                  <input id="timer-hover-nav" type="checkbox">
-                  <span>Hover/scroll</span>
                 </label>
                 <button id="btn-timer-options" class="timer-options-toggle" type="button" aria-label="Voice speed and volume" aria-expanded="false" aria-controls="timer-voice-tuning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></button>
                 <div id="timer-voice-tuning" class="timer-voice-tuning">
@@ -678,6 +675,7 @@
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <h2 id="timed-fs-title" class="timed-fs-title"></h2>
+      <div id="timed-fs-content" class="timed-fs-content" hidden></div>
       <div id="timed-fs-clock" class="timed-fs-clock" aria-live="off">0:00</div>
       <div class="timed-fs-goal-track" aria-hidden="true"><div id="timed-fs-goal-fill" class="timed-fs-goal-fill"></div></div>
       <p id="timed-fs-goal-text" class="timed-fs-goal-text"></p>
