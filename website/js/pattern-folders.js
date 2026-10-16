@@ -190,6 +190,7 @@ function getEmptyPatternListMessage() {
 function buildPatternListItem(pattern) {
   const item = document.createElement('li');
   item.className = 'pattern-list-item';
+  if (pattern.id === getPatternListMenuTargetId()) item.classList.add('is-menu-target'); // survives a list redraw
   item.dataset.patternId = pattern.id;
 
   const main = document.createElement('button');

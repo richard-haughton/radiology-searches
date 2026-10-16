@@ -286,6 +286,8 @@ body {
 
 .pattern-list-item { display: flex; align-items: stretch; }
 .pattern-list-item.is-selected { background: #e8f5ef; box-shadow: inset 3px 0 0 var(--accent); }
+.pattern-list-item.is-menu-target { background: #dcefe5; box-shadow: inset 3px 0 0 var(--accent); }
+.pattern-list-item.is-menu-target .pattern-list-item-more { color: var(--ink); }
 .pattern-list-item-main {
   flex: 1; min-width: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -301,7 +303,7 @@ body {
 .pattern-list-item-more:hover { color: var(--ink); }
 .pattern-list-empty { padding: 12px 14px; color: var(--ink-muted); font-size: 0.85rem; text-align: center; }
 @media (hover: hover) {
-  .pattern-list-item:not(.is-selected):hover { background: #f4f9f6; }
+  .pattern-list-item:not(.is-selected):not(.is-menu-target):hover { background: #f4f9f6; }
 }
 
 .pattern-list-context-menu {
@@ -3528,6 +3530,7 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
 }
 
 html.dark .pattern-list-item.is-selected { background: #1a2e22; }
+html.dark .pattern-list-item.is-menu-target { background: #22402f; }
 html.dark .pattern-picker { background: var(--card); }
 html.dark .btn-folder-tool:hover { background: #192b1e; }
 html.dark .pattern-list-context-menu-item:hover { background: #192b1e; }

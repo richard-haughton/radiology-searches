@@ -5109,6 +5109,7 @@ function openPatternListMenu(clientX, clientY, itemsOrBuilder, options) {
     x: clientX,
     y: clientY,
     owner: options.owner || null,
+    patternId: options.patternId || null,
     build: typeof itemsOrBuilder === 'function' ? itemsOrBuilder : function() { return itemsOrBuilder; }
   };
   _patternListContextMenu.style.minWidth = options.minWidth ? options.minWidth + 'px' : '';
@@ -5119,6 +5120,20 @@ function isPatternListMenuOpenFor(owner) {
   return Boolean(_patternListMenuState && owner && _patternListMenuState.owner === owner);
 }
 
+function getPatternListMenuTargetId() {
+  return (_patternListMenuState && _patternListMenuState.patternId) || null;
+}
+
+// Highlights the pattern row whose ⋯ / right-click menu is open, so it's clear which pattern the menu acts on.
+function syncPatternListMenuTargetHighlight() {
+  const tree = document.getElementById('pattern-tree');
+  if (!tree) return;
+  const targetId = getPatternListMenuTargetId();
+  tree.querySelectorAll('.pattern-list-item').forEach(function(row) {
+    row.classList.toggle('is-menu-target', Boolean(targetId) && row.dataset.patternId === targetId);
+  });
+}
+
 // Redraws the currently open menu in place from its builder; a no-op when no menu is open. Also called
 // whenever the folders a pattern belongs to change underneath an open menu (e.g. the Firestore round trip
 // after a checkbox click, or a folder edited from another device).
@@ -5127,6 +5142,7 @@ function renderPatternListMenu() {
   const menu = _patternListContextMenu;
   const items = _patternListMenuState.build();
   menu.innerHTML = '';
+  syncPatternListMenuTargetHighlight();
 
   items.forEach(function(item) {
     if (item.divider) {
@@ -5192,11 +5208,12 @@ function showPatternListContextMenu(clientX, clientY, patternId) {
     ].concat(buildPatternFolderMenuItems(patternId), [
       { label: 'Delete Pattern', danger: true, onSelect: function() { return handleDeletePattern(patternId); } }
     ]);
-  });
+  }, { patternId: patternId });
 }
 
 function hidePatternListContextMenu() {
   _patternListMenuState = null;
+  syncPatternListMenuTargetHighlight();
   if (!_patternListContextMenu) return;
   _patternListContextMenu.style.display = 'none';
 }
