@@ -669,11 +669,17 @@
       </span>
       <button id="timed-fs-close" class="timed-fs-close" type="button" aria-label="Exit full screen">&#x2715;</button>
     </div>
-    <p class="timed-fs-stats" aria-label="Today's study log totals">
-      <span><strong id="timed-fs-studies">0</strong> <span id="timed-fs-studies-label">studies</span></span>
-      <span><strong id="timed-fs-rvu">0.0</strong> RVU</span>
-      <span class="timed-fs-stats-when">today</span>
-    </p>
+    <div class="timed-fs-stats">
+      <span aria-label="Today's study log totals" class="timed-fs-stats-totals">
+        <span><strong id="timed-fs-studies">0</strong> <span id="timed-fs-studies-label">studies</span></span>
+        <span><strong id="timed-fs-rvu">0.0</strong> RVU</span>
+        <span class="timed-fs-stats-when">today</span>
+      </span>
+      <button id="timed-fs-restart" class="timed-fs-restart" type="button" title="Restart this pattern from step 1 with the timer at 0:00 (nothing is recorded)">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        Start over
+      </button>
+    </div>
     <div class="timed-fs-progress" aria-hidden="true"><div id="timed-fs-progress-fill" class="timed-fs-progress-fill"></div></div>
     <div id="timed-fs-stage" class="timed-fs-stage">
       <button id="timed-fs-pattern" class="timed-fs-pattern" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="timed-fs-patterns-sheet">

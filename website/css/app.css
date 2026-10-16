@@ -339,9 +339,6 @@ body {
   background: #eef5f1;
 }
 
-/* The folder dropdown's current choice. */
-.pattern-list-context-menu-item.is-current { font-weight: 700; color: var(--accent); }
-
 /* A folder in a pattern's ⋯ menu is a checkbox, not a radio — a pattern can be filed in several. */
 .pattern-list-context-menu-item.is-choice { position: relative; padding-left: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pattern-list-context-menu-item.is-choice::before {
@@ -3058,7 +3055,16 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
 .timed-fs-stats strong {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1rem; color: var(--fs-ink);
 }
-.timed-fs-stats-when { margin-left: auto; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.timed-fs-stats { align-items: center; }
+.timed-fs-stats-totals { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.timed-fs-stats-when { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.timed-fs-restart {
+  margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 0 14px;
+  border: 1px solid rgba(255,255,255,0.18); border-radius: 999px;
+  background: rgba(255,255,255,0.07); color: var(--fs-ink);
+  font-family: var(--font); font-size: 0.82rem; font-weight: 700; cursor: pointer;
+}
 .timed-fs-title {
   margin: 0; max-width: 100%;
   font-size: clamp(2rem, 10vw, 3.6rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.01em;
