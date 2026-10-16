@@ -187,6 +187,27 @@ function buildFindingPinButton(findingId, title) {
   return btn;
 }
 
+var FINDING_EDIT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+
+// Opens the Findings tab's Edit Finding window, so findings can be edited from the
+// Search Patterns findings window without entering edit mode.
+function buildFindingEditButton(record) {
+  var findingId = String((record && record.findingId) || '').trim();
+  var title = String((record && record.subsectionTitle) || '').trim() || 'finding';
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'notes-result-pin finding-edit-btn';
+  btn.disabled = !findingId;
+  btn.innerHTML = FINDING_EDIT_ICON;
+  btn.title = 'Edit finding';
+  btn.setAttribute('aria-label', 'Edit ' + title);
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    openEditFindingModal(record);
+  });
+  return btn;
+}
+
 function syncFindingPinButtons() {
   Array.prototype.forEach.call(document.querySelectorAll('.finding-pin-btn'), applyFindingPinButtonState);
 }

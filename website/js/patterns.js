@@ -3230,6 +3230,14 @@ function renderNestedSubsections(container, content, stepIndex, stepsLength) {
     });
 
     header.appendChild(btn);
+    if (!_patternViewerEditMode && entry.findingId && typeof buildFindingEditButton === 'function') {
+      header.appendChild(buildFindingEditButton({
+        findingId: entry.findingId,
+        subsectionTitle: entry.title || '',
+        content: entry.content || [],
+        isRedFinding: Boolean(entry.isRedFinding)
+      }));
+    }
     if (entry.findingId && typeof buildFindingPinButton === 'function') {
       header.appendChild(buildFindingPinButton(entry.findingId, entry.title));
     }
@@ -3312,6 +3320,9 @@ function renderPinnedFindingsGroup(group) {
     });
 
     header.appendChild(btn);
+    if (!_patternViewerEditMode && typeof buildFindingEditButton === 'function') {
+      header.appendChild(buildFindingEditButton(record));
+    }
     header.appendChild(buildFindingPinButton(findingId, title));
     wrap.appendChild(header);
     wrap.appendChild(panel);
