@@ -740,7 +740,7 @@ function initPatterns(userId) {
     renderStepTimeStatsForCurrentStep();
     renderTotalGoalDisplay(pattern);
     updateTimerDisplay();
-    if (_hoverNavEnabled) showToast('Hover/scroll: move the mouse back onto the steps for the next step; scroll to move between steps.');
+    if (_hoverNavEnabled) showToast('Hover/scroll: move the mouse back onto the app for the next step; scroll to move between steps.');
   });
 
   document.getElementById('timer-voice-mode').addEventListener('change', e => {
@@ -4186,8 +4186,11 @@ function renderTimedFullscreen() {
   overlay.dataset.state = (_timerPaused || _autoAdvancePaused) ? 'paused' : 'running';
   document.getElementById('timed-fs-paused-title').textContent = _timerPaused ? 'Timer paused' : 'Holding step';
   document.getElementById('timed-fs-paused-note').textContent = _timerPaused
-    ? 'Tap or swipe down to resume'
+    ? (isTouchPrimaryDevice() ? 'Tap or swipe down to resume' : 'Click or press P to resume')
     : 'Study timer still running · tap to resume';
+  var pauseBtn = document.getElementById('timed-fs-pause');
+  pauseBtn.setAttribute('aria-pressed', _timerPaused ? 'true' : 'false');
+  document.getElementById('timed-fs-pause-label').textContent = _timerPaused ? 'Resume' : 'Pause';
   overlay.dataset.goal = goalState === 'double' ? 'red' : (goalState || 'green');
   overlay.classList.toggle('is-double', goalState === 'double');
   overlay.classList.toggle('is-final', isFinal);
@@ -4269,13 +4272,13 @@ function renderTimedFullscreenContent(steps, index) {
 function getTimedFullscreenHint(isWalkthrough) {
   if (isTouchPrimaryDevice()) {
     return isWalkthrough
-      ? 'Tap for next step \u00b7 \u2190 \u2192 steps \u00b7 \u2191 findings'
+      ? 'Tap for next step \u00b7 \u2193 pause timer \u00b7 \u2190 \u2192 steps \u00b7 \u2191 findings'
       : 'Tap to hold \u00b7 \u2193 pause timer \u00b7 \u2190 \u2192 steps \u00b7 \u2191 findings';
   }
-  if (!isWalkthrough) return 'Click or Space to hold \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit';
+  if (!isWalkthrough) return 'Click to hold \u00b7 Space or P to pause timer \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit';
   return _hoverNavEnabled
-    ? 'Move the mouse back here for the next step \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit'
-    : 'Click or Space for next step \u00b7 scroll or arrow keys for steps \u00b7 Esc to exit';
+    ? 'Move the mouse back here for the next step \u00b7 scroll or arrow keys for steps \u00b7 P to pause \u00b7 Esc to exit'
+    : 'Click or Space for next step \u00b7 scroll or arrow keys for steps \u00b7 P to pause \u00b7 Esc to exit';
 }
 
 // Today's study count and RVU, kept live by the study log subscription (study-log.js calls this too).
@@ -4686,6 +4689,7 @@ function initTimedFullscreen() {
   document.getElementById('timed-fs-close').addEventListener('click', exitTimedFullscreen);
   document.getElementById('timed-fs-exit').addEventListener('click', exitTimedFullscreen);
   document.getElementById('timed-fs-record').addEventListener('click', finishAndRestartTimedFullscreen);
+  document.getElementById('timed-fs-pause').addEventListener('click', toggleTimedFullscreenFullPause);
 
   document.getElementById('timed-fs-findings-handle').addEventListener('click', function() {
     if (_timedFsFindingsOpen) closeTimedFullscreenFindings();
@@ -4726,8 +4730,9 @@ function initTimedFullscreen() {
       closeTimedFullscreenFindings(); // tap outside the sheet dismisses it
       return;
     }
-    if (_timerMode === 'walkthrough') navigateStep(1); // nothing to hold without auto-advance — a tap moves on
-    else toggleTimedFullscreenHold();
+    if (_timerMode !== 'walkthrough') toggleTimedFullscreenHold();
+    else if (_timerPaused) resumeTimerClock(); // the pause screen is up — a tap picks the timer back up
+    else navigateStep(1); // nothing to hold without auto-advance — a tap moves on
   });
 
   overlay.addEventListener('touchstart', function(e) {
@@ -4779,7 +4784,7 @@ function initTimedFullscreen() {
 
     if (isVerticalSwipe && dy > 0) {
       _timedFsSuppressTapUntil = Date.now() + 400;
-      if (_timerMode !== 'walkthrough') toggleTimedFullscreenFullPause(); // no timer to pause in Walkthrough
+      toggleTimedFullscreenFullPause();
       return;
     }
 
@@ -4806,20 +4811,20 @@ function initTimedFullscreen() {
 }
 
 // ── Hover / scroll stepping (Walkthrough) ────────────────────
-// For reading alongside another window (PACS): read the step, move the mouse off to work, and moving
-// it back onto the steps shows the next one. The pointer has to have been away for a moment so brushing
-// the edge doesn't skip a step. The scroll wheel moves one step per flick instead of scrolling.
-// In full screen the wheel always steps (the desktop stand-in for a swipe); hover still needs the option.
-var HOVER_NAV_MIN_AWAY_MS = 400;
+// For reading alongside another window (PACS): read the step, move the mouse off to work, and bringing
+// it back anywhere onto the app shows the next one. The pointer has to have been outside the browser
+// window for a moment so brushing the edge doesn't skip a step. The scroll wheel moves one step per
+// flick instead of scrolling. In full screen the wheel always steps (the desktop stand-in for a swipe);
+// hover still needs the Hover/scroll mode.
+var HOVER_NAV_MIN_AWAY_MS = 300;
 var WHEEL_STEP_THRESHOLD_PX = 50;
 var WHEEL_GESTURE_GAP_MS = 200;
 var WHEEL_REPEAT_MS = 600;
-var _hoverNavLeftAt = { steps: 0, fs: 0 };
+var _hoverNavLeftAt = 0;
 var _wheelNav = { accum: 0, lastEventAt: 0, lastFireAt: 0, firedInGesture: false, scrolledInGesture: false };
 
 function resetHoverNavTracking() {
-  _hoverNavLeftAt.steps = 0;
-  _hoverNavLeftAt.fs = 0;
+  _hoverNavLeftAt = 0;
 }
 
 function isLightboxOpen() {
@@ -4842,16 +4847,16 @@ function isHoverNavActive() {
   return _hoverNavEnabled && _timerMode === 'walkthrough' && canStepFromPointer();
 }
 
-function bindHoverNavTarget(el, key, isLive) {
-  el.addEventListener('pointerleave', function(e) {
-    if (e.pointerType !== 'mouse' || !isLive()) return;
-    if (isLightboxOpen()) return; // covered by an enlarged image, not a trip to another window
-    _hoverNavLeftAt[key] = Date.now();
+// A pointer event with no relatedTarget is the mouse crossing the browser window's edge.
+function bindHoverNavWindowEdges() {
+  document.addEventListener('pointerout', function(e) {
+    if (e.pointerType !== 'mouse' || e.relatedTarget) return;
+    _hoverNavLeftAt = Date.now();
   });
-  el.addEventListener('pointerenter', function(e) {
-    if (e.pointerType !== 'mouse' || !isLive()) return;
-    var leftAt = _hoverNavLeftAt[key];
-    _hoverNavLeftAt[key] = 0;
+  document.addEventListener('pointerover', function(e) {
+    if (e.pointerType !== 'mouse' || e.relatedTarget) return;
+    var leftAt = _hoverNavLeftAt;
+    _hoverNavLeftAt = 0;
     if (!leftAt || Date.now() - leftAt < HOVER_NAV_MIN_AWAY_MS) return;
     if (isHoverNavActive()) navigateStep(1);
   });
@@ -4902,14 +4907,14 @@ function initHoverScrollNav() {
   var stepViewer = document.getElementById('step-viewer');
   var overlay = document.getElementById('timed-fs');
 
+  bindHoverNavWindowEdges();
+
   if (stepViewer) {
-    bindHoverNavTarget(stepViewer, 'steps', function() { return !_timedFsOpen; });
     stepViewer.addEventListener('wheel', function(e) {
       if (!_timedFsOpen) handleStepWheel(e, false);
     }, { passive: false });
   }
   if (overlay) {
-    bindHoverNavTarget(overlay, 'fs', function() { return _timedFsOpen; });
     overlay.addEventListener('wheel', function(e) {
       if (_timedFsOpen) handleStepWheel(e, true);
     }, { passive: false });
@@ -5434,9 +5439,16 @@ function handleKeydown(e) {
       else exitTimedFullscreen();
       return;
     }
+    if (e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      toggleTimedFullscreenFullPause();
+      return;
+    }
     if (e.key === ' ') {
       e.preventDefault();
-      if (_timerMode === 'walkthrough') {
+      if (_timerMode === 'walkthrough' && _timerPaused) {
+        resumeTimerClock();
+      } else if (_timerMode === 'walkthrough') {
         var fsPattern = getSelectedPattern();
         var fsSteps = fsPattern && Array.isArray(fsPattern.steps) ? fsPattern.steps : [];
         if (currentStepIndex >= fsSteps.length - 1) finishAndRestartTimedFullscreen();

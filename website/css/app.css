@@ -2991,22 +2991,24 @@ html.timed-fs-open body { overflow: hidden; overscroll-behavior: none; }
 .timed-fs-light {
   --light: #4ade80;
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-  width: 34px; height: 34px; color: var(--light);
+  width: 44px; height: 44px; color: var(--light);
   filter: drop-shadow(0 0 6px var(--light)) drop-shadow(0 0 2px var(--light));
   transition: color 200ms ease;
 }
+.timed-fs-light svg { width: 34px; height: 34px; }
 .timed-fs-light[data-light="yellow"] { --light: #facc15; }
 .timed-fs-light[data-light="red"],
 .timed-fs-light[data-light="double"] { --light: #ff6b5e; }
 .timed-fs-light[data-light="double"] { animation: timed-fs-light-flash 0.85s steps(2, end) infinite; }
-.timed-fs-light[data-light="off"] { --light: #4b5d52; filter: none; }
+.timed-fs-light[data-light="off"] { --light: #5f6461; filter: none; }
 @media (max-width: 420px) {
   .timed-fs-top { gap: 8px; }
   .timed-fs-count { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.78rem; }
   .timed-fs-times { gap: 8px; }
   .timed-fs-time-label { font-size: 0.6rem; }
   .timed-fs-time strong { font-size: 0.85rem; }
-  .timed-fs-light { width: 28px; height: 28px; }
+  .timed-fs-light { width: 36px; height: 36px; }
+  .timed-fs-light svg { width: 30px; height: 30px; }
 }
 @keyframes timed-fs-light-flash {
   0%, 100% { opacity: 1; }
@@ -3116,9 +3118,22 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
 .timed-fs-bottom { flex-shrink: 0; padding: 8px 18px 10px; }
 
 /* Findings: a handle at the bottom pulls up a sheet holding the live findings list for the current step */
+/* Bottom dock: Pause/Resume beside the Findings handle, within thumb reach */
+.timed-fs-dock { flex-shrink: 0; display: flex; gap: 10px; margin: 0 18px 10px; }
+.timed-fs-pause {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 18px;
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 14px;
+  background: rgba(255,255,255,0.07); color: var(--fs-ink);
+  font-family: var(--font); font-size: 0.95rem; font-weight: 700; cursor: pointer;
+}
+.timed-fs-pause .timed-fs-resume-icon,
+.timed-fs-pause[aria-pressed="true"] .timed-fs-pause-icon { display: none; }
+.timed-fs-pause[aria-pressed="true"] .timed-fs-resume-icon { display: inline; }
+.timed-fs-pause[aria-pressed="true"] { background: var(--fs-accent); border-color: var(--fs-accent); color: #06130a; }
 .timed-fs-findings-handle {
-  flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 48px; margin: 0 18px 10px;
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px;
   border: 1px solid rgba(255,255,255,0.16); border-radius: 14px;
   background: rgba(255,255,255,0.07); color: var(--fs-ink);
   font-family: var(--font); font-size: 0.95rem; font-weight: 700; cursor: pointer;
@@ -3192,13 +3207,12 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
 /* Walkthrough has no pacing goal: no clocks, goal bar or pause screen — just the step and what's next */
 .timed-fs.is-walkthrough .timed-fs-clock,
 .timed-fs.is-walkthrough .timed-fs-goal-track,
-.timed-fs.is-walkthrough .timed-fs-goal-text,
-.timed-fs.is-walkthrough[data-state="paused"] .timed-fs-paused { display: none; }
+.timed-fs.is-walkthrough .timed-fs-goal-text { display: none; }
 
 /* Desktop browsers: the overlay fills the browser window (no native fullscreen); keep sheets readable */
 @media (min-width: 981px) {
   .timed-fs-findings-sheet { max-width: 820px; margin: 0 auto; }
-  .timed-fs-findings-handle { align-self: center; width: min(820px, calc(100% - 36px)); }
+  .timed-fs-dock { align-self: center; width: min(820px, calc(100% - 36px)); margin-left: 0; margin-right: 0; }
   .timed-fs-final { max-width: 620px; margin: 0 auto; }
   .timed-fs-title { font-size: clamp(2.4rem, 5vw, 4.4rem); }
 }
@@ -3508,7 +3522,8 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
   .timed-fs-next { margin-top: 2px; font-size: 0.95rem; }
   .timed-fs-bottom { padding-top: 2px; padding-bottom: 4px; }
   .timed-fs-btn { min-height: 44px; }
-  .timed-fs-findings-handle { min-height: 36px; margin-bottom: 6px; }
+  .timed-fs-dock { margin-bottom: 6px; }
+  .timed-fs-findings-handle, .timed-fs-pause { min-height: 36px; }
   .timed-fs-findings-sheet { height: 86%; }
 }
 

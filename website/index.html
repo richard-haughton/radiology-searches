@@ -146,7 +146,7 @@
                 <label for="timer-mode-select" class="timer-goal-label">Mode</label>
                 <select id="timer-mode-select" class="timer-goal-input timer-goal-mode-input">
                   <option value="walkthrough">Walkthrough</option>
-                  <option value="hover" title="Walkthrough where moving the mouse back onto the steps shows the next step and the scroll wheel moves between steps">Hover/scroll</option>
+                  <option value="hover" title="Walkthrough where moving the mouse back onto the app shows the next step and the scroll wheel moves between steps">Hover/scroll</option>
                   <option value="timed">Timed</option>
                 </select>
                 <label class="timer-voice-toggle" for="timer-voice-mode">
@@ -695,10 +695,17 @@
         <button id="timed-fs-exit" class="timed-fs-btn" type="button">Exit</button>
       </div>
     </div>
-    <button id="timed-fs-findings-handle" class="timed-fs-findings-handle" type="button" aria-expanded="false" aria-controls="timed-fs-findings-sheet">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
-      Findings
-    </button>
+    <div class="timed-fs-dock">
+      <button id="timed-fs-pause" class="timed-fs-pause" type="button" aria-pressed="false">
+        <svg class="timed-fs-pause-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+        <svg class="timed-fs-resume-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+        <span id="timed-fs-pause-label">Pause</span>
+      </button>
+      <button id="timed-fs-findings-handle" class="timed-fs-findings-handle" type="button" aria-expanded="false" aria-controls="timed-fs-findings-sheet">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+        Findings
+      </button>
+    </div>
     <div id="timed-fs-findings-backdrop" class="timed-fs-findings-backdrop" aria-hidden="true"></div>
     <div id="timed-fs-findings-sheet" class="timed-fs-findings-sheet" role="region" aria-label="Findings for this step">
       <div class="timed-fs-findings-head">
