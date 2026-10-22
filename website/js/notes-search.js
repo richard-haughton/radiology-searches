@@ -190,7 +190,7 @@ function buildFindingPinButton(findingId, title) {
 var FINDING_EDIT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
 
 // Opens the Findings tab's Edit Finding window, so findings can be edited from the
-// Search Patterns findings window without entering edit mode.
+// Search Patterns findings window.
 function buildFindingEditButton(record) {
   var findingId = String((record && record.findingId) || '').trim();
   var title = String((record && record.subsectionTitle) || '').trim() || 'finding';

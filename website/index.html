@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#125f49" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20261016c" />
+  <link rel="stylesheet" href="css/app.css?v=20261020b" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -25,9 +25,9 @@
   <script src="js/study-log.js?v=20261002tz"></script>
   <script src="js/rvus.js?v=20261002rvu"></script>
   <script src="js/pattern-folders.js?v=20261016b"></script>
-  <script src="js/patterns.js?v=20261016c"></script>
+  <script src="js/patterns.js?v=20261020a"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
-  <script src="js/notes-search.js?v=20261016a"></script>
+  <script src="js/notes-search.js?v=20261020a"></script>
   <script src="js/app.js?v=20261002rvu"></script>
 </head>
 <body>
@@ -123,7 +123,6 @@
           </div>
           <div class="sidebar-actions">
             <button id="btn-new-pattern" class="btn btn-accent btn-block">+ New Pattern</button>
-            <button id="btn-edit-pattern" class="btn btn-ghost btn-block" disabled>Edit Pattern</button>
           </div>
         </aside>
 
@@ -548,6 +547,54 @@
       <div class="modal-actions">
         <button id="btn-findings-create-apply" class="btn btn-accent">Create Finding</button>
         <button id="btn-findings-create-cancel" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT STEP MODAL -->
+  <div id="modal-step-edit" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-step-edit-title">
+    <div class="modal-card">
+      <div class="editor-header" style="padding: 0 0 10px 0; border: none;">
+        <h3 id="modal-step-edit-title">Edit Step</h3>
+        <button id="btn-step-edit-close" class="btn-icon" aria-label="Close">&#x2715;</button>
+      </div>
+      <label class="form-label" for="step-edit-title">Step Title
+        <input id="step-edit-title" type="text" class="form-input" placeholder="Example: Lungs">
+      </label>
+      <div class="form-label">
+        <span>Goal Time</span>
+        <div class="step-edit-goal-row">
+          <input id="step-edit-goal" type="number" min="1" step="1" class="form-input step-goal-input" placeholder="sec">
+          <select id="step-edit-goal-unit" class="form-input step-goal-unit-select" aria-label="Goal time unit">
+            <option value="sec">sec</option>
+            <option value="min">min</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-label">
+        <span>Search Pattern</span>
+        <div id="step-edit-toolbar" class="rich-toolbar" role="toolbar" aria-label="Step text formatting">
+          <button type="button" class="rich-tool" data-rich-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+          <button type="button" class="rich-tool rich-tool-red" data-rich-color="red" title="Red text">A</button>
+          <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
+          <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
+          <button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>
+          <button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>
+          <button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>
+          <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
+          <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
+          <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>
+        </div>
+        <div id="step-edit-content" class="rich-editor" contenteditable="true" spellcheck="true" aria-label="Search pattern content editor"></div>
+      </div>
+      <label class="notes-search-red-toggle findings-create-red-toggle" for="step-edit-red">
+        <input id="step-edit-red" type="checkbox">
+        <span>Show this step in red in the search pattern</span>
+      </label>
+      <div class="modal-actions">
+        <button id="btn-step-edit-save" class="btn btn-accent">Save Changes</button>
+        <button id="btn-step-edit-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-step-edit-delete" class="btn btn-danger step-edit-delete">Delete Step</button>
       </div>
     </div>
   </div>

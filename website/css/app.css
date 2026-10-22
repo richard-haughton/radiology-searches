@@ -887,6 +887,15 @@ body {
   border-left: 1px solid var(--line);
   background: #e6f1e9;
 }
+.step-item-header .step-edit-btn {
+  width: 40px;
+  height: auto;
+  flex-shrink: 0;
+  border: none;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: #e6f1e9;
+}
 .step-item-goal-display {
   flex-shrink: 0;
   display: inline-flex;
@@ -2145,12 +2154,14 @@ body {
 .modal-card p { color: var(--ink-soft); margin-bottom: 16px; font-size: 0.92rem; }
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
 
-/* Create Finding modal — keep action buttons always visible */
-#modal-findings-create .modal-card {
+/* Create Finding / Edit Step modals — keep action buttons always visible */
+#modal-findings-create .modal-card,
+#modal-step-edit .modal-card {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
 }
-#modal-findings-create .modal-actions {
+#modal-findings-create .modal-actions,
+#modal-step-edit .modal-actions {
   position: sticky;
   bottom: -28px;
   background: var(--card);
@@ -2159,6 +2170,15 @@ body {
   border-top: 1px solid var(--border, rgba(128,128,128,0.15));
   z-index: 1;
 }
+
+#modal-step-edit .step-edit-goal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#modal-step-edit .step-goal-input { width: 90px; }
+#modal-step-edit .step-goal-unit-select { width: auto; }
+#modal-step-edit .step-edit-delete { order: -1; margin-right: auto; }
 
 /* Wide editor modal */
 .modal-wide { align-items: stretch; padding: 0; }
@@ -2430,17 +2450,12 @@ body {
   overflow-y: auto;
   background: var(--card);
 }
+/* Typing wraps every line after the first in a <div>; keep them flush so line spacing stays uniform. */
 .rich-editor > div,
 .rich-editor > p,
 .subsection-rich-editor > div,
 .subsection-rich-editor > p {
-  margin: 0 0 10px;
-}
-.rich-editor > div:last-child,
-.rich-editor > p:last-child,
-.subsection-rich-editor > div:last-child,
-.subsection-rich-editor > p:last-child {
-  margin-bottom: 0;
+  margin: 0;
 }
 .rich-editor:focus { border-color: var(--accent); }
 .rich-editor img { max-width: 100%; border-radius: 6px; margin: 4px 0; display: block; cursor: pointer; }
@@ -2818,6 +2833,7 @@ html.dark .editor-step-item.active   { background: #1a2e22; color: #9fd2b6; }
 html.dark .step-item-toggle         { background: #193025; border-bottom-color: #2b4337; }
 html.dark .step-item-goal-control   { background: #193025; border-left-color: #2b4337; }
 html.dark .step-item-goal-display   { background: #193025; border-left-color: #2b4337; }
+html.dark .step-item-header .step-edit-btn { background: #193025; border-left-color: #2b4337; }
 html.dark .step-drag-handle         { background: #173026; border-right-color: #2b4337; color: #8ab89d; }
 html.dark .step-item-panel          { background: #14241b; }
 html.dark .step-item-panel-inner    { background: #14241b; }
@@ -3465,8 +3481,11 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
   }
   .modal-actions { flex-direction: column; margin-top: 16px; }
   .modal-actions .btn { width: 100%; min-height: 48px; }
-  #modal-findings-create .modal-card { max-height: 92vh; max-height: 92dvh; }
-  #modal-findings-create .modal-actions { bottom: calc(-20px - env(safe-area-inset-bottom)); }
+  #modal-findings-create .modal-card,
+  #modal-step-edit .modal-card { max-height: 92vh; max-height: 92dvh; }
+  #modal-findings-create .modal-actions,
+  #modal-step-edit .modal-actions { bottom: calc(-20px - env(safe-area-inset-bottom)); }
+  #modal-step-edit .step-edit-delete { order: 1; margin-right: 0; }
   .modal-wide { align-items: stretch; }
   .modal-wide .modal-card,
   .modal-search-preview .search-preview-card { max-height: none; height: 100%; border-radius: 0; padding: 0; }
