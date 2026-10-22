@@ -368,6 +368,9 @@ body {
   background: rgba(201, 59, 74, 0.1);
 }
 
+/* The folder dropdown's current choice. */
+.pattern-list-context-menu-item.is-current { font-weight: 700; color: var(--accent); }
+
 /* Patterns main area */
 .patterns-main {
   flex: 1;
