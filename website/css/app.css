@@ -2181,7 +2181,8 @@ body {
 }
 #modal-step-edit .step-goal-input { width: 90px; }
 #modal-step-edit .step-goal-unit-select { width: auto; }
-#modal-step-edit .step-edit-delete { order: -1; margin-right: auto; }
+#modal-step-edit .step-edit-delete,
+#modal-findings-create .findings-create-delete { order: -1; margin-right: auto; }
 
 /* Wide editor modal */
 .modal-wide { align-items: stretch; padding: 0; }
@@ -3488,7 +3489,8 @@ html.timed-fs-open .lightbox { z-index: 1000; } /* step images open above the fu
   #modal-step-edit .modal-card { max-height: 92vh; max-height: 92dvh; }
   #modal-findings-create .modal-actions,
   #modal-step-edit .modal-actions { bottom: calc(-20px - env(safe-area-inset-bottom)); }
-  #modal-step-edit .step-edit-delete { order: 1; margin-right: 0; }
+  #modal-step-edit .step-edit-delete,
+  #modal-findings-create .findings-create-delete { order: 1; margin-right: 0; }
   .modal-wide { align-items: stretch; }
   .modal-wide .modal-card,
   .modal-search-preview .search-preview-card { max-height: none; height: 100%; border-radius: 0; padding: 0; }

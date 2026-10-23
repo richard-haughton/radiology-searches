@@ -1164,6 +1164,8 @@ function bindFindingsCreateModal() {
   var toolbarEl = document.getElementById('findings-create-toolbar');
   if (closeBtn) closeBtn.addEventListener('click', closeCreateFindingModal);
   if (cancelBtn) cancelBtn.addEventListener('click', closeCreateFindingModal);
+  var deleteBtn = document.getElementById('btn-findings-create-delete');
+  if (deleteBtn) deleteBtn.addEventListener('click', deleteFindingFromEditModal);
   if (applyBtn) applyBtn.addEventListener('click', applyCreatedFindingToSelectedStep);
   if (patternSelect) patternSelect.addEventListener('change', populateFindingsCreateStepSelect);
   if (stepSelect) stepSelect.addEventListener('change', updateFindingsCreateStatusForSelection);
@@ -1219,6 +1221,7 @@ function openCreateFindingModal(sourceContext) {
       : 'Create a finding in your Findings library. It will not be added to any search pattern step unless you add it later.';
   }
   applyBtn.textContent = 'Create Finding';
+  setFindingsCreateDeleteVisible(false);
 
   var patternsWithSteps = getPatternsWithSteps();
   patternSelect.innerHTML = '<option value="">No additional location</option>';
@@ -1284,6 +1287,7 @@ function openEditFindingModal(result) {
   redEl.checked = Boolean(result.isRedFinding);
 
   applyBtn.textContent = 'Save Changes';
+  setFindingsCreateDeleteVisible(true);
   updateFindingsCreateLocationControlsVisibility();
   updateFindingsCreateStatusForSelection();
 
@@ -1292,6 +1296,36 @@ function openEditFindingModal(result) {
     setActiveRichEditor(contentEl);
   }
   titleEl.focus();
+}
+
+function setFindingsCreateDeleteVisible(visible) {
+  var deleteBtn = document.getElementById('btn-findings-create-delete');
+  if (deleteBtn) deleteBtn.style.display = visible ? '' : 'none';
+}
+
+// Delete button in the Edit Finding window. Same confirm + delete as the Findings list.
+async function deleteFindingFromEditModal() {
+  if (!_findingsEditingFindingId || !_notesSearchUid) return;
+  var titleEl = document.getElementById('findings-create-title');
+  var findingId = _findingsEditingFindingId;
+  var title = titleEl ? String(titleEl.value || '').trim() : '';
+  var confirmed = true;
+  if (typeof showConfirm === 'function') {
+    confirmed = await showConfirm('Delete Finding', 'Delete "' + (title || 'this finding') + '" from all linked studies? This cannot be undone.');
+  }
+  if (!confirmed) return;
+
+  try {
+    await deleteFinding(_notesSearchUid, findingId);
+    if (isFindingPinned(findingId)) {
+      setFindingPinned(_notesSearchUid, findingId, false).catch(function(err) { console.error(err); });
+    }
+    closeCreateFindingModal();
+    showToast('Finding deleted.');
+  } catch (err) {
+    console.error(err);
+    showToast(String((err && err.message) || err || 'Failed to delete finding.'), true);
+  }
 }
 
 function closeCreateFindingModal() {
