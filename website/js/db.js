@@ -266,6 +266,19 @@ function _normaliseImageData(rawData) {
   return '';
 }
 
+// Optional text styling: size ('small' | 'large' | 'xlarge') applies to the text itself,
+// align ('center' | 'right') applies to the line the text sits on. Left/normal are omitted.
+var RICH_TEXT_SIZES = ['small', 'large', 'xlarge'];
+var RICH_TEXT_ALIGNS = ['center', 'right'];
+
+function withRichTextStyle(out, source) {
+  var size = source && source.size;
+  var align = source && source.align;
+  if (RICH_TEXT_SIZES.indexOf(size) >= 0) out.size = size;
+  if (RICH_TEXT_ALIGNS.indexOf(align) >= 0) out.align = align;
+  return out;
+}
+
 // Storage-backed images carry a url/path reference instead of embedded base64
 // bytes. Legacy chunks (still embedded base64) fall back to the old handling.
 function _buildImageChunk(chunk) {
@@ -354,7 +367,7 @@ function _normaliseContentSignature(chunk) {
       })
     });
   }
-  return JSON.stringify({ type: 'text', text: chunk.text || '', bold: Boolean(chunk.bold), color: chunk.color || null });
+  return JSON.stringify(withRichTextStyle({ type: 'text', text: chunk.text || '', bold: Boolean(chunk.bold), color: chunk.color || null }, chunk));
 }
 
 function _mergeRichContentLists(baseContent, incomingContent) {
@@ -968,12 +981,12 @@ function normaliseStepSections(sections, fallbackRichContent) {
             : []
         };
       }
-      return {
+      return withRichTextStyle({
         type: 'text',
         text: (chunk && (chunk.text || chunk.content)) || '',
         bold: Boolean(chunk && chunk.bold),
         color: (chunk && chunk.color) || null
-      };
+      }, chunk);
     });
   });
 
@@ -1055,12 +1068,12 @@ function _normalisePatternDoc(doc) {
             : []
         };
       }
-      return {
+      return withRichTextStyle({
         type: 'text',
         text: (chunk && (chunk.text || chunk.content)) || '',
         bold: Boolean(chunk && chunk.bold),
         color: (chunk && chunk.color) || null
-      };
+      }, chunk);
     });
 
     return {
@@ -1372,12 +1385,12 @@ function cloneRichContentForStorage(richContent) {
           : []
       };
     }
-    return {
+    return withRichTextStyle({
       type: 'text',
       text: (chunk && chunk.text) || '',
       bold: Boolean(chunk && chunk.bold),
       color: (chunk && chunk.color) || null
-    };
+    }, chunk);
   });
 }
 

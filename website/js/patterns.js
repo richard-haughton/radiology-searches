@@ -2339,7 +2339,7 @@ function normaliseSubsectionEntries(content) {
         isRedFinding: false,
         subsectionId: '',
         linkMeta: null,
-        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
+        content: [withRichTextStyle({ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }, chunk)]
       });
       return;
     }
@@ -5152,12 +5152,12 @@ function normaliseRichContent(richContent) {
       };
     }
 
-    return {
+    return withRichTextStyle({
       type: 'text',
       text: normaliseMultilineText(chunk?.text || chunk?.content || ''),
       bold: Boolean(chunk?.bold),
       color: chunk?.color || null
-    };
+    }, chunk);
   });
 
   return collapseRedundantRichContentNewlines(normalized);

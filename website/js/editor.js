@@ -918,6 +918,11 @@ function renderStepEditPanel() {
           <button type="button" class="rich-tool rich-tool-green" id="tool-green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" id="tool-blue" title="Blue text">A</button>
           <button type="button" class="rich-tool rich-tool-white" id="tool-white" title="White text">A</button>
+          <button type="button" class="rich-tool" id="tool-size-down" title="Smaller text">A<small>&minus;</small></button>
+          <button type="button" class="rich-tool" id="tool-size-up" title="Larger text">A<small>+</small></button>
+          <button type="button" class="rich-tool" id="tool-align-left" title="Align left"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 6.5h8M2 10h12M2 13.5h8"/></svg></button>
+          <button type="button" class="rich-tool" id="tool-align-center" title="Center"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M4 6.5h8M2 10h12M4 13.5h8"/></svg></button>
+          <button type="button" class="rich-tool" id="tool-align-right" title="Align right"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M6 6.5h8M2 10h12M6 13.5h8"/></svg></button>
           <button type="button" class="rich-tool" id="tool-bullet-list" title="Bulleted list">• List</button>
           <button type="button" class="rich-tool" id="tool-number-list" title="Numbered list">1. List</button>
           <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
@@ -1013,6 +1018,11 @@ function renderStepEditPanel() {
     document.getElementById('tool-number-list').addEventListener('click', () => execList('insertOrderedList'));
     document.getElementById('tool-link').addEventListener('click', () => addHyperlinkToSelection(editor));
     document.getElementById('tool-divider').addEventListener('click', () => insertDivider(editor));
+    document.getElementById('tool-size-down').addEventListener('click', () => changeFontSize(editor, -1));
+    document.getElementById('tool-size-up').addEventListener('click', () => changeFontSize(editor, 1));
+    document.getElementById('tool-align-left').addEventListener('click', () => setTextAlign(editor, 'left'));
+    document.getElementById('tool-align-center').addEventListener('click', () => setTextAlign(editor, 'center'));
+    document.getElementById('tool-align-right').addEventListener('click', () => setTextAlign(editor, 'right'));
     document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
     document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
@@ -1308,6 +1318,63 @@ function populateRichEditor(editor, richContent) {
     if (currentLine) { editor.appendChild(currentLine); currentLine = null; }
   };
 
+  const makeTextNode = function(part, chunk) {
+    if (!(chunk.bold || chunk.color || chunk.size)) return document.createTextNode(part);
+    const span = document.createElement('span');
+    span.textContent = part;
+    if (chunk.bold) span.style.fontWeight = '700';
+    if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
+    if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
+    if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
+    if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
+    if (chunk.size) span.dataset.size = chunk.size;
+    return span;
+  };
+
+  const makeLine = function(align) {
+    const line = document.createElement('div');
+    if (align) line.style.textAlign = align;
+    return line;
+  };
+
+  const isEmptyTextNode = function(node) {
+    return node && node.nodeType === Node.TEXT_NODE && !node.textContent;
+  };
+
+  const lineHasContent = function(line) {
+    return Array.prototype.some.call(line.childNodes, function(child) {
+      if (child.nodeName === 'BR') return false;
+      if (child.nodeType === Node.TEXT_NODE) return Boolean(child.textContent);
+      return true;
+    });
+  };
+
+  // Drops trailing empty text nodes and returns the line's last <br>, if it ends with one.
+  const takeTrailingBreak = function(line) {
+    while (isEmptyTextNode(line.lastChild)) line.removeChild(line.lastChild);
+    if (line.lastChild && line.lastChild.nodeName === 'BR') return line.removeChild(line.lastChild);
+    return null;
+  };
+
+  // Alignment belongs to a whole line, so text with a different alignment starts its own
+  // <div>. The newline that ended the previous line becomes the boundary between the divs,
+  // and any blank lines before it become empty divs.
+  const ensureLineAlign = function(align) {
+    if (!currentLine) { currentLine = makeLine(align); return; }
+    if ((currentLine.style.textAlign || '') === align) return;
+    if (!lineHasContent(currentLine)) { currentLine.style.textAlign = align; return; }
+    if (!takeTrailingBreak(currentLine)) return; // mid-line: keep the line's alignment
+    let blankLines = 0;
+    while (takeTrailingBreak(currentLine)) blankLines += 1;
+    flush();
+    for (let i = 0; i < blankLines; i++) {
+      const blank = document.createElement('div');
+      blank.appendChild(document.createElement('br'));
+      editor.appendChild(blank);
+    }
+    currentLine = makeLine(align);
+  };
+
   const appendInlineChunk = function(parent, chunk) {
     if (!chunk) return;
     if (chunk.type === 'divider') {
@@ -1349,20 +1416,7 @@ function populateRichEditor(editor, richContent) {
     const text = String(chunk.text || '');
     const parts = text.split('\n');
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-
-      if (chunk.bold || chunk.color) {
-        const span = document.createElement('span');
-        span.textContent = part;
-        if (chunk.bold) span.style.fontWeight = '700';
-        if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
-        if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
-        if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
-        if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
-        parent.appendChild(span);
-      } else {
-        parent.appendChild(document.createTextNode(part));
-      }
+      parent.appendChild(makeTextNode(parts[i], chunk));
 
       if (i < parts.length - 1) {
         parent.appendChild(document.createElement('br'));
@@ -1401,24 +1455,15 @@ function populateRichEditor(editor, richContent) {
     }
 
     const text = chunk.text || '';
-    if (!currentLine) { currentLine = document.createElement('div'); }
+    const align = chunk.align || '';
+    if (!currentLine) { currentLine = makeLine(''); }
 
     // Preserve imported newlines exactly in the editable surface.
     const parts = text.split('\n');
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
-      if (chunk.bold || chunk.color) {
-        const span = document.createElement('span');
-        span.textContent = part;
-        if (chunk.bold) span.style.fontWeight = '700';
-        if (chunk.color === 'red')   { span.style.color = '#c0392b'; span.dataset.color = 'red'; }
-        if (chunk.color === 'green') { span.style.color = '#1a7a4a'; span.dataset.color = 'green'; }
-        if (chunk.color === 'blue')  { span.style.color = '#1a5c9e'; span.dataset.color = 'blue'; }
-        if (chunk.color === 'white') { span.style.color = '#ffffff'; span.dataset.color = 'white'; }
-        currentLine.appendChild(span);
-      } else {
-        currentLine.appendChild(document.createTextNode(part));
-      }
+      if (part) ensureLineAlign(align);
+      currentLine.appendChild(makeTextNode(part, chunk));
 
       if (i < parts.length - 1) {
         const br = document.createElement('br');
@@ -1434,14 +1479,36 @@ function populateRichEditor(editor, richContent) {
   flush();
 }
 
-function _appendTextChunk(chunks, text, bold, color) {
+function _appendTextChunk(chunks, text, formatting) {
   if (!text) return;
+  var fmt = formatting || {};
+  var next = withRichTextStyle({ type: 'text', text: text, bold: Boolean(fmt.bold), color: fmt.color || null }, fmt);
   var last = chunks.length ? chunks[chunks.length - 1] : null;
-  if (last && last.type === 'text' && Boolean(last.bold) === Boolean(bold) && (last.color || null) === (color || null)) {
+  if (last && last.type === 'text'
+      && Boolean(last.bold) === Boolean(next.bold)
+      && (last.color || null) === next.color
+      && (last.size || null) === (next.size || null)
+      && (last.align || null) === (next.align || null)) {
     last.text += text;
     return;
   }
-  chunks.push({ type: 'text', text: text, bold: Boolean(bold), color: color || null });
+  // A lone newline before differently styled text joins that text, as it would if the styles
+  // matched. Left as its own chunk, back-to-back newline chunks collapse and lose a blank line.
+  if (last && last.type === 'text' && last.text === '\n' && !last.bold && !last.color && !last.size && !last.align) {
+    chunks.pop();
+    next.text = '\n' + next.text;
+  }
+  chunks.push(next);
+}
+
+// Reads a line's alignment from the block element the browser's justify commands produce.
+function _readBlockAlign(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) return null;
+  var value = String((node.style && node.style.textAlign) || node.getAttribute('align') || '').toLowerCase();
+  if (value === 'center') return 'center';
+  if (value === 'right' || value === 'end') return 'right';
+  if (value === 'left' || value === 'start') return 'left';
+  return null;
 }
 
 function _appendNewlineChunk(chunks, force) {
@@ -1613,7 +1680,7 @@ function extractRichContent(editor) {
 
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent;
-      if (text) _appendTextChunk(output, text, formatting.bold, formatting.color);
+      if (text) _appendTextChunk(output, text, formatting);
     } else if (node.nodeName === 'HR') {
       var prevChunk = output.length ? output[output.length - 1] : null;
       if (prevChunk && prevChunk.type === 'text' && /\n$/.test(prevChunk.text || '')) {
@@ -1639,9 +1706,12 @@ function extractRichContent(editor) {
         output.push({ type: 'link', text, url: sanitiseEditorLinkUrl(url) });
       }
     } else if (node.nodeName === 'SPAN' || node.nodeName === 'B' || node.nodeName === 'STRONG') {
+      const spanSize = node.dataset.size || '';
       const nextFormatting = {
         bold: Boolean(formatting.bold || node.style.fontWeight === '700' || node.nodeName === 'B' || node.nodeName === 'STRONG'),
-        color: node.dataset.color || formatting.color || null
+        color: node.dataset.color || formatting.color || null,
+        size: spanSize ? (spanSize === 'normal' ? null : spanSize) : (formatting.size || null),
+        align: formatting.align || null
       };
       node.childNodes.forEach(function(child) {
         processNode(child, nextFormatting, node, output, context);
@@ -1652,8 +1722,15 @@ function extractRichContent(editor) {
         _appendNewlineChunk(output, true);
       }
     } else {
+      let childFormatting = formatting;
+      if ((node.nodeName === 'DIV' || node.nodeName === 'P') && node !== editor && !context.inListItem) {
+        const blockAlign = _readBlockAlign(node);
+        if (blockAlign) {
+          childFormatting = Object.assign({}, formatting, { align: blockAlign === 'left' ? null : blockAlign });
+        }
+      }
       node.childNodes.forEach(function(child) {
-        processNode(child, formatting, node, output, context);
+        processNode(child, childFormatting, node, output, context);
       });
       if (['DIV', 'P', 'LI'].includes(node.nodeName) && node !== editor && !context.inListItem) {
         if (isEmptyLineBlock(node)) {
@@ -1843,7 +1920,7 @@ function getSubsectionRowsFromContent(content) {
         title: `Subsection ${rows.length + 1}`,
         isRedFinding: false,
         linkMeta: null,
-        content: [{ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }]
+        content: [withRichTextStyle({ type: 'text', text: chunk.text, bold: Boolean(chunk.bold), color: chunk.color || null }, chunk)]
       });
       return;
     }
@@ -1927,6 +2004,11 @@ function createSubsectionRow(title, content, isRedFinding, options) {
         <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
         <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
         <button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>
+        <button type="button" class="rich-tool" data-rich-action="size-down" title="Smaller text">A<small>&minus;</small></button>
+        <button type="button" class="rich-tool" data-rich-action="size-up" title="Larger text">A<small>+</small></button>
+        <button type="button" class="rich-tool" data-rich-action="align-left" title="Align left"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 6.5h8M2 10h12M2 13.5h8"/></svg></button>
+        <button type="button" class="rich-tool" data-rich-action="align-center" title="Center"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M4 6.5h8M2 10h12M4 13.5h8"/></svg></button>
+        <button type="button" class="rich-tool" data-rich-action="align-right" title="Align right"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M6 6.5h8M2 10h12M6 13.5h8"/></svg></button>
         <button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>
         <button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>
         <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
@@ -2835,12 +2917,12 @@ async function compressRichContentForStorage(richContent) {
       continue;
     }
 
-    out.push({
+    out.push(withRichTextStyle({
       type: 'text',
       text: chunk.text || '',
       bold: Boolean(chunk.bold),
       color: chunk.color || null
-    });
+    }, chunk));
   }
 
   return out;
@@ -2962,6 +3044,12 @@ function bindRichEditorToolbar(toolbar, editor) {
         addHyperlinkToSelection(editor);
       } else if (action === 'divider') {
         insertDivider(editor);
+      } else if (action === 'size-down') {
+        changeFontSize(editor, -1);
+      } else if (action === 'size-up') {
+        changeFontSize(editor, 1);
+      } else if (action === 'align-left' || action === 'align-center' || action === 'align-right') {
+        setTextAlign(editor, action.slice('align-'.length));
       } else if (action === 'clear') {
         execRemoveFormat(editor);
       } else if (action === 'image') {
@@ -2984,6 +3072,106 @@ function execFormat(cmd, targetEditor) {
     editor.focus();
   }
   document.execCommand(cmd, false, null);
+}
+
+var RICH_SIZE_STEPS = ['small', 'normal', 'large', 'xlarge'];
+
+// Steps the selected text one size smaller (-1) or larger (+1), starting from the size
+// where the selection begins.
+function changeFontSize(targetEditor, direction) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (!editor) return;
+  setActiveRichEditor(editor);
+  editor.focus();
+
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed || !editor.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+    showToast('Select text first to change its size.', true);
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  let startEl = range.startContainer;
+  if (startEl.nodeType !== Node.ELEMENT_NODE) startEl = startEl.parentNode;
+  const sized = startEl && startEl.closest ? startEl.closest('[data-size]') : null;
+  const current = sized && editor.contains(sized) ? sized.dataset.size : 'normal';
+  const index = Math.max(0, RICH_SIZE_STEPS.indexOf(current));
+  const next = RICH_SIZE_STEPS[Math.min(RICH_SIZE_STEPS.length - 1, Math.max(0, index + direction))];
+
+  applySizeToSelection(editor, range, next);
+}
+
+// Sets the size on every text node inside the range. Working per text node (instead of
+// wrapping the whole range) keeps selections that span several lines intact.
+function applySizeToSelection(editor, range, size) {
+  let startNode = range.startContainer;
+  let startOffset = range.startOffset;
+  let endNode = range.endContainer;
+  let endOffset = range.endOffset;
+
+  if (endNode.nodeType === Node.TEXT_NODE && endOffset < endNode.length) {
+    endNode.splitText(endOffset);
+  }
+  if (startNode.nodeType === Node.TEXT_NODE && startOffset > 0) {
+    const after = startNode.splitText(startOffset);
+    if (endNode === startNode) {
+      endNode = after;
+      endOffset = after.length;
+    }
+    startNode = after;
+    startOffset = 0;
+  }
+
+  const bounds = document.createRange();
+  bounds.setStart(startNode, startOffset);
+  if (endNode.nodeType === Node.TEXT_NODE) {
+    bounds.setEnd(endNode, endNode.length);
+  } else {
+    bounds.setEnd(endNode, endOffset);
+  }
+
+  const nodes = [];
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.length && bounds.intersectsNode(node)) nodes.push(node);
+  }
+  if (!nodes.length) return;
+
+  nodes.forEach(function(node) {
+    let span = node.parentNode;
+    const reuse = span && span !== editor && span.nodeName === 'SPAN' && span.childNodes.length === 1;
+    if (!reuse) {
+      span = document.createElement('span');
+      node.parentNode.insertBefore(span, node);
+      span.appendChild(node);
+    }
+    span.style.fontSize = '';
+    span.dataset.size = size;
+  });
+
+  const sel = window.getSelection();
+  const after = document.createRange();
+  after.setStartBefore(nodes[0]);
+  after.setEndAfter(nodes[nodes.length - 1]);
+  sel.removeAllRanges();
+  sel.addRange(after);
+}
+
+function setTextAlign(targetEditor, align) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (!editor) return;
+  setActiveRichEditor(editor);
+  editor.focus();
+
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) {
+    showToast('Click in the text you want to align first.', true);
+    return;
+  }
+
+  const commands = { left: 'justifyLeft', center: 'justifyCenter', right: 'justifyRight' };
+  document.execCommand(commands[align] || 'justifyLeft', false, null);
 }
 
 // Inserts a horizontal line at the caret (or at the end when the caret is outside the editor).
@@ -3094,6 +3282,9 @@ function execRemoveFormat(targetEditor) {
   editor.querySelectorAll('[data-color]').forEach(span => {
     span.removeAttribute('data-color');
     span.style.color = '';
+  });
+  editor.querySelectorAll('[data-size]').forEach(span => {
+    span.removeAttribute('data-size');
   });
 }
 
@@ -3359,12 +3550,12 @@ function normaliseRichContent(richContent) {
       };
     }
 
-    return {
+    return withRichTextStyle({
       type: 'text',
       text: normaliseMultilineText(chunk?.text || chunk?.content || ''),
       bold: Boolean(chunk?.bold),
       color: chunk?.color || null
-    };
+    }, chunk);
   });
 
   return collapseRedundantRichContentNewlines(normalized);

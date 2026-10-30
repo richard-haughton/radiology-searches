@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#125f49" />
   <title>Searches | Radiology Workflow Assistant</title>
   <meta name="description" content="Radiology workflow assistant — search patterns, study tracking, and medical calculations." />
-  <link rel="stylesheet" href="css/app.css?v=20261022a" />
+  <link rel="stylesheet" href="css/app.css?v=20261030a" />
   <!-- Apply saved theme before paint to avoid flash -->
   <script>(function(){var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}());</script>
   <!-- Firebase v10 compat CDN -->
@@ -16,16 +16,16 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <!-- App scripts (plain, no modules) -->
   <script src="js/firebase-config.js?v=20260923a"></script>
-  <script src="js/db.js?v=20261002tz"></script>
+  <script src="js/db.js?v=20261030a"></script>
   <script src="js/ai.js?v=20260816g"></script>
   <script src="js/access.js?v=20261001b"></script>
   <script src="js/settings.js?v=20260816a"></script>
-  <script src="js/editor.js?v=20261002rvu"></script>
+  <script src="js/editor.js?v=20261030a"></script>
   <script src="js/calculations.js?v=20261001b"></script>
   <script src="js/study-log.js?v=20261002tz"></script>
   <script src="js/rvus.js?v=20261002rvu"></script>
   <script src="js/pattern-folders.js?v=20261016b"></script>
-  <script src="js/patterns.js?v=20261022a"></script>
+  <script src="js/patterns.js?v=20261030a"></script>
   <script src="js/share-patterns.js?v=20260605b"></script>
   <script src="js/notes-search.js?v=20261020a"></script>
   <script src="js/app.js?v=20261002rvu"></script>
@@ -521,6 +521,11 @@
           <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
           <button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>
+          <button type="button" class="rich-tool" data-rich-action="size-down" title="Smaller text">A<small>&minus;</small></button>
+          <button type="button" class="rich-tool" data-rich-action="size-up" title="Larger text">A<small>+</small></button>
+          <button type="button" class="rich-tool" data-rich-action="align-left" title="Align left"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 6.5h8M2 10h12M2 13.5h8"/></svg></button>
+          <button type="button" class="rich-tool" data-rich-action="align-center" title="Center"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M4 6.5h8M2 10h12M4 13.5h8"/></svg></button>
+          <button type="button" class="rich-tool" data-rich-action="align-right" title="Align right"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M6 6.5h8M2 10h12M6 13.5h8"/></svg></button>
           <button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>
           <button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>
           <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
@@ -581,6 +586,11 @@
           <button type="button" class="rich-tool rich-tool-green" data-rich-color="green" title="Green text">A</button>
           <button type="button" class="rich-tool rich-tool-blue" data-rich-color="blue" title="Blue text">A</button>
           <button type="button" class="rich-tool rich-tool-white" data-rich-color="white" title="White text">A</button>
+          <button type="button" class="rich-tool" data-rich-action="size-down" title="Smaller text">A<small>&minus;</small></button>
+          <button type="button" class="rich-tool" data-rich-action="size-up" title="Larger text">A<small>+</small></button>
+          <button type="button" class="rich-tool" data-rich-action="align-left" title="Align left"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 6.5h8M2 10h12M2 13.5h8"/></svg></button>
+          <button type="button" class="rich-tool" data-rich-action="align-center" title="Center"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M4 6.5h8M2 10h12M4 13.5h8"/></svg></button>
+          <button type="button" class="rich-tool" data-rich-action="align-right" title="Align right"><svg class="rich-tool-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M6 6.5h8M2 10h12M6 13.5h8"/></svg></button>
           <button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>
           <button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>
           <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
