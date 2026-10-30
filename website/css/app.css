@@ -2462,6 +2462,15 @@ body {
   margin: 0;
 }
 .rich-editor:focus { border-color: var(--accent); }
+/* Separator line inserted with the "Line" formatting button. */
+.rich-editor hr,
+.subsection-rich-editor hr {
+  border: none;
+  border-top: 1px solid var(--ink);
+  opacity: 0.35;
+  margin: 8px 0;
+  height: 0;
+}
 .rich-editor img { max-width: 100%; border-radius: 6px; margin: 4px 0; display: block; cursor: pointer; }
 .rich-editor a {
   color: #1d5fbf;

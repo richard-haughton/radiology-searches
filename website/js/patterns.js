@@ -5116,6 +5116,10 @@ function normaliseRichContent(richContent) {
       return buildImageChunk(chunk);
     }
 
+    if (type === 'divider') {
+      return { type: 'divider' };
+    }
+
     if (type === 'link') {
       return {
         type: 'link',

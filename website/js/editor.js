@@ -921,6 +921,7 @@ function renderStepEditPanel() {
           <button type="button" class="rich-tool" id="tool-bullet-list" title="Bulleted list">• List</button>
           <button type="button" class="rich-tool" id="tool-number-list" title="Numbered list">1. List</button>
           <button type="button" class="rich-tool" id="tool-link" title="Add hyperlink">&#128279; Link</button>
+          <button type="button" class="rich-tool" id="tool-divider" title="Insert a line to separate text">&#8213; Line</button>
           <button type="button" class="rich-tool" id="tool-clear" title="Clear formatting">&#x2715; Format</button>
           <button type="button" class="rich-tool" id="tool-image" title="Paste image from clipboard">&#128247; Image</button>
           <button type="button" class="rich-tool" id="tool-move-up" title="Move step up">&#8593; Up</button>
@@ -1011,6 +1012,7 @@ function renderStepEditPanel() {
     document.getElementById('tool-bullet-list').addEventListener('click', () => execList('insertUnorderedList'));
     document.getElementById('tool-number-list').addEventListener('click', () => execList('insertOrderedList'));
     document.getElementById('tool-link').addEventListener('click', () => addHyperlinkToSelection(editor));
+    document.getElementById('tool-divider').addEventListener('click', () => insertDivider(editor));
     document.getElementById('tool-clear').addEventListener('click', execRemoveFormat);
     document.getElementById('tool-image').addEventListener('click', handlePasteImageFromClipboard);
     document.getElementById('tool-move-up').addEventListener('click', () => moveStep(-1));
@@ -1308,6 +1310,12 @@ function populateRichEditor(editor, richContent) {
 
   const appendInlineChunk = function(parent, chunk) {
     if (!chunk) return;
+    if (chunk.type === 'divider') {
+      const hr = document.createElement('hr');
+      hr.className = 'rich-divider';
+      parent.appendChild(hr);
+      return;
+    }
     if (chunk.type === 'image') {
       if (!chunk.url && !chunk.data) return;
       const img = document.createElement('img');
@@ -1379,7 +1387,7 @@ function populateRichEditor(editor, richContent) {
       return;
     }
 
-    if (chunk.type === 'image') {
+    if (chunk.type === 'image' || chunk.type === 'divider') {
       flush();
       appendInlineChunk(editor, chunk);
       return;
@@ -1606,6 +1614,13 @@ function extractRichContent(editor) {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent;
       if (text) _appendTextChunk(output, text, formatting.bold, formatting.color);
+    } else if (node.nodeName === 'HR') {
+      var prevChunk = output.length ? output[output.length - 1] : null;
+      if (prevChunk && prevChunk.type === 'text' && /\n$/.test(prevChunk.text || '')) {
+        prevChunk.text = prevChunk.text.slice(0, -1);
+        if (!prevChunk.text) output.pop();
+      }
+      output.push({ type: 'divider' });
     } else if (node.nodeName === 'IMG') {
       const storageUrl = node.dataset && node.dataset.imageUrl;
       if (storageUrl) {
@@ -1915,6 +1930,7 @@ function createSubsectionRow(title, content, isRedFinding, options) {
         <button type="button" class="rich-tool" data-rich-list="unordered" title="Bulleted list">• List</button>
         <button type="button" class="rich-tool" data-rich-list="ordered" title="Numbered list">1. List</button>
         <button type="button" class="rich-tool" data-rich-action="link" title="Add hyperlink">&#128279; Link</button>
+        <button type="button" class="rich-tool" data-rich-action="divider" title="Insert a line to separate text">&#8213; Line</button>
         <button type="button" class="rich-tool" data-rich-action="clear" title="Clear formatting">&#x2715; Format</button>
         <button type="button" class="rich-tool" data-rich-action="image" title="Paste image from clipboard">&#128247; Image</button>
       </div>
@@ -2782,6 +2798,11 @@ async function compressRichContentForStorage(richContent) {
       continue;
     }
 
+    if (chunk.type === 'divider') {
+      out.push({ type: 'divider' });
+      continue;
+    }
+
     if (chunk.type === 'subsection') {
       out.push({
         type: 'subsection',
@@ -2939,6 +2960,8 @@ function bindRichEditorToolbar(toolbar, editor) {
         execFormat('bold', editor);
       } else if (action === 'link') {
         addHyperlinkToSelection(editor);
+      } else if (action === 'divider') {
+        insertDivider(editor);
       } else if (action === 'clear') {
         execRemoveFormat(editor);
       } else if (action === 'image') {
@@ -2961,6 +2984,49 @@ function execFormat(cmd, targetEditor) {
     editor.focus();
   }
   document.execCommand(cmd, false, null);
+}
+
+// Inserts a horizontal line at the caret (or at the end when the caret is outside the editor).
+function insertDivider(targetEditor) {
+  const editor = getActiveRichEditor(targetEditor);
+  if (!editor) return;
+  setActiveRichEditor(editor);
+  editor.focus();
+
+  const sel = window.getSelection();
+  const caretInEditor = sel && sel.rangeCount && editor.contains(sel.anchorNode);
+  if (!caretInEditor) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  if (!document.execCommand('insertHorizontalRule', false, null)) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createElement('hr'));
+  }
+
+  editor.querySelectorAll('hr').forEach(function(hr) {
+    hr.className = 'rich-divider';
+    hr.removeAttribute('style');
+    hr.removeAttribute('id');
+  });
+
+  // Leave an empty line after a trailing line so there is somewhere to keep typing.
+  const last = editor.lastChild;
+  if (last && last.nodeName === 'HR') {
+    const line = document.createElement('div');
+    line.appendChild(document.createElement('br'));
+    editor.appendChild(line);
+    const range = document.createRange();
+    range.setStart(line, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
 }
 
 function execColor(color, targetEditor) {
@@ -3258,6 +3324,10 @@ function normaliseRichContent(richContent) {
       return buildImageChunk(chunk);
     }
 
+    if (type === 'divider') {
+      return { type: 'divider' };
+    }
+
     if (type === 'link') {
       return {
         type: 'link',
@@ -3306,6 +3376,7 @@ function richContentToPlainText(richContent) {
 
   return chunks.map(chunk => {
     if (chunk.type === 'image') return '[image]';
+    if (chunk.type === 'divider') return '\n────────\n';
     if (chunk.type === 'list') {
       return (chunk.items || []).map(function(item, idx) {
         var itemText = richContentToPlainText(item);

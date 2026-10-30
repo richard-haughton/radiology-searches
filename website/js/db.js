@@ -334,6 +334,7 @@ function _normaliseContentSignature(chunk) {
   if (chunk.type === 'image') {
     return JSON.stringify({ type: 'image', format: chunk.format || 'png', url: chunk.url || '', data: chunk.data || '' });
   }
+  if (chunk.type === 'divider') return JSON.stringify({ type: 'divider' });
   if (chunk.type === 'link') {
     return JSON.stringify({ type: 'link', text: chunk.text || '', url: chunk.url || '' });
   }
@@ -943,6 +944,9 @@ function normaliseStepSections(sections, fallbackRichContent) {
       if (type === 'image') {
         return _buildImageChunk(chunk);
       }
+      if (type === 'divider') {
+        return { type: 'divider' };
+      }
       if (type === 'link') {
         return {
           type: 'link',
@@ -1026,6 +1030,9 @@ function _normalisePatternDoc(doc) {
         : ((chunk && (chunk.image_data || chunk.data)) ? 'image' : ((chunk && chunk.url) ? 'link' : ((chunk && (chunk.title || chunk.name) && Array.isArray(chunk.content)) ? 'subsection' : 'text')));
       if (type === 'image') {
         return _buildImageChunk(chunk);
+      }
+      if (type === 'divider') {
+        return { type: 'divider' };
       }
       if (type === 'link') {
         return {
@@ -1338,6 +1345,9 @@ function cloneRichContentForStorage(richContent) {
   return (richContent || []).map(function(chunk) {
     if (chunk && chunk.type === 'image') {
       return _buildImageChunk(chunk);
+    }
+    if (chunk && chunk.type === 'divider') {
+      return { type: 'divider' };
     }
     if (chunk && chunk.type === 'link') {
       return {
